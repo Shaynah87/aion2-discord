@@ -25,9 +25,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Pillow installieren
-        run: pip install pillow
-
       - name: AION Ankündigungen prüfen
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
