@@ -176,14 +176,14 @@ def main():
         #
         # Dies entspricht dem Request, den die AION-Seite beim
         # Öffnen einer einzelnen Ankündigung ausführt.
-        article_url = (
-            "https://api-global-community.plaync.com/"
-            f"aion2_global/board/{article_id}"
-        )
+       article_url = (
+    "https://api-global-community.plaync.com/"
+    f"aion2_global/board/notice_de/article/{article_id}"
+)
 
-        data = api_get(article_url)
+       data = api_get(article_url)
 
-        article = data["article"]["content"]
+        article = data["article"]
 
         title = (
             item.get("title")
