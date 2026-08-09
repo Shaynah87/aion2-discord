@@ -18,6 +18,7 @@ def api_get(url):
             "Accept": "application/json",
         },
     )
+
     with urllib.request.urlopen(req, timeout=20) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -26,12 +27,18 @@ def clean_html(value):
     if not value:
         return ""
 
+    # Absätze / Zeilenumbrüche erhalten
     value = re.sub(r"<br\s*/?>", "\n", value, flags=re.I)
     value = re.sub(r"</p>|</div>", "\n", value, flags=re.I)
+
+    # Restliche HTML-Tags entfernen
     value = re.sub(r"<[^>]+>", "", value)
+
+    # HTML-Zeichen umwandeln
     value = html.unescape(value)
 
     lines = [line.strip() for line in value.splitlines()]
+
     return "\n".join(line for line in lines if line)
 
 
@@ -39,11 +46,22 @@ def find_images(value):
     if not value:
         return []
 
-    return re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', value, flags=re.I)
+    return re.findall(
+        r'<img[^>]+src=["\']([^"\']+)["\']',
+        value,
+        flags=re.I,
+    )
 
 
 def discord_post(content):
-    data = json.dumps({"content": content}).encode("utf-8")
+    data = json.dumps(
+        {
+            "content": content,
+            "allowed_mentions": {
+                "parse": []
+            },
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         DISCORD_WEBHOOK,
@@ -77,73 +95,130 @@ def split_message(text, limit=1900):
     return parts
 
 
+def load_posted_ids():
+    if not os.path.exists(STATE_FILE):
+        return []
+
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+
+        return state.get("posted_article_ids", [])
+
+    except Exception:
+        return []
+
+
+def save_posted_ids(posted_ids):
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "posted_article_ids": posted_ids
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+
 def main():
     if not DISCORD_WEBHOOK:
         raise RuntimeError("DISCORD_WEBHOOK fehlt.")
 
+    # Board-Informationen laden
     board = api_get(BOARD_API)
 
     board_ref = board["board"]["id"]
 
+    # Liste der aktuellen Ankündigungen abrufen
     list_url = (
-        f"https://api-global-community.plaync.com/aion2_global/board/"
-        f"{board_ref}/moreArticle"
-        f"?isVote=true&moreSize=18&moreDirection=BEFORE&previousArticleId=0"
+        "https://api-global-community.plaync.com/"
+        f"aion2_global/board/{board_ref}/moreArticle"
+        "?isVote=true"
+        "&moreSize=18"
+        "&moreDirection=BEFORE"
+        "&previousArticleId=0"
     )
 
     listing = api_get(list_url)
+
     articles = listing.get("contentList", [])
 
     if not articles:
         print("Keine Ankündigungen gefunden.")
         return
 
-    newest = articles[0]
-    article_id = newest["id"]
+    posted_ids = load_posted_ids()
 
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r", encoding="utf-8") as f:
-            state = json.load(f)
+    # Nur Ankündigungen nehmen, die noch nicht gepostet wurden
+    new_articles = [
+        article
+        for article in articles
+        if article["id"] not in posted_ids
+    ]
 
-        if state.get("last_article_id") == article_id:
-            print("Keine neue Ankündigung.")
-            return
-
-    # Beim allerersten Lauf nur den aktuellen Stand merken.
-    # Dadurch werden nicht alle alten AION-Meldungen in Discord gepostet.
-    if not os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"last_article_id": article_id}, f)
-
-        print("Erster Lauf: aktuelle Ankündigung gespeichert.")
+    if not new_articles:
+        print("Keine neue Ankündigung.")
         return
 
-    article_url = (
-        f"https://api-global-community.plaync.com/aion2_global/board/"
-        f"{board_ref}/article/{article_id}"
+    # AION liefert neu -> alt.
+    # Discord soll alt -> neu bekommen.
+    new_articles.reverse()
+
+    print(
+        f"{len(new_articles)} neue Ankündigung(en) gefunden."
     )
 
-    data = api_get(article_url)
+    for item in new_articles:
+        article_id = item["id"]
 
-    article = data["article"]["content"]
-    title = article.get("title") or newest.get("title") or "Neue Ankündigung"
-    raw_content = article.get("content", "")
+        # Einzelnen Artikel laden
+        #
+        # Dies entspricht dem Request, den die AION-Seite beim
+        # Öffnen einer einzelnen Ankündigung ausführt.
+        article_url = (
+            "https://api-global-community.plaync.com/"
+            f"aion2_global/board/{article_id}"
+        )
 
-    text = clean_html(raw_content)
-    images = find_images(raw_content)
+        data = api_get(article_url)
 
-    discord_post(f"## 📢 {title}")
+        article = data["article"]["content"]
 
-    for part in split_message(text):
-        discord_post(part)
+        title = (
+            item.get("title")
+            or "Neue AION 2 Ankündigung"
+        )
 
-    for image in images:
-        discord_post(image)
+        raw_content = article.get("content", "")
 
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump({"last_article_id": article_id}, f)
+        text = clean_html(raw_content)
 
-    print(f"Gepostet: {title}")
+        images = find_images(raw_content)
+
+        # Überschrift
+        discord_post(
+            f"## 📢 {title}"
+        )
+
+        # Text posten
+        for part in split_message(text):
+            discord_post(part)
+
+        # Bilder posten
+        for image in images:
+            discord_post(image)
+
+        # Erst nach erfolgreichem Posten als erledigt markieren
+        posted_ids.append(article_id)
+
+        save_posted_ids(posted_ids)
+
+        print(
+            f"Gepostet: {title}"
+        )
+
+    print("Fertig.")
 
 
 if __name__ == "__main__":
