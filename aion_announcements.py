@@ -3,13 +3,10 @@ import json
 import re
 import html
 import time
-import uuid
-import io
 import urllib.request
 import urllib.error
 
 from datetime import datetime
-from PIL import Image
 
 
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
@@ -21,10 +18,6 @@ BOARD_API = (
 
 STATE_FILE = "last_article.json"
 
-
-# ============================================================
-# AION API
-# ============================================================
 
 def api_get(url):
     req = urllib.request.Request(
@@ -40,102 +33,6 @@ def api_get(url):
             response.read().decode("utf-8")
         )
 
-
-# ============================================================
-# AION HTML -> DISCORD TEXT
-# ============================================================
-
-def clean_html(value):
-    if not value:
-        return ""
-
-    if not isinstance(value, str):
-        value = str(value)
-
-    # Listen besser lesbar machen
-    value = re.sub(
-        r"<li[^>]*>",
-        "• ",
-        value,
-        flags=re.I,
-    )
-
-    value = re.sub(
-        r"</li>",
-        "\n",
-        value,
-        flags=re.I,
-    )
-
-    # Absätze
-    value = re.sub(
-        r"<br\s*/?>",
-        "\n",
-        value,
-        flags=re.I,
-    )
-
-    value = re.sub(
-        r"</p>",
-        "\n\n",
-        value,
-        flags=re.I,
-    )
-
-    value = re.sub(
-        r"</div>",
-        "\n",
-        value,
-        flags=re.I,
-    )
-
-    value = re.sub(
-        r"</tr>",
-        "\n",
-        value,
-        flags=re.I,
-    )
-
-    value = re.sub(
-        r"</td>",
-        "  ",
-        value,
-        flags=re.I,
-    )
-
-    # Alle restlichen HTML-Tags entfernen
-    value = re.sub(
-        r"<[^>]+>",
-        "",
-        value,
-    )
-
-    value = html.unescape(value)
-
-    # Leerzeilen aufräumen
-    lines = [
-        line.strip()
-        for line in value.splitlines()
-    ]
-
-    result = []
-    empty_before = False
-
-    for line in lines:
-        if line:
-            result.append(line)
-            empty_before = False
-
-        elif not empty_before:
-            result.append("")
-            empty_before = True
-
-    return "\n".join(result).strip()
-
-
-# ============================================================
-# BILDER AUS HTML
-# ============================================================
 
 def find_images(value):
     if not value or not isinstance(value, str):
@@ -161,42 +58,105 @@ def find_images(value):
     return result
 
 
-def download_image(url):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0",
-        },
-    )
+def image_dimensions(url):
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+            },
+        )
 
-    with urllib.request.urlopen(req, timeout=30) as response:
-        return response.read()
+        with urllib.request.urlopen(req, timeout=20) as response:
+            data = response.read(100000)
+
+        # PNG
+        if data.startswith(b"\x89PNG") and len(data) >= 24:
+            width = int.from_bytes(data[16:20], "big")
+            height = int.from_bytes(data[20:24], "big")
+            return width, height
+
+        # JPEG
+        if data.startswith(b"\xff\xd8"):
+            index = 2
+
+            while index < len(data) - 9:
+                if data[index] != 0xFF:
+                    index += 1
+                    continue
+
+                marker = data[index + 1]
+
+                if marker in (
+                    0xC0, 0xC1, 0xC2, 0xC3,
+                    0xC5, 0xC6, 0xC7,
+                    0xC9, 0xCA, 0xCB,
+                    0xCD, 0xCE, 0xCF,
+                ):
+                    height = int.from_bytes(
+                        data[index + 5:index + 7],
+                        "big",
+                    )
+                    width = int.from_bytes(
+                        data[index + 7:index + 9],
+                        "big",
+                    )
+                    return width, height
+
+                length = int.from_bytes(
+                    data[index + 2:index + 4],
+                    "big",
+                )
+
+                if length < 2:
+                    break
+
+                index += 2 + length
+
+    except Exception:
+        pass
+
+    return None
 
 
-# ============================================================
-# DISCORD RATE LIMIT
-# ============================================================
+def choose_preview_image(images):
+    for image in images:
+        dimensions = image_dimensions(image)
 
-def wait_after_discord_post():
-    time.sleep(0.8)
+        if not dimensions:
+            continue
+
+        width, height = dimensions
+
+        if width <= 0 or height <= 0:
+            continue
+
+        ratio = width / height
+
+        # Sehr schmale AION-Trenner / Banner überspringen
+        if ratio >= 4.0:
+            continue
+
+        # Extrem lange Infografiken nicht als Thumbnail nehmen
+        if height > width * 3.0:
+            continue
+
+        # Zu kleine Bilder ignorieren
+        if width < 300 or height < 150:
+            continue
+
+        return image
+
+    return None
 
 
-# ============================================================
-# NORMALE DISCORD NACHRICHT
-# ============================================================
-
-def discord_post(content=None, embeds=None):
+def discord_post_embed(embed):
     payload = {
+        "embeds": [embed],
         "allowed_mentions": {
             "parse": []
-        }
+        },
     }
-
-    if content:
-        payload["content"] = content
-
-    if embeds:
-        payload["embeds"] = embeds
 
     data = json.dumps(payload).encode("utf-8")
 
@@ -218,7 +178,7 @@ def discord_post(content=None, embeds=None):
             ):
                 pass
 
-            wait_after_discord_post()
+            time.sleep(0.8)
             return
 
         except urllib.error.HTTPError as error:
@@ -251,285 +211,6 @@ def discord_post(content=None, embeds=None):
 
             raise
 
-
-# ============================================================
-# BILD ALS DATEI AN DISCORD
-# ============================================================
-
-def discord_upload_image(
-    image_data,
-    filename,
-):
-    boundary = uuid.uuid4().hex
-
-    payload_json = json.dumps(
-        {
-            "allowed_mentions": {
-                "parse": []
-            }
-        }
-    )
-
-    body = bytearray()
-
-    body.extend(
-        f"--{boundary}\r\n".encode()
-    )
-
-    body.extend(
-        b'Content-Disposition: form-data; '
-        b'name="payload_json"\r\n\r\n'
-    )
-
-    body.extend(
-        payload_json.encode("utf-8")
-    )
-
-    body.extend(b"\r\n")
-
-    body.extend(
-        f"--{boundary}\r\n".encode()
-    )
-
-    body.extend(
-        (
-            'Content-Disposition: form-data; '
-            f'name="files[0]"; '
-            f'filename="{filename}"\r\n'
-        ).encode()
-    )
-
-    body.extend(
-        b"Content-Type: image/jpeg\r\n\r\n"
-    )
-
-    body.extend(image_data)
-
-    body.extend(b"\r\n")
-
-    body.extend(
-        f"--{boundary}--\r\n".encode()
-    )
-
-    while True:
-        req = urllib.request.Request(
-            DISCORD_WEBHOOK,
-            data=bytes(body),
-            headers={
-                "Content-Type":
-                    f"multipart/form-data; boundary={boundary}",
-                "User-Agent":
-                    "AION2-Discord-Bot",
-            },
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(
-                req,
-                timeout=45,
-            ):
-                pass
-
-            wait_after_discord_post()
-            return
-
-        except urllib.error.HTTPError as error:
-            if error.code == 429:
-                try:
-                    response = json.loads(
-                        error.read().decode("utf-8")
-                    )
-
-                    retry_after = float(
-                        response.get(
-                            "retry_after",
-                            2,
-                        )
-                    )
-
-                except Exception:
-                    retry_after = 2
-
-                print(
-                    f"Discord Rate Limit – "
-                    f"warte {retry_after} Sekunden..."
-                )
-
-                time.sleep(
-                    retry_after + 0.5
-                )
-
-                continue
-
-            raise
-
-
-# ============================================================
-# LANGE INFOGRAFIKEN AUFTEILEN
-# ============================================================
-
-def process_image(image_url, article_id):
-    try:
-        raw = download_image(image_url)
-
-        image = Image.open(
-            io.BytesIO(raw)
-        ).convert("RGB")
-
-        width, height = image.size
-
-        # --------------------------------------------
-        # AION-Trenner / schmale Banner ignorieren
-        # --------------------------------------------
-
-        if height > 0:
-            ratio = width / height
-        else:
-            return
-
-        if ratio >= 4.5:
-            print(
-                "Schmales Banner übersprungen."
-            )
-            return
-
-        # --------------------------------------------
-        # Normales Bild
-        # --------------------------------------------
-
-        if height <= width * 2.5:
-            discord_post(image_url)
-            return
-
-        # --------------------------------------------
-        # Sehr langes Hochformatbild
-        # -> in mehrere gut lesbare Stücke teilen
-        # --------------------------------------------
-
-        print(
-            "Lange Infografik erkannt – "
-            "wird für Discord geteilt."
-        )
-
-        # Sehr große Bilder etwas verkleinern
-        if width > 1400:
-            new_width = 1400
-
-            new_height = int(
-                height
-                * new_width
-                / width
-            )
-
-            image = image.resize(
-                (
-                    new_width,
-                    new_height,
-                ),
-                Image.LANCZOS,
-            )
-
-            width, height = image.size
-
-        chunk_height = int(
-            width * 1.45
-        )
-
-        top = 0
-        number = 1
-
-        while top < height:
-            bottom = min(
-                top + chunk_height,
-                height,
-            )
-
-            chunk = image.crop(
-                (
-                    0,
-                    top,
-                    width,
-                    bottom,
-                )
-            )
-
-            buffer = io.BytesIO()
-
-            chunk.save(
-                buffer,
-                format="JPEG",
-                quality=90,
-                optimize=True,
-            )
-
-            discord_upload_image(
-                buffer.getvalue(),
-                (
-                    f"aion2_{article_id}_"
-                    f"{number}.jpg"
-                ),
-            )
-
-            number += 1
-            top = bottom
-
-    except Exception as error:
-        print(
-            f"Bild konnte nicht verarbeitet werden: "
-            f"{error}"
-        )
-
-        # Falls Bildbearbeitung scheitert,
-        # wenigstens Originalbild posten.
-        discord_post(image_url)
-
-
-# ============================================================
-# DISCORD TEXT AUFTEILEN
-# ============================================================
-
-def split_message(
-    text,
-    limit=1900,
-):
-    parts = []
-
-    while len(text) > limit:
-        cut = text.rfind(
-            "\n",
-            0,
-            limit,
-        )
-
-        if cut == -1:
-            cut = text.rfind(
-                " ",
-                0,
-                limit,
-            )
-
-        if cut == -1:
-            cut = limit
-
-        part = text[:cut].strip()
-
-        if part:
-            parts.append(part)
-
-        text = text[cut:].lstrip()
-
-    if text.strip():
-        parts.append(
-            text.strip()
-        )
-
-    return parts
-
-
-# ============================================================
-# DATUM
-# ============================================================
 
 def format_date(item):
     timestamps = (
@@ -561,10 +242,6 @@ def format_date(item):
         return raw_date[:10]
 
 
-# ============================================================
-# STATE
-# ============================================================
-
 def load_posted_ids():
     if not os.path.exists(
         STATE_FILE
@@ -588,9 +265,7 @@ def load_posted_ids():
         return []
 
 
-def save_posted_ids(
-    posted_ids,
-):
+def save_posted_ids(posted_ids):
     with open(
         STATE_FILE,
         "w",
@@ -607,20 +282,14 @@ def save_posted_ids(
         )
 
 
-# ============================================================
-# HAUPTPROGRAMM
-# ============================================================
-
 def main():
     if not DISCORD_WEBHOOK:
         raise RuntimeError(
             "DISCORD_WEBHOOK fehlt."
         )
 
-    # Board laden
     api_get(BOARD_API)
 
-    # Liste der Ankündigungen
     list_url = (
         "https://api-global-community.plaync.com/"
         "aion2_global/board/notice_de/"
@@ -646,9 +315,7 @@ def main():
         )
         return
 
-    posted_ids = (
-        load_posted_ids()
-    )
+    posted_ids = load_posted_ids()
 
     new_articles = [
         article
@@ -664,7 +331,7 @@ def main():
         return
 
     # AION liefert neu -> alt.
-    # Discord bekommt alt -> neu.
+    # Discord soll alt -> neu bekommen.
     new_articles.reverse()
 
     print(
@@ -681,9 +348,7 @@ def main():
             "Neue AION 2 Ankündigung"
         )
 
-        date = format_date(
-            item
-        )
+        date = format_date(item)
 
         public_url = (
             "https://aion2.plaync.com/"
@@ -710,69 +375,37 @@ def main():
             "",
         )
 
-        text = clean_html(
-            raw_content
-        )
-
         images = find_images(
             raw_content
         )
 
-        # --------------------------------------------
-        # KOPF DES BEITRAGS
-        # --------------------------------------------
-
-        description = (
-            "**Offizielle AION 2 Ankündigung**"
+        preview_image = (
+            choose_preview_image(images)
         )
 
-        if date:
-            description += (
-                f"\nVeröffentlicht am {date}"
-            )
+        embed = {
+            "title": title,
+            "url": public_url,
+            "description": (
+                "📢 **Offizielle AION 2 Ankündigung**"
+                + (
+                    f"\nVeröffentlicht am **{date}**"
+                    if date
+                    else ""
+                )
+                + "\n\n"
+                + "🔗 **Zum vollständigen Beitrag**"
+            ),
+            "color": 4886754,
+        }
 
-        discord_post(
-            embeds=[
-                {
-                    "title":
-                        f"📢 {title}",
-                    "url":
-                        public_url,
-                    "description":
-                        description,
-                    "color":
-                        4886754,
-                }
-            ]
-        )
+        if preview_image:
+            embed["image"] = {
+                "url": preview_image
+            }
 
-        # --------------------------------------------
-        # TEXT
-        # --------------------------------------------
-
-        for part in split_message(
-            text
-        ):
-            discord_post(
-                part
-            )
-
-        # --------------------------------------------
-        # BILDER
-        # --------------------------------------------
-
-        for image_url in images:
-            process_image(
-                image_url,
-                article_id,
-            )
-
-        # --------------------------------------------
-        # TRENNUNG ZUM NÄCHSTEN BEITRAG
-        # --------------------------------------------
-
-        discord_post(
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        discord_post_embed(
+            embed
         )
 
         posted_ids.append(
