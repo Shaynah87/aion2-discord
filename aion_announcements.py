@@ -3,6 +3,8 @@ import json
 import re
 import html
 import urllib.request
+import urllib.error
+import time
 
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
@@ -58,18 +60,47 @@ def discord_post(content):
         }
     ).encode("utf-8")
 
-    req = urllib.request.Request(
-        DISCORD_WEBHOOK,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "AION2-Discord-Bot",
-        },
-        method="POST",
-    )
+    while True:
+        req = urllib.request.Request(
+            DISCORD_WEBHOOK,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "AION2-Discord-Bot",
+            },
+            method="POST",
+        )
 
-    with urllib.request.urlopen(req, timeout=20):
-        pass
+        try:
+            with urllib.request.urlopen(req, timeout=20):
+                pass
+
+            # Kleine Pause, damit Discord nicht zugespammt wird
+            time.sleep(0.8)
+            return
+
+        except urllib.error.HTTPError as error:
+            if error.code == 429:
+                try:
+                    response = json.loads(
+                        error.read().decode("utf-8")
+                    )
+
+                    retry_after = float(
+                        response.get("retry_after", 2)
+                    )
+
+                except Exception:
+                    retry_after = 2
+
+                print(
+                    f"Discord Rate Limit – warte {retry_after} Sekunden..."
+                )
+
+                time.sleep(retry_after + 0.5)
+                continue
+
+            raise
 
 
 def split_message(text, limit=1900):
