@@ -132,13 +132,13 @@ def main():
 
     # Liste der aktuellen Ankündigungen abrufen
     list_url = (
-        "https://api-global-community.plaync.com/"
-        f"aion2_global/board/{board_ref}/moreArticle"
-        "?isVote=true"
-        "&moreSize=18"
-        "&moreDirection=BEFORE"
-        "&previousArticleId=0"
-    )
+    "https://api-global-community.plaync.com/"
+    "aion2_global/board/notice_de/moreArticle"
+    "?isVote=true"
+    "&moreSize=18"
+    "&moreDirection=BEFORE"
+    "&previousArticleId=0"
+)
 
     listing = api_get(list_url)
 
