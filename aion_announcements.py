@@ -27,6 +27,10 @@ LIST_API = (
 STATE_FILE = "last_article.json"
 
 
+# ------------------------------------------------------------
+# API
+# ------------------------------------------------------------
+
 def api_get(url):
     req = urllib.request.Request(
         url,
@@ -37,8 +41,14 @@ def api_get(url):
     )
 
     with urllib.request.urlopen(req, timeout=30) as response:
-        return json.loads(response.read().decode("utf-8"))
+        return json.loads(
+            response.read().decode("utf-8")
+        )
 
+
+# ------------------------------------------------------------
+# DISCORD
+# ------------------------------------------------------------
 
 def discord_post_embed(embed):
     payload = {
@@ -62,7 +72,10 @@ def discord_post_embed(embed):
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=30):
+            with urllib.request.urlopen(
+                req,
+                timeout=30,
+            ):
                 pass
 
             time.sleep(0.8)
@@ -76,7 +89,10 @@ def discord_post_embed(embed):
                     )
 
                     retry_after = float(
-                        response.get("retry_after", 2)
+                        response.get(
+                            "retry_after",
+                            2,
+                        )
                     )
 
                 except Exception:
@@ -87,11 +103,18 @@ def discord_post_embed(embed):
                     f"warte {retry_after} Sekunden..."
                 )
 
-                time.sleep(retry_after + 0.5)
+                time.sleep(
+                    retry_after + 0.5
+                )
+
                 continue
 
             raise
 
+
+# ------------------------------------------------------------
+# BILDER AUS DEM ARTIKEL FINDEN
+# ------------------------------------------------------------
 
 def find_images(value):
     if not value or not isinstance(value, str):
@@ -117,6 +140,10 @@ def find_images(value):
     return result
 
 
+# ------------------------------------------------------------
+# BILDGRÖSSE ERMITTELN
+# ------------------------------------------------------------
+
 def image_dimensions(url):
     try:
         req = urllib.request.Request(
@@ -126,13 +153,27 @@ def image_dimensions(url):
             },
         )
 
-        with urllib.request.urlopen(req, timeout=20) as response:
-            data = response.read(100000)
+        with urllib.request.urlopen(
+            req,
+            timeout=20,
+        ) as response:
+            data = response.read(200000)
 
         # PNG
-        if data.startswith(b"\x89PNG") and len(data) >= 24:
-            width = int.from_bytes(data[16:20], "big")
-            height = int.from_bytes(data[20:24], "big")
+        if (
+            data.startswith(b"\x89PNG")
+            and len(data) >= 24
+        ):
+            width = int.from_bytes(
+                data[16:20],
+                "big",
+            )
+
+            height = int.from_bytes(
+                data[20:24],
+                "big",
+            )
+
             return width, height
 
         # JPEG
@@ -174,13 +215,19 @@ def image_dimensions(url):
 
                 index += 2 + length
 
-    except Exception:
-        return None
+    except Exception as error:
+        print(
+            f"Bildgröße konnte nicht gelesen werden: {error}"
+        )
 
     return None
 
 
-def choose_thumbnail(images):
+# ------------------------------------------------------------
+# SCHÖNES QUERFORMAT-BILD AUSWÄHLEN
+# ------------------------------------------------------------
+
+def choose_preview_image(images):
     for image in images:
         dimensions = image_dimensions(image)
 
@@ -194,25 +241,60 @@ def choose_thumbnail(images):
 
         ratio = width / height
 
-        # AION-Trenner / extrem breite Banner raus
-        if ratio >= 4.0:
+        print(
+            f"Bild geprüft: {width}x{height} "
+            f"(Verhältnis {ratio:.2f})"
+        )
+
+        # --------------------------------------------
+        # Nur eindeutiges Querformat
+        # --------------------------------------------
+        #
+        # Beispiele:
+        #
+        # 1920 x 1080 = 1.78 -> JA
+        # 1200 x 675  = 1.78 -> JA
+        # 1000 x 600  = 1.67 -> JA
+        # 800 x 500   = 1.60 -> JA
+        #
+        # 800 x 800   = 1.00 -> NEIN
+        # 800 x 1000  = 0.80 -> NEIN
+        #
+        # --------------------------------------------
+
+        if ratio < 1.4:
             continue
 
-        # Extrem lange Infografiken nicht als Thumbnail
-        if height > width * 3:
+        # Winzige Bilder / Icons nicht verwenden
+        if width < 500:
             continue
 
-        # Winzige Icons raus
-        if width < 250 or height < 120:
+        if height < 250:
             continue
+
+        # Extrem breite, dünne Trenner ebenfalls raus
+        if ratio > 4.0:
+            continue
+
+        print(
+            f"Vorschaubild ausgewählt: {width}x{height}"
+        )
 
         return image
 
+    # Kein geeignetes Querformat gefunden
     return None
 
 
+# ------------------------------------------------------------
+# DATUM
+# ------------------------------------------------------------
+
 def format_date(item):
-    timestamps = item.get("timestamps") or {}
+    timestamps = (
+        item.get("timestamps")
+        or {}
+    )
 
     raw_date = timestamps.get(
         "postDateTime",
@@ -224,17 +306,28 @@ def format_date(item):
 
     try:
         date = datetime.fromisoformat(
-            raw_date.replace("Z", "+00:00")
+            raw_date.replace(
+                "Z",
+                "+00:00",
+            )
         )
 
-        return date.strftime("%d.%m.%Y")
+        return date.strftime(
+            "%d.%m.%Y"
+        )
 
     except Exception:
         return raw_date[:10]
 
 
+# ------------------------------------------------------------
+# BEREITS GEPOSTETE ARTIKEL
+# ------------------------------------------------------------
+
 def load_posted_ids():
-    if not os.path.exists(STATE_FILE):
+    if not os.path.exists(
+        STATE_FILE
+    ):
         return []
 
     try:
@@ -270,17 +363,23 @@ def save_posted_ids(posted_ids):
         )
 
 
+# ------------------------------------------------------------
+# HAUPTPROGRAMM
+# ------------------------------------------------------------
+
 def main():
     if not DISCORD_WEBHOOK:
         raise RuntimeError(
             "DISCORD_WEBHOOK fehlt."
         )
 
-    # Nur als kurzer Check, ob das Board erreichbar ist
+    # Board kurz prüfen
     api_get(BOARD_API)
 
-    # DIE bewährte funktionierende Artikelliste
-    listing = api_get(LIST_API)
+    # Funktionierende AION-Artikelliste laden
+    listing = api_get(
+        LIST_API
+    )
 
     articles = listing.get(
         "contentList",
@@ -288,11 +387,14 @@ def main():
     )
 
     print(
-        f"{len(articles)} Ankündigung(en) auf AION gefunden."
+        f"{len(articles)} "
+        f"Ankündigung(en) auf AION gefunden."
     )
 
     if not articles:
-        print("Keine Ankündigungen gefunden.")
+        print(
+            "Keine Ankündigungen gefunden."
+        )
         return
 
     posted_ids = load_posted_ids()
@@ -300,11 +402,14 @@ def main():
     new_articles = [
         article
         for article in articles
-        if article.get("id") not in posted_ids
+        if article.get("id")
+        not in posted_ids
     ]
 
     if not new_articles:
-        print("Keine neue Ankündigung.")
+        print(
+            "Keine neue Ankündigung."
+        )
         return
 
     # AION liefert neu -> alt.
@@ -312,8 +417,13 @@ def main():
     new_articles.reverse()
 
     print(
-        f"{len(new_articles)} neue Ankündigung(en) gefunden."
+        f"{len(new_articles)} "
+        f"neue Ankündigung(en) gefunden."
     )
+
+    # --------------------------------------------------------
+    # ARTIKEL POSTEN
+    # --------------------------------------------------------
 
     for item in new_articles:
         article_id = item["id"]
@@ -323,32 +433,51 @@ def main():
             or "Neue AION 2 Ankündigung"
         )
 
-        date = format_date(item)
+        date = format_date(
+            item
+        )
 
+        # API-Adresse des Artikels
         article_api = (
             "https://api-global-community.plaync.com/"
             "aion2_global/board/notice_de/"
             f"article/{article_id}"
         )
 
+        # Öffentliche AION-Seite
         public_url = (
             "https://aion2.plaync.com/"
             "de-de/board/notice/view"
             f"?articleId={article_id}"
         )
 
-        data = api_get(article_api)
+        # Artikel laden
+        data = api_get(
+            article_api
+        )
 
-        content_data = data["article"]["content"]
+        content_data = (
+            data["article"]["content"]
+        )
 
         raw_content = content_data.get(
             "content",
             "",
         )
 
-        images = find_images(raw_content)
+        # Bilder finden
+        images = find_images(
+            raw_content
+        )
 
-        thumbnail = choose_thumbnail(images)
+        # Nur schönes Querformat auswählen
+        preview_image = (
+            choose_preview_image(images)
+        )
+
+        # ----------------------------------------------------
+        # DISCORD-KARTE
+        # ----------------------------------------------------
 
         description = (
             "📢 **Offizielle AION 2 Ankündigung**"
@@ -360,23 +489,42 @@ def main():
             )
 
         embed = {
-            # Dieser blaue Titel ist direkt anklickbar
+            # Titel ist direkt anklickbar
             "title": title,
             "url": public_url,
+
             "description": description,
+
             "color": 3447003,
         }
 
-        # Nur wenn ein geeignetes Bild existiert
-        if thumbnail:
-            embed["thumbnail"] = {
-                "url": thumbnail
+        # ----------------------------------------------------
+        # NUR SCHÖNES QUERFORMAT
+        #
+        # image = groß UNTER dem Text
+        # thumbnail = klein rechts
+        #
+        # Wir wollen jetzt bewusst "image".
+        # ----------------------------------------------------
+
+        if preview_image:
+            embed["image"] = {
+                "url": preview_image
             }
 
-        discord_post_embed(embed)
+        # An Discord senden
+        discord_post_embed(
+            embed
+        )
 
-        posted_ids.append(article_id)
-        save_posted_ids(posted_ids)
+        # Erst NACH erfolgreichem Post speichern
+        posted_ids.append(
+            article_id
+        )
+
+        save_posted_ids(
+            posted_ids
+        )
 
         print(
             f"Gepostet: {title}"
