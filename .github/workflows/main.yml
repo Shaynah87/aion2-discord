@@ -1,0 +1,39 @@
+name: AION 2 Ankündigungen
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-announcements:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository laden
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: AION Ankündigungen prüfen
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python aion_announcements.py
+
+      - name: Letzten Stand speichern
+        run: |
+          if [ -f last_article.json ]; then
+            git config user.name "AION2 Discord Bot"
+            git config user.email "actions@github.com"
+            git add last_article.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Update last AION announcement"
+              git push
+            fi
+          fi
