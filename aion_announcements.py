@@ -27,14 +27,9 @@ def clean_html(value):
     if not value:
         return ""
 
-    # Absätze / Zeilenumbrüche erhalten
     value = re.sub(r"<br\s*/?>", "\n", value, flags=re.I)
     value = re.sub(r"</p>|</div>", "\n", value, flags=re.I)
-
-    # Restliche HTML-Tags entfernen
     value = re.sub(r"<[^>]+>", "", value)
-
-    # HTML-Zeichen umwandeln
     value = html.unescape(value)
 
     lines = [line.strip() for line in value.splitlines()]
@@ -132,13 +127,13 @@ def main():
 
     # Liste der aktuellen Ankündigungen abrufen
     list_url = (
-    "https://api-global-community.plaync.com/"
-    "aion2_global/board/notice_de/article/search/moreArticle"
-    "?isVote=true"
-    "&moreSize=18"
-    "&moreDirection=BEFORE"
-    "&previousArticleId=0"
-)
+        "https://api-global-community.plaync.com/"
+        "aion2_global/board/notice_de/article/search/moreArticle"
+        "?isVote=true"
+        "&moreSize=18"
+        "&moreDirection=BEFORE"
+        "&previousArticleId=0"
+    )
 
     listing = api_get(list_url)
 
@@ -180,7 +175,9 @@ def main():
 
         data = api_get(article_url)
 
-        article = data["article"]
+        # WICHTIG:
+        # article -> content -> content
+        article = data["article"]["content"]
 
         title = (
             item.get("title")
