@@ -8,10 +8,6 @@ import urllib.error
 from datetime import datetime
 
 
-# ------------------------------------------------------------
-# EINSTELLUNGEN
-# ------------------------------------------------------------
-
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 BOARD_API = (
@@ -19,24 +15,17 @@ BOARD_API = (
     "aion2_global/board/notice_de"
 )
 
-ARTICLE_API = (
+LIST_API = (
     "https://api-global-community.plaync.com/"
-    "aion2_global/board/notice_de/article/{}"
-)
-
-ARTICLE_WEB = (
-    "https://aion2.plaync.com/de-de/board/notice/view?articleId={}"
+    "aion2_global/board/notice_de/article/search/moreArticle"
+    "?isVote=true"
+    "&moreSize=18"
+    "&moreDirection=BEFORE"
+    "&previousArticleId=0"
 )
 
 STATE_FILE = "last_article.json"
 
-# Beim allerersten Lauf werden maximal so viele alte Beiträge gepostet.
-MAX_INITIAL_POSTS = 5
-
-
-# ------------------------------------------------------------
-# API ABFRAGEN
-# ------------------------------------------------------------
 
 def api_get(url):
     req = urllib.request.Request(
@@ -51,13 +40,13 @@ def api_get(url):
         return json.loads(response.read().decode("utf-8"))
 
 
-# ------------------------------------------------------------
-# DISCORD
-# ------------------------------------------------------------
-
-def discord_post(payload):
-    if not DISCORD_WEBHOOK:
-        raise RuntimeError("DISCORD_WEBHOOK wurde nicht gefunden.")
+def discord_post_embed(embed):
+    payload = {
+        "embeds": [embed],
+        "allowed_mentions": {
+            "parse": []
+        },
+    }
 
     data = json.dumps(payload).encode("utf-8")
 
@@ -73,10 +62,9 @@ def discord_post(payload):
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=20):
+            with urllib.request.urlopen(req, timeout=30):
                 pass
 
-            # Kleine Pause zwischen mehreren Beiträgen
             time.sleep(0.8)
             return
 
@@ -105,146 +93,147 @@ def discord_post(payload):
             raise
 
 
-# ------------------------------------------------------------
-# DATUM
-# ------------------------------------------------------------
+def find_images(value):
+    if not value or not isinstance(value, str):
+        return []
 
-def format_date(value):
-    if not value:
-        return None
-
-    # Millisekunden-Zeitstempel
-    if isinstance(value, (int, float)):
-        try:
-            return datetime.fromtimestamp(
-                value / 1000
-            ).strftime("%d.%m.%Y")
-        except Exception:
-            return None
-
-    value = str(value)
-
-    # ISO-Datum
-    try:
-        clean = value.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(clean)
-        return dt.strftime("%d.%m.%Y")
-    except Exception:
-        pass
-
-    # YYYY-MM-DD irgendwo im String
-    match = re.search(
-        r"(\d{4})-(\d{2})-(\d{2})",
-        value
+    images = re.findall(
+        r'<img[^>]+src=["\']([^"\']+)["\']',
+        value,
+        flags=re.I,
     )
 
-    if match:
-        year, month, day = match.groups()
-        return f"{day}.{month}.{year}"
-
-    return None
-
-
-# ------------------------------------------------------------
-# BILD AUS DEM ARTIKEL HOLEN
-# ------------------------------------------------------------
-
-def find_images(value):
-    images = []
-
-    def walk(obj):
-        if isinstance(obj, dict):
-            for key, val in obj.items():
-                key_lower = str(key).lower()
-
-                if (
-                    isinstance(val, str)
-                    and val.startswith(("http://", "https://"))
-                    and (
-                        key_lower in {
-                            "src",
-                            "url",
-                            "image",
-                            "imageurl",
-                            "image_url",
-                        }
-                        or re.search(
-                            r"\.(png|jpg|jpeg|webp)(?:\?|$)",
-                            val,
-                            re.IGNORECASE,
-                        )
-                    )
-                ):
-                    images.append(html.unescape(val))
-
-                walk(val)
-
-        elif isinstance(obj, list):
-            for item in obj:
-                walk(item)
-
-        elif isinstance(obj, str):
-            # HTML <img src="...">
-            for match in re.findall(
-                r'<img[^>]+src=["\']([^"\']+)["\']',
-                obj,
-                flags=re.IGNORECASE,
-            ):
-                images.append(html.unescape(match))
-
-            # Direkte Bild-URLs im Text
-            for match in re.findall(
-                r'https?://[^\s"\'<>]+'
-                r'\.(?:png|jpg|jpeg|webp)'
-                r'(?:\?[^\s"\'<>]*)?',
-                obj,
-                flags=re.IGNORECASE,
-            ):
-                images.append(html.unescape(match))
-
-    walk(value)
-
-    # Doppelte Bilder entfernen
-    unique = []
+    result = []
 
     for image in images:
-        if image not in unique:
-            unique.append(image)
+        image = html.unescape(image)
 
-    return unique
+        if image.startswith("//"):
+            image = "https:" + image
+
+        if image not in result:
+            result.append(image)
+
+    return result
+
+
+def image_dimensions(url):
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+            },
+        )
+
+        with urllib.request.urlopen(req, timeout=20) as response:
+            data = response.read(100000)
+
+        # PNG
+        if data.startswith(b"\x89PNG") and len(data) >= 24:
+            width = int.from_bytes(data[16:20], "big")
+            height = int.from_bytes(data[20:24], "big")
+            return width, height
+
+        # JPEG
+        if data.startswith(b"\xff\xd8"):
+            index = 2
+
+            while index < len(data) - 9:
+                if data[index] != 0xFF:
+                    index += 1
+                    continue
+
+                marker = data[index + 1]
+
+                if marker in (
+                    0xC0, 0xC1, 0xC2, 0xC3,
+                    0xC5, 0xC6, 0xC7,
+                    0xC9, 0xCA, 0xCB,
+                    0xCD, 0xCE, 0xCF,
+                ):
+                    height = int.from_bytes(
+                        data[index + 5:index + 7],
+                        "big",
+                    )
+
+                    width = int.from_bytes(
+                        data[index + 7:index + 9],
+                        "big",
+                    )
+
+                    return width, height
+
+                length = int.from_bytes(
+                    data[index + 2:index + 4],
+                    "big",
+                )
+
+                if length < 2:
+                    break
+
+                index += 2 + length
+
+    except Exception:
+        return None
+
+    return None
 
 
 def choose_thumbnail(images):
-    if not images:
-        return None
-
-    # Kleine Logos / Icons möglichst nicht verwenden
-    bad_words = (
-        "logo",
-        "icon",
-        "favicon",
-        "symbol",
-        "button",
-        "banner_top",
-        "board",
-    )
-
     for image in images:
-        lower = image.lower()
+        dimensions = image_dimensions(image)
 
-        if not any(word in lower for word in bad_words):
-            return image
+        if not dimensions:
+            continue
 
-    # Wenn nichts Besseres vorhanden ist,
-    # lieber gar kein Bild.
+        width, height = dimensions
+
+        if width <= 0 or height <= 0:
+            continue
+
+        ratio = width / height
+
+        # AION-Trenner / extrem breite Banner raus
+        if ratio >= 4.0:
+            continue
+
+        # Extrem lange Infografiken nicht als Thumbnail
+        if height > width * 3:
+            continue
+
+        # Winzige Icons raus
+        if width < 250 or height < 120:
+            continue
+
+        return image
+
     return None
 
 
-# ------------------------------------------------------------
-# GESPEICHERTE ARTIKEL
-# ------------------------------------------------------------
+def format_date(item):
+    timestamps = item.get("timestamps") or {}
 
-def load_state():
+    raw_date = timestamps.get(
+        "postDateTime",
+        "",
+    )
+
+    if not raw_date:
+        return ""
+
+    try:
+        date = datetime.fromisoformat(
+            raw_date.replace("Z", "+00:00")
+        )
+
+        return date.strftime("%d.%m.%Y")
+
+    except Exception:
+        return raw_date[:10]
+
+
+def load_posted_ids():
     if not os.path.exists(STATE_FILE):
         return []
 
@@ -253,272 +242,145 @@ def load_state():
             STATE_FILE,
             "r",
             encoding="utf-8",
-        ) as file:
-            data = json.load(file)
+        ) as f:
+            state = json.load(f)
 
-        return data.get("posted_article_ids", [])
+        return state.get(
+            "posted_article_ids",
+            [],
+        )
 
     except Exception:
         return []
 
 
-def save_state(posted_ids):
+def save_posted_ids(posted_ids):
     with open(
         STATE_FILE,
         "w",
         encoding="utf-8",
-    ) as file:
+    ) as f:
         json.dump(
             {
                 "posted_article_ids": posted_ids
             },
-            file,
+            f,
             ensure_ascii=False,
             indent=2,
         )
 
 
-# ------------------------------------------------------------
-# ARTIKELLISTE FINDEN
-# ------------------------------------------------------------
-
-def find_article_list(data):
-    if isinstance(data, list):
-        return data
-
-    if isinstance(data, dict):
-        # Häufige Namen zuerst
-        for key in (
-            "articles",
-            "articleList",
-            "list",
-            "items",
-            "contents",
-            "content",
-        ):
-            value = data.get(key)
-
-            if isinstance(value, list):
-                return value
-
-        # Falls die Liste tiefer verschachtelt ist
-        for value in data.values():
-            result = find_article_list(value)
-
-            if result:
-                return result
-
-    return []
-
-
-# ------------------------------------------------------------
-# ARTIKEL-ID
-# ------------------------------------------------------------
-
-def get_article_id(item):
-    if not isinstance(item, dict):
-        return None
-
-    for key in (
-        "id",
-        "articleId",
-        "article_id",
-        "articleNo",
-        "article_no",
-    ):
-        if item.get(key):
-            return str(item[key])
-
-    return None
-
-
-# ------------------------------------------------------------
-# TITEL
-# ------------------------------------------------------------
-
-def get_title(item, article):
-    for source in (item, article):
-        if not isinstance(source, dict):
-            continue
-
-        for key in (
-            "title",
-            "subject",
-            "articleTitle",
-            "article_title",
-        ):
-            value = source.get(key)
-
-            if value:
-                return html.unescape(str(value)).strip()
-
-    return "Neue AION 2 Ankündigung"
-
-
-# ------------------------------------------------------------
-# VERÖFFENTLICHUNGSDATUM
-# ------------------------------------------------------------
-
-def get_date(item, article):
-    possible_keys = (
-        "createdAt",
-        "created_at",
-        "createDate",
-        "createdDate",
-        "regDate",
-        "registerDate",
-        "publishedAt",
-        "publishDate",
-        "date",
-    )
-
-    for source in (item, article):
-        if not isinstance(source, dict):
-            continue
-
-        for key in possible_keys:
-            if source.get(key):
-                result = format_date(source[key])
-
-                if result:
-                    return result
-
-    return None
-
-
-# ------------------------------------------------------------
-# DISCORD EMBED ERSTELLEN
-# ------------------------------------------------------------
-
-def create_embed(article_id, item, article):
-    title = get_title(item, article)
-
-    date = get_date(item, article)
-
-    article_url = ARTICLE_WEB.format(article_id)
-
-    images = find_images(article)
-
-    thumbnail = choose_thumbnail(images)
-
-    description = "📢 **Offizielle AION 2 Ankündigung**"
-
-    if date:
-        description += (
-            f"\nVeröffentlicht am **{date}**"
+def main():
+    if not DISCORD_WEBHOOK:
+        raise RuntimeError(
+            "DISCORD_WEBHOOK fehlt."
         )
 
-    embed = {
-        "title": title,
-        "url": article_url,
-        "description": description,
-        "color": 3447003,
-    }
+    # Nur als kurzer Check, ob das Board erreichbar ist
+    api_get(BOARD_API)
 
-    # Nur wenn der Artikel tatsächlich ein geeignetes Bild hat
-    if thumbnail:
-        embed["thumbnail"] = {
-            "url": thumbnail
-        }
+    # DIE bewährte funktionierende Artikelliste
+    listing = api_get(LIST_API)
 
-    return embed
+    articles = listing.get(
+        "contentList",
+        [],
+    )
 
-
-# ------------------------------------------------------------
-# HAUPTPROGRAMM
-# ------------------------------------------------------------
-
-def main():
-    print("AION 2 Ankündigungen werden geprüft...")
-
-    board_data = api_get(BOARD_API)
-
-    articles = find_article_list(board_data)
+    print(
+        f"{len(articles)} Ankündigung(en) auf AION gefunden."
+    )
 
     if not articles:
         print("Keine Ankündigungen gefunden.")
         return
 
-    posted_ids = load_state()
+    posted_ids = load_posted_ids()
 
-    new_articles = []
-
-    for item in articles:
-        article_id = get_article_id(item)
-
-        if not article_id:
-            continue
-
-        if article_id not in posted_ids:
-            new_articles.append(
-                (article_id, item)
-            )
+    new_articles = [
+        article
+        for article in articles
+        if article.get("id") not in posted_ids
+    ]
 
     if not new_articles:
-        print("Keine neuen Ankündigungen.")
+        print("Keine neue Ankündigung.")
         return
 
-    # Wenn die Datei komplett leer ist,
-    # nicht die gesamte Historie posten.
-    if not posted_ids:
-        new_articles = new_articles[:MAX_INITIAL_POSTS]
-
-    # Älteste der neuen Meldungen zuerst posten,
-    # damit Discord chronologisch aussieht.
+    # AION liefert neu -> alt.
+    # Discord soll alt -> neu bekommen.
     new_articles.reverse()
 
     print(
-        f"{len(new_articles)} neue "
-        f"Ankündigung(en) gefunden."
+        f"{len(new_articles)} neue Ankündigung(en) gefunden."
     )
 
-    for article_id, item in new_articles:
-        print(
-            f"Verarbeite Artikel: {article_id}"
+    for item in new_articles:
+        article_id = item["id"]
+
+        title = (
+            item.get("title")
+            or "Neue AION 2 Ankündigung"
         )
 
-        article_data = api_get(
-            ARTICLE_API.format(article_id)
+        date = format_date(item)
+
+        article_api = (
+            "https://api-global-community.plaync.com/"
+            "aion2_global/board/notice_de/"
+            f"article/{article_id}"
         )
 
-        # Die API hatte bei uns den eigentlichen
-        # Artikel unter "article".
-        if (
-            isinstance(article_data, dict)
-            and isinstance(
-                article_data.get("article"),
-                dict,
+        public_url = (
+            "https://aion2.plaync.com/"
+            "de-de/board/notice/view"
+            f"?articleId={article_id}"
+        )
+
+        data = api_get(article_api)
+
+        content_data = data["article"]["content"]
+
+        raw_content = content_data.get(
+            "content",
+            "",
+        )
+
+        images = find_images(raw_content)
+
+        thumbnail = choose_thumbnail(images)
+
+        description = (
+            "📢 **Offizielle AION 2 Ankündigung**"
+        )
+
+        if date:
+            description += (
+                f"\nVeröffentlicht am **{date}**"
             )
-        ):
-            article = article_data["article"]
 
-        else:
-            article = article_data
+        embed = {
+            # Dieser blaue Titel ist direkt anklickbar
+            "title": title,
+            "url": public_url,
+            "description": description,
+            "color": 3447003,
+        }
 
-        embed = create_embed(
-            article_id,
-            item,
-            article,
-        )
-
-        discord_post(
-            {
-                "embeds": [embed],
-                "allowed_mentions": {
-                    "parse": []
-                },
+        # Nur wenn ein geeignetes Bild existiert
+        if thumbnail:
+            embed["thumbnail"] = {
+                "url": thumbnail
             }
-        )
+
+        discord_post_embed(embed)
+
+        posted_ids.append(article_id)
+        save_posted_ids(posted_ids)
 
         print(
-            f"Gepostet: {embed['title']}"
+            f"Gepostet: {title}"
         )
-
-        # Erst nach erfolgreichem Discord-Post
-        # als erledigt markieren.
-        posted_ids.append(article_id)
-
-        save_state(posted_ids)
 
     print("Fertig.")
 
