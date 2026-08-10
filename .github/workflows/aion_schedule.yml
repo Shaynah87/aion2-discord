@@ -1,0 +1,38 @@
+name: AION 2 Schedule
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update-schedule:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository laden
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: AION Fahrplan aktualisieren
+        env:
+          AION_SCHEDULE_WEBHOOK: ${{ secrets.AION_SCHEDULE_WEBHOOK }}
+        run: python aion_schedule.py
+
+      - name: Nachrichten-ID speichern
+        run: |
+          if [ -f schedule_message.json ]; then
+            git config user.name "actions-user"
+            git config user.email "actions@github.com"
+            git add schedule_message.json
+            git diff --cached --quiet || git commit -m "Update AION schedule message"
+            git push
+          fi
