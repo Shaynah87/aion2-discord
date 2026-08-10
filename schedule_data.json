@@ -1,0 +1,39 @@
+{
+  "timezone": "Europe/Berlin",
+
+  "rifts": [
+    {
+      "name": "Rift 1",
+      "times": ["18:00", "21:00"]
+    },
+    {
+      "name": "Rift 2",
+      "times": ["00:00", "03:00"]
+    }
+  ],
+
+  "shugo_games": [
+    {
+      "name": "Shugo Game 1",
+      "time": "19:00"
+    },
+    {
+      "name": "Shugo Game 2",
+      "time": "21:00"
+    }
+  ],
+
+  "resets": {
+    "daily": "09:00",
+    "weekly_day": "Wednesday",
+    "weekly_time": "09:00"
+  },
+
+  "events": [
+    {
+      "name": "Event 1",
+      "day": "Friday",
+      "time": "20:00"
+    }
+  ]
+}
