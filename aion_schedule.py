@@ -1,8 +1,13 @@
 import os
 import json
 import urllib.request
+import urllib.error
+import uuid
+from io import BytesIO
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+from PIL import Image, ImageDraw, ImageFont
 
 
 WEBHOOK_URL = os.environ.get("AION_SCHEDULE_WEBHOOK")
@@ -10,15 +15,17 @@ WEBHOOK_URL = os.environ.get("AION_SCHEDULE_WEBHOOK")
 DATA_FILE = "schedule_data.json"
 STATE_FILE = "schedule_message.json"
 
-RIFT_IMAGE_URL = (
+RIFT_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
     "Shaynah87/aion2-discord/main/spacetime_rift.png"
 )
 
+RIFT_CARD_FILE = "spacetime_rift_card.png"
 
-# ------------------------------------------------------------
+
+# ============================================================
 # DATEIEN
-# ------------------------------------------------------------
+# ============================================================
 
 def load_data():
     with open(
@@ -55,9 +62,35 @@ def save_state(data):
         )
 
 
-# ------------------------------------------------------------
-# ALLGEMEINE ZEITFUNKTIONEN
-# ------------------------------------------------------------
+# ============================================================
+# SCHRIFTEN
+# ============================================================
+
+def load_font(size, bold=False):
+    if bold:
+        paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
+        ]
+    else:
+        paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"
+        ]
+
+    for path in paths:
+        if os.path.exists(path):
+            return ImageFont.truetype(
+                path,
+                size=size
+            )
+
+    return ImageFont.load_default()
+
+
+# ============================================================
+# ZEITFUNKTIONEN
+# ============================================================
 
 def parse_time_today(
     time_string,
@@ -89,7 +122,9 @@ def german_weekday(dt):
         6: "Sonntag"
     }
 
-    return weekdays[dt.weekday()]
+    return weekdays[
+        dt.weekday()
+    ]
 
 
 def format_day_time(
@@ -103,7 +138,8 @@ def format_day_time(
         )
 
     tomorrow = (
-        now + timedelta(days=1)
+        now +
+        timedelta(days=1)
     ).date()
 
     if dt.date() == tomorrow:
@@ -128,9 +164,9 @@ def format_time_range(
     )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # DAILY RESET
-# ------------------------------------------------------------
+# ============================================================
 
 def next_daily_reset(
     time_string,
@@ -149,9 +185,9 @@ def next_daily_reset(
     return candidate
 
 
-# ------------------------------------------------------------
+# ============================================================
 # WEEKLY RESET
-# ------------------------------------------------------------
+# ============================================================
 
 def next_weekly_reset(
     day_name,
@@ -200,9 +236,9 @@ def next_weekly_reset(
     return candidate
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SPACETIME RIFT
-# ------------------------------------------------------------
+# ============================================================
 
 def build_rift_times(
     rift_data,
@@ -216,18 +252,14 @@ def build_rift_times(
     )
 
     interval = timedelta(
-        hours=rift_data["interval_hours"]
+        hours=rift_data[
+            "interval_hours"
+        ]
     )
 
     duration = timedelta(
         minutes=rift_data[
             "duration_minutes"
-        ]
-    )
-
-    entry_duration = timedelta(
-        minutes=rift_data[
-            "entry_minutes"
         ]
     )
 
@@ -249,10 +281,6 @@ def build_rift_times(
 
     active_start = None
     active_end = None
-    active_entry_end = None
-
-    next_start = None
-    following_start = None
 
     for start_time in starts:
         end_time = (
@@ -266,12 +294,6 @@ def build_rift_times(
         ):
             active_start = start_time
             active_end = end_time
-
-            active_entry_end = (
-                start_time +
-                entry_duration
-            )
-
             break
 
     future_starts = [
@@ -282,11 +304,13 @@ def build_rift_times(
 
     future_starts.sort()
 
-    if future_starts:
-        next_start = future_starts[0]
+    next_start = (
+        future_starts[0]
+    )
 
-    if len(future_starts) > 1:
-        following_start = future_starts[1]
+    following_start = (
+        future_starts[1]
+    )
 
     return {
         "active_start":
@@ -294,9 +318,6 @@ def build_rift_times(
 
         "active_end":
             active_end,
-
-        "active_entry_end":
-            active_entry_end,
 
         "next_start":
             next_start,
@@ -306,9 +327,9 @@ def build_rift_times(
     }
 
 
-# ------------------------------------------------------------
+# ============================================================
 # SHUGO GAMES
-# ------------------------------------------------------------
+# ============================================================
 
 def next_shugo_starts(
     shugo_data,
@@ -365,9 +386,9 @@ def shugo_rotation_for_time(
     ]
 
 
-# ------------------------------------------------------------
+# ============================================================
 # ALS NÄCHSTES
-# ------------------------------------------------------------
+# ============================================================
 
 def find_next_event(
     rift_next,
@@ -408,19 +429,321 @@ def find_next_event(
     return events[0]
 
 
-# ------------------------------------------------------------
-# DISCORD EMBEDS
-# ------------------------------------------------------------
+# ============================================================
+# RIFT-HINTERGRUND LADEN
+# ============================================================
+
+def load_rift_background():
+    request = urllib.request.Request(
+        RIFT_BACKGROUND_URL,
+        headers={
+            "User-Agent":
+                "AION2-Schedule-Bot"
+        }
+    )
+
+    with urllib.request.urlopen(
+        request,
+        timeout=30
+    ) as response:
+        image_data = response.read()
+
+    image = Image.open(
+        BytesIO(image_data)
+    ).convert("RGB")
+
+    return image
+
+
+# ============================================================
+# RIFT-KARTE ERZEUGEN
+# ============================================================
+
+def create_rift_card(
+    rift_data,
+    rift_times
+):
+    image = load_rift_background()
+
+    # Discord-taugliche Größe
+    target_width = 1200
+    target_height = 500
+
+    image = image.resize(
+        (
+            target_width,
+            target_height
+        ),
+        Image.Resampling.LANCZOS
+    )
+
+    draw = ImageDraw.Draw(
+        image,
+        "RGBA"
+    )
+
+    # --------------------------------------------------------
+    # LINKEN BEREICH ABDUNKELN
+    # --------------------------------------------------------
+
+    overlay = Image.new(
+        "RGBA",
+        image.size,
+        (0, 0, 0, 0)
+    )
+
+    overlay_draw = ImageDraw.Draw(
+        overlay,
+        "RGBA"
+    )
+
+    overlay_draw.rounded_rectangle(
+        (
+            35,
+            35,
+            720,
+            465
+        ),
+        radius=30,
+        fill=(
+            5,
+            7,
+            20,
+            205
+        )
+    )
+
+    image = Image.alpha_composite(
+        image.convert("RGBA"),
+        overlay
+    )
+
+    draw = ImageDraw.Draw(
+        image,
+        "RGBA"
+    )
+
+    # --------------------------------------------------------
+    # SCHRIFTEN
+    # --------------------------------------------------------
+
+    title_font = load_font(
+        50,
+        bold=True
+    )
+
+    subtitle_font = load_font(
+        27,
+        bold=False
+    )
+
+    label_font = load_font(
+        24,
+        bold=True
+    )
+
+    time_font = load_font(
+        40,
+        bold=True
+    )
+
+    small_font = load_font(
+        24,
+        bold=False
+    )
+
+    # --------------------------------------------------------
+    # FARBEN
+    # --------------------------------------------------------
+
+    white = (
+        245,
+        245,
+        255,
+        255
+    )
+
+    violet = (
+        190,
+        115,
+        255,
+        255
+    )
+
+    light_violet = (
+        215,
+        180,
+        255,
+        255
+    )
+
+    muted = (
+        195,
+        195,
+        215,
+        255
+    )
+
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
+
+    draw.text(
+        (80, 70),
+        "SPACETIME RIFT",
+        font=title_font,
+        fill=white
+    )
+
+    draw.text(
+        (82, 135),
+        (
+            f"Alle "
+            f"{rift_data['interval_hours']} Stunden"
+        ),
+        font=subtitle_font,
+        fill=light_violet
+    )
+
+    # --------------------------------------------------------
+    # AKTIVER ODER NÄCHSTER RIFT
+    # --------------------------------------------------------
+
+    if rift_times[
+        "active_start"
+    ]:
+
+        active_start = (
+            rift_times[
+                "active_start"
+            ]
+        )
+
+        active_end = (
+            rift_times[
+                "active_end"
+            ]
+        )
+
+        draw.text(
+            (82, 205),
+            "JETZT AKTIV",
+            font=label_font,
+            fill=violet
+        )
+
+        main_range = (
+            format_time_range(
+                active_start,
+                active_end
+            )
+        )
+
+    else:
+
+        next_start = (
+            rift_times[
+                "next_start"
+            ]
+        )
+
+        next_end = (
+            next_start +
+            timedelta(
+                minutes=rift_data[
+                    "duration_minutes"
+                ]
+            )
+        )
+
+        draw.text(
+            (82, 205),
+            "NÄCHSTER RIFT",
+            font=label_font,
+            fill=violet
+        )
+
+        main_range = (
+            format_time_range(
+                next_start,
+                next_end
+            )
+        )
+
+    draw.text(
+        (80, 245),
+        main_range,
+        font=time_font,
+        fill=white
+    )
+
+    # --------------------------------------------------------
+    # DANACH
+    # --------------------------------------------------------
+
+    following_start = (
+        rift_times[
+            "following_start"
+        ]
+    )
+
+    following_end = (
+        following_start +
+        timedelta(
+            minutes=rift_data[
+                "duration_minutes"
+            ]
+        )
+    )
+
+    draw.text(
+        (82, 340),
+        "Danach",
+        font=label_font,
+        fill=muted
+    )
+
+    draw.text(
+        (82, 380),
+        format_time_range(
+            following_start,
+            following_end
+        ),
+        font=small_font,
+        fill=white
+    )
+
+    image = image.convert(
+        "RGB"
+    )
+
+    image.save(
+        RIFT_CARD_FILE,
+        "PNG",
+        optimize=True
+    )
+
+
+# ============================================================
+# EMBEDS ERSTELLEN
+# ============================================================
 
 def build_embeds(data):
     timezone = ZoneInfo(
         data["timezone"]
     )
 
-    now = datetime.now(timezone)
+    now = datetime.now(
+        timezone
+    )
 
-    rift_data = data["rift"]
-    shugo_data = data["shugo_games"]
+    rift_data = data[
+        "rift"
+    ]
+
+    shugo_data = data[
+        "shugo_games"
+    ]
 
     # --------------------------------------------------------
     # RIFT
@@ -431,13 +754,17 @@ def build_embeds(data):
         timezone
     )
 
-    rift_next = rift_times[
-        "next_start"
-    ]
+    rift_next = (
+        rift_times[
+            "next_start"
+        ]
+    )
 
-    rift_following = rift_times[
-        "following_start"
-    ]
+    # Rift-Karte rendern
+    create_rift_card(
+        rift_data,
+        rift_times
+    )
 
     # --------------------------------------------------------
     # SHUGO
@@ -455,19 +782,29 @@ def build_embeds(data):
     # RESETS
     # --------------------------------------------------------
 
-    daily_reset = next_daily_reset(
-        data["resets"]["daily"],
-        timezone
+    daily_reset = (
+        next_daily_reset(
+            data["resets"][
+                "daily"
+            ],
+            timezone
+        )
     )
 
-    weekly_reset = next_weekly_reset(
-        data["resets"]["weekly_day"],
-        data["resets"]["weekly_time"],
-        timezone
+    weekly_reset = (
+        next_weekly_reset(
+            data["resets"][
+                "weekly_day"
+            ],
+            data["resets"][
+                "weekly_time"
+            ],
+            timezone
+        )
     )
 
     # --------------------------------------------------------
-    # GLOBAL NÄCHSTES EVENT
+    # ALS NÄCHSTES
     # --------------------------------------------------------
 
     (
@@ -481,12 +818,9 @@ def build_embeds(data):
         weekly_reset
     )
 
-    # ========================================================
-    # EMBED 1 · ALS NÄCHSTES
-    # ========================================================
-
     next_embed = {
-        "title": "⚡ ALS NÄCHSTES",
+        "title":
+            "⚡ ALS NÄCHSTES",
 
         "description": (
             f"{next_event_icon} "
@@ -497,83 +831,27 @@ def build_embeds(data):
             )}"
         ),
 
-        "color": 10181046
+        "color":
+            10181046
     }
 
-    # ========================================================
-    # EMBED 2 · SPACETIME RIFT
-    # ========================================================
-
-    if rift_times["active_start"]:
-
-        active_start = rift_times[
-            "active_start"
-        ]
-
-        active_end = rift_times[
-            "active_end"
-        ]
-
-        rift_status = (
-            "🟢 **RIFT AKTIV**\n"
-            f"{format_time_range(
-                active_start,
-                active_end
-            )}"
-        )
-
-    else:
-
-        next_end = (
-            rift_next +
-            timedelta(
-                minutes=rift_data[
-                    "duration_minutes"
-                ]
-            )
-        )
-
-        rift_status = (
-            "🔮 **NÄCHSTER RIFT**\n"
-            f"{format_time_range(
-                rift_next,
-                next_end
-            )}"
-        )
-
-    following_end = (
-        rift_following +
-        timedelta(
-            minutes=rift_data[
-                "duration_minutes"
-            ]
-        )
-    )
+    # --------------------------------------------------------
+    # RIFT NUR ALS BILD
+    # --------------------------------------------------------
 
     rift_embed = {
-        "title": "🌀 SPACETIME RIFT",
-
-        "description": (
-            f"Alle "
-            f"{rift_data['interval_hours']} Stunden\n\n"
-            f"{rift_status}\n\n"
-            f"**Danach**\n"
-            f"{format_time_range(
-                rift_following,
-                following_end
-            )}"
-        ),
-
-        "color": 5793266,
+        "color":
+            5793266,
 
         "image": {
-            "url": RIFT_IMAGE_URL
+            "url":
+                "attachment://spacetime_rift_card.png"
         }
     }
 
-    # ========================================================
-    # EMBED 3 · SHUGO GAMES
-    # ========================================================
+    # --------------------------------------------------------
+    # SHUGO
+    # --------------------------------------------------------
 
     next_rotation = (
         shugo_rotation_for_time(
@@ -600,11 +878,11 @@ def build_embeds(data):
     )
 
     shugo_embed = {
-        "title": "🐹 SHUGO GAMES",
+        "title":
+            "🐹 SHUGO GAMES",
 
-        "description": (
-            "Alle 30 Minuten"
-        ),
+        "description":
+            "Alle 30 Minuten",
 
         "fields": [
             {
@@ -613,9 +891,11 @@ def build_embeds(data):
                     f"{shugo_next.strftime('%H:%M')} Uhr"
                 ),
 
-                "value": next_games,
+                "value":
+                    next_games,
 
-                "inline": True
+                "inline":
+                    True
             },
 
             {
@@ -624,48 +904,61 @@ def build_embeds(data):
                     f"{shugo_following.strftime('%H:%M')} Uhr"
                 ),
 
-                "value": following_games,
+                "value":
+                    following_games,
 
-                "inline": True
+                "inline":
+                    True
             }
         ],
 
-        "color": 14058735
+        "color":
+            14058735
     }
 
-    # ========================================================
-    # EMBED 4 · RESETS
-    # ========================================================
+    # --------------------------------------------------------
+    # RESETS
+    # --------------------------------------------------------
 
     reset_embed = {
-        "title": "🔄 RESETS",
+        "title":
+            "🔄 RESETS",
 
         "fields": [
             {
-                "name": "Daily Reset",
+                "name":
+                    "Daily Reset",
 
                 "value": (
-                    f"**{data['resets']['daily']} Uhr**"
+                    f"**"
+                    f"{data['resets']['daily']} Uhr"
+                    f"**"
                 ),
 
-                "inline": False
+                "inline":
+                    False
             },
 
             {
-                "name": "Weekly Reset",
+                "name":
+                    "Weekly Reset",
 
                 "value": (
-                    f"**{german_weekday(
+                    f"**"
+                    f"{german_weekday(
                         weekly_reset
                     )} · "
-                    f"{data['resets']['weekly_time']} Uhr**"
+                    f"{data['resets']['weekly_time']} Uhr"
+                    f"**"
                 ),
 
-                "inline": False
+                "inline":
+                    False
             }
         ],
 
-        "color": 6724044
+        "color":
+            6724044
     }
 
     return [
@@ -676,26 +969,88 @@ def build_embeds(data):
     ]
 
 
-# ------------------------------------------------------------
-# DISCORD
-# ------------------------------------------------------------
+# ============================================================
+# MULTIPART DISCORD REQUEST
+# ============================================================
 
-def webhook_request(
+def webhook_request_with_file(
     url,
     payload,
+    file_path,
     method="POST"
 ):
-    request_data = json.dumps(
-        payload
-    ).encode("utf-8")
+    boundary = (
+        "----AION2Boundary"
+        + uuid.uuid4().hex
+    )
+
+    with open(
+        file_path,
+        "rb"
+    ) as f:
+        file_data = f.read()
+
+    body = bytearray()
+
+    # --------------------------------------------------------
+    # PAYLOAD JSON
+    # --------------------------------------------------------
+
+    body.extend(
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; '
+            f'name="payload_json"\r\n'
+            f"Content-Type: application/json\r\n\r\n"
+        ).encode("utf-8")
+    )
+
+    body.extend(
+        json.dumps(
+            payload
+        ).encode("utf-8")
+    )
+
+    body.extend(
+        b"\r\n"
+    )
+
+    # --------------------------------------------------------
+    # DATEI
+    # --------------------------------------------------------
+
+    body.extend(
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; '
+            f'name="files[0]"; '
+            f'filename="{os.path.basename(file_path)}"\r\n'
+            f"Content-Type: image/png\r\n\r\n"
+        ).encode("utf-8")
+    )
+
+    body.extend(
+        file_data
+    )
+
+    body.extend(
+        b"\r\n"
+    )
+
+    body.extend(
+        (
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+    )
 
     req = urllib.request.Request(
         url,
-        data=request_data,
+        data=bytes(body),
         method=method,
         headers={
             "Content-Type":
-                "application/json",
+                f"multipart/form-data; "
+                f"boundary={boundary}",
 
             "User-Agent":
                 "AION2-Schedule-Bot"
@@ -704,7 +1059,7 @@ def webhook_request(
 
     with urllib.request.urlopen(
         req,
-        timeout=30
+        timeout=60
     ) as response:
 
         response_data = (
@@ -721,9 +1076,9 @@ def webhook_request(
         )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # HAUPTPROGRAMM
-# ------------------------------------------------------------
+# ============================================================
 
 def main():
     if not WEBHOOK_URL:
@@ -732,15 +1087,35 @@ def main():
         )
 
     data = load_data()
+
     state = load_state()
 
     embeds = build_embeds(
         data
     )
 
+    payload = {
+        "embeds":
+            embeds,
+
+        "attachments": [
+            {
+                "id":
+                    0,
+
+                "filename":
+                    RIFT_CARD_FILE
+            }
+        ]
+    }
+
     message_id = state.get(
         "message_id"
     )
+
+    # --------------------------------------------------------
+    # BESTEHENDE NACHRICHT
+    # --------------------------------------------------------
 
     if message_id:
 
@@ -749,11 +1124,10 @@ def main():
             f"/messages/{message_id}"
         )
 
-        webhook_request(
+        webhook_request_with_file(
             edit_url,
-            {
-                "embeds": embeds
-            },
+            payload,
+            RIFT_CARD_FILE,
             method="PATCH"
         )
 
@@ -762,6 +1136,10 @@ def main():
             "Nachricht aktualisiert."
         )
 
+    # --------------------------------------------------------
+    # NEUE NACHRICHT
+    # --------------------------------------------------------
+
     else:
 
         create_url = (
@@ -769,12 +1147,13 @@ def main():
             f"?wait=true"
         )
 
-        result = webhook_request(
-            create_url,
-            {
-                "embeds": embeds
-            },
-            method="POST"
+        result = (
+            webhook_request_with_file(
+                create_url,
+                payload,
+                RIFT_CARD_FILE,
+                method="POST"
+            )
         )
 
         save_state(
