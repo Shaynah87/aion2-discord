@@ -19,7 +19,13 @@ RIFT_BACKGROUND_URL = (
     "Shaynah87/aion2-discord/main/spacetime_rift.png"
 )
 
+SHUGO_BACKGROUND_URL = (
+    "https://raw.githubusercontent.com/"
+    "Shaynah87/aion2-discord/main/shugo_games.png"
+)
+
 RIFT_CARD_FILE = "spacetime_rift_card.png"
+SHUGO_CARD_FILE = "shugo_games_card.png"
 
 
 # ============================================================
@@ -383,7 +389,7 @@ def find_next_event(
             "time": shugo_next,
             "icon": "🐹",
             "name": "Shugo Games",
-            "color": 14058735
+            "color": 14525510
         },
 
         {
@@ -409,12 +415,12 @@ def find_next_event(
 
 
 # ============================================================
-# RIFT-HINTERGRUND LADEN
+# HINTERGRÜNDE LADEN
 # ============================================================
 
-def load_rift_background():
+def load_image_from_url(url):
     request = urllib.request.Request(
-        RIFT_BACKGROUND_URL,
+        url,
         headers={
             "User-Agent":
                 "AION2-Schedule-Bot"
@@ -432,11 +438,102 @@ def load_rift_background():
     ).convert("RGBA")
 
 
+def load_rift_background():
+    return load_image_from_url(
+        RIFT_BACKGROUND_URL
+    )
+
+
+def load_shugo_background():
+    return load_image_from_url(
+        SHUGO_BACKGROUND_URL
+    )
+
+
 # ============================================================
-# BREITER WEICHER TEXT-VERLAUF
+# BILD AUF ZIELFORMAT ZUSCHNEIDEN
 # ============================================================
 
-def add_left_gradient(image):
+def crop_and_resize(
+    image,
+    target_width,
+    target_height
+):
+    source_width, source_height = (
+        image.size
+    )
+
+    source_ratio = (
+        source_width /
+        source_height
+    )
+
+    target_ratio = (
+        target_width /
+        target_height
+    )
+
+    if source_ratio > target_ratio:
+
+        new_width = int(
+            source_height *
+            target_ratio
+        )
+
+        left = (
+            source_width -
+            new_width
+        ) // 2
+
+        image = image.crop(
+            (
+                left,
+                0,
+                left + new_width,
+                source_height
+            )
+        )
+
+    else:
+
+        new_height = int(
+            source_width /
+            target_ratio
+        )
+
+        top = (
+            source_height -
+            new_height
+        ) // 2
+
+        image = image.crop(
+            (
+                0,
+                top,
+                source_width,
+                top + new_height
+            )
+        )
+
+    return image.resize(
+        (
+            target_width,
+            target_height
+        ),
+        Image.Resampling.LANCZOS
+    )
+
+
+# ============================================================
+# WEICHER VERLAUF
+# ============================================================
+
+def add_left_gradient(
+    image,
+    fade_ratio=0.76,
+    max_alpha=235,
+    tone=(3, 2, 7)
+):
     width, height = image.size
 
     overlay = Image.new(
@@ -448,25 +545,27 @@ def add_left_gradient(image):
     pixels = overlay.load()
 
     fade_end = int(
-        width * 0.76
+        width *
+        fade_ratio
     )
 
     for x in range(fade_end):
 
         progress = (
-            x / fade_end
+            x /
+            fade_end
         )
 
         alpha = int(
-            235 *
+            max_alpha *
             ((1.0 - progress) ** 1.55)
         )
 
         for y in range(height):
             pixels[x, y] = (
-                3,
-                2,
-                7,
+                tone[0],
+                tone[1],
+                tone[2],
                 alpha
             )
 
@@ -526,80 +625,23 @@ def create_rift_card(
     target_width = 1200
     target_height = 540
 
-    source_width, source_height = image.size
-
-    source_ratio = (
-        source_width /
-        source_height
-    )
-
-    target_ratio = (
-        target_width /
+    image = crop_and_resize(
+        image,
+        target_width,
         target_height
     )
 
-    if source_ratio > target_ratio:
-
-        new_width = int(
-            source_height *
-            target_ratio
-        )
-
-        left = (
-            source_width -
-            new_width
-        ) // 2
-
-        image = image.crop(
-            (
-                left,
-                0,
-                left + new_width,
-                source_height
-            )
-        )
-
-    else:
-
-        new_height = int(
-            source_width /
-            target_ratio
-        )
-
-        top = (
-            source_height -
-            new_height
-        ) // 2
-
-        image = image.crop(
-            (
-                0,
-                top,
-                source_width,
-                top + new_height
-            )
-        )
-
-    image = image.resize(
-        (
-            target_width,
-            target_height
-        ),
-        Image.Resampling.LANCZOS
-    )
-
     image = add_left_gradient(
-        image
+        image,
+        fade_ratio=0.76,
+        max_alpha=235,
+        tone=(3, 2, 7)
     )
 
     draw = ImageDraw.Draw(
         image,
         "RGBA"
     )
-
-    # --------------------------------------------------------
-    # SCHRIFTEN
-    # --------------------------------------------------------
 
     title_font = load_font(
         56,
@@ -621,15 +663,10 @@ def create_rift_card(
         bold=True
     )
 
-    # Etwa auf Größe von "Alle 3 Stunden"
     next_line_font = load_font(
         30,
         bold=False
     )
-
-    # --------------------------------------------------------
-    # FARBEN
-    # --------------------------------------------------------
 
     white = (
         250,
@@ -659,10 +696,6 @@ def create_rift_card(
         255
     )
 
-    # --------------------------------------------------------
-    # TITEL
-    # --------------------------------------------------------
-
     draw_text_with_shadow(
         draw,
         (78, 62),
@@ -681,10 +714,6 @@ def create_rift_card(
         subtitle_font,
         light_red
     )
-
-    # --------------------------------------------------------
-    # AKTIVER / NÄCHSTER RIFT
-    # --------------------------------------------------------
 
     if rift_times[
         "active_start"
@@ -756,10 +785,6 @@ def create_rift_card(
         )
     )
 
-    # --------------------------------------------------------
-    # HAUPTSTATUS
-    # --------------------------------------------------------
-
     draw_text_with_shadow(
         draw,
         (80, 218),
@@ -767,10 +792,6 @@ def create_rift_card(
         status_font,
         red
     )
-
-    # --------------------------------------------------------
-    # HAUPTZEIT
-    # --------------------------------------------------------
 
     draw_text_with_shadow(
         draw,
@@ -782,10 +803,6 @@ def create_rift_card(
         time_font,
         white
     )
-
-    # --------------------------------------------------------
-    # NÄCHSTER / FOLGENDER RIFT
-    # --------------------------------------------------------
 
     secondary_text = (
         f"→ {secondary_label}: "
@@ -809,6 +826,201 @@ def create_rift_card(
 
     image.save(
         RIFT_CARD_FILE,
+        "PNG",
+        optimize=True
+    )
+
+
+# ============================================================
+# SHUGO-KARTE ERZEUGEN
+# ============================================================
+
+def create_shugo_card(
+    shugo_data,
+    shugo_next,
+    shugo_following
+):
+    image = load_shugo_background()
+
+    target_width = 1200
+    target_height = 680
+
+    image = crop_and_resize(
+        image,
+        target_width,
+        target_height
+    )
+
+    image = add_left_gradient(
+        image,
+        fade_ratio=0.72,
+        max_alpha=238,
+        tone=(5, 4, 3)
+    )
+
+    draw = ImageDraw.Draw(
+        image,
+        "RGBA"
+    )
+
+    # --------------------------------------------------------
+    # SCHRIFTEN
+    # --------------------------------------------------------
+
+    title_font = load_font(
+        54,
+        bold=True
+    )
+
+    subtitle_font = load_font(
+        27,
+        bold=False
+    )
+
+    label_font = load_font(
+        28,
+        bold=True
+    )
+
+    game_font = load_font(
+        25,
+        bold=False
+    )
+
+    # --------------------------------------------------------
+    # FARBEN
+    # --------------------------------------------------------
+
+    white = (
+        250,
+        248,
+        245,
+        255
+    )
+
+    gold = (
+        230,
+        184,
+        74,
+        255
+    )
+
+    light_gold = (
+        242,
+        211,
+        135,
+        255
+    )
+
+    muted = (
+        215,
+        210,
+        200,
+        255
+    )
+
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
+
+    draw_text_with_shadow(
+        draw,
+        (72, 50),
+        "SHUGO GAMES",
+        title_font,
+        white
+    )
+
+    draw_text_with_shadow(
+        draw,
+        (74, 116),
+        "Alle 30 Minuten",
+        subtitle_font,
+        light_gold
+    )
+
+    # --------------------------------------------------------
+    # ROTATIONEN
+    # --------------------------------------------------------
+
+    next_rotation = (
+        shugo_rotation_for_time(
+            shugo_next,
+            shugo_data
+        )
+    )
+
+    following_rotation = (
+        shugo_rotation_for_time(
+            shugo_following,
+            shugo_data
+        )
+    )
+
+    # --------------------------------------------------------
+    # KOMMEND
+    # --------------------------------------------------------
+
+    draw_text_with_shadow(
+        draw,
+        (74, 185),
+        (
+            f"KOMMEND · "
+            f"{shugo_next.strftime('%H:%M')} Uhr"
+        ),
+        label_font,
+        gold
+    )
+
+    y = 230
+
+    for game in next_rotation:
+        draw_text_with_shadow(
+            draw,
+            (82, y),
+            f"• {game}",
+            game_font,
+            white
+        )
+
+        y += 36
+
+    # --------------------------------------------------------
+    # DANACH
+    # --------------------------------------------------------
+
+    y += 18
+
+    draw_text_with_shadow(
+        draw,
+        (74, y),
+        (
+            f"DANACH · "
+            f"{shugo_following.strftime('%H:%M')} Uhr"
+        ),
+        label_font,
+        gold
+    )
+
+    y += 45
+
+    for game in following_rotation:
+        draw_text_with_shadow(
+            draw,
+            (82, y),
+            f"• {game}",
+            game_font,
+            muted
+        )
+
+        y += 36
+
+    image = image.convert(
+        "RGB"
+    )
+
+    image.save(
+        SHUGO_CARD_FILE,
         "PNG",
         optimize=True
     )
@@ -861,6 +1073,12 @@ def build_embeds(data):
     ) = next_shugo_starts(
         shugo_data,
         timezone
+    )
+
+    create_shugo_card(
+        shugo_data,
+        shugo_next,
+        shugo_following
     )
 
     # --------------------------------------------------------
@@ -933,67 +1151,14 @@ def build_embeds(data):
     # SHUGO
     # --------------------------------------------------------
 
-    next_rotation = (
-        shugo_rotation_for_time(
-            shugo_next,
-            shugo_data
-        )
-    )
-
-    following_rotation = (
-        shugo_rotation_for_time(
-            shugo_following,
-            shugo_data
-        )
-    )
-
-    next_games = "\n".join(
-        f"• {game}"
-        for game in next_rotation
-    )
-
-    following_games = "\n".join(
-        f"• {game}"
-        for game in following_rotation
-    )
-
     shugo_embed = {
-        "title":
-            "🐹 SHUGO GAMES",
-
-        "description":
-            "Alle 30 Minuten",
-
-        "fields": [
-            {
-                "name": (
-                    f"🟣 KOMMEND · "
-                    f"{shugo_next.strftime('%H:%M')} Uhr"
-                ),
-
-                "value":
-                    next_games,
-
-                "inline":
-                    True
-            },
-
-            {
-                "name": (
-                    f"⚪ DANACH · "
-                    f"{shugo_following.strftime('%H:%M')} Uhr"
-                ),
-
-                "value":
-                    following_games,
-
-                "inline":
-                    True
-            }
-        ],
-
         "color":
-            14058735
+            14525510,
+
+        "image": {
+            "url":
+                "attachment://shugo_games_card.png"
+        }
     }
 
     # --------------------------------------------------------
@@ -1053,10 +1218,10 @@ def build_embeds(data):
 # MULTIPART DISCORD REQUEST
 # ============================================================
 
-def webhook_request_with_file(
+def webhook_request_with_files(
     url,
     payload,
-    file_path,
+    file_paths,
     method="POST"
 ):
     boundary = (
@@ -1064,13 +1229,11 @@ def webhook_request_with_file(
         + uuid.uuid4().hex
     )
 
-    with open(
-        file_path,
-        "rb"
-    ) as f:
-        file_data = f.read()
-
     body = bytearray()
+
+    # --------------------------------------------------------
+    # PAYLOAD JSON
+    # --------------------------------------------------------
 
     body.extend(
         (
@@ -1091,23 +1254,36 @@ def webhook_request_with_file(
         b"\r\n"
     )
 
-    body.extend(
-        (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; '
-            f'name="files[0]"; '
-            f'filename="{os.path.basename(file_path)}"\r\n'
-            f"Content-Type: image/png\r\n\r\n"
-        ).encode("utf-8")
-    )
+    # --------------------------------------------------------
+    # DATEIEN
+    # --------------------------------------------------------
 
-    body.extend(
-        file_data
-    )
+    for index, file_path in enumerate(
+        file_paths
+    ):
+        with open(
+            file_path,
+            "rb"
+        ) as f:
+            file_data = f.read()
 
-    body.extend(
-        b"\r\n"
-    )
+        body.extend(
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; '
+                f'name="files[{index}]"; '
+                f'filename="{os.path.basename(file_path)}"\r\n'
+                f"Content-Type: image/png\r\n\r\n"
+            ).encode("utf-8")
+        )
+
+        body.extend(
+            file_data
+        )
+
+        body.extend(
+            b"\r\n"
+        )
 
     body.extend(
         (
@@ -1176,6 +1352,14 @@ def main():
 
                 "filename":
                     RIFT_CARD_FILE
+            },
+
+            {
+                "id":
+                    1,
+
+                "filename":
+                    SHUGO_CARD_FILE
             }
         ]
     }
@@ -1184,6 +1368,11 @@ def main():
         "message_id"
     )
 
+    files = [
+        RIFT_CARD_FILE,
+        SHUGO_CARD_FILE
+    ]
+
     if message_id:
 
         edit_url = (
@@ -1191,10 +1380,10 @@ def main():
             f"/messages/{message_id}"
         )
 
-        webhook_request_with_file(
+        webhook_request_with_files(
             edit_url,
             payload,
-            RIFT_CARD_FILE,
+            files,
             method="PATCH"
         )
 
@@ -1211,10 +1400,10 @@ def main():
         )
 
         result = (
-            webhook_request_with_file(
+            webhook_request_with_files(
                 create_url,
                 payload,
-                RIFT_CARD_FILE,
+                files,
                 method="POST"
             )
         )
