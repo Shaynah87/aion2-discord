@@ -309,7 +309,7 @@ def build_rift_times(
 
 
 # ============================================================
-# SHUGO GAMES
+# SHUGO FESTIVAL
 # ============================================================
 
 def next_shugo_starts(
@@ -388,7 +388,7 @@ def find_next_event(
         {
             "time": shugo_next,
             "icon": "🐹",
-            "name": "Shugo Games",
+            "name": "Shugo Festival",
             "color": 14525510
         },
 
@@ -832,7 +832,7 @@ def create_rift_card(
 
 
 # ============================================================
-# SHUGO-KARTE ERZEUGEN
+# SHUGO-FESTIVAL-KARTE ERZEUGEN
 # ============================================================
 
 def create_shugo_card(
@@ -843,7 +843,7 @@ def create_shugo_card(
     image = load_shugo_background()
 
     target_width = 1200
-    target_height = 680
+    target_height = 620
 
     image = crop_and_resize(
         image,
@@ -853,8 +853,8 @@ def create_shugo_card(
 
     image = add_left_gradient(
         image,
-        fade_ratio=0.72,
-        max_alpha=238,
+        fade_ratio=0.74,
+        max_alpha=242,
         tone=(5, 4, 3)
     )
 
@@ -868,22 +868,27 @@ def create_shugo_card(
     # --------------------------------------------------------
 
     title_font = load_font(
-        54,
+        56,
         bold=True
     )
 
     subtitle_font = load_font(
-        27,
+        29,
         bold=False
     )
 
     label_font = load_font(
-        28,
+        31,
         bold=True
     )
 
     game_font = load_font(
-        25,
+        31,
+        bold=False
+    )
+
+    next_font = load_font(
+        27,
         bold=False
     )
 
@@ -899,23 +904,23 @@ def create_shugo_card(
     )
 
     gold = (
-        230,
-        184,
-        74,
+        229,
+        177,
+        62,
         255
     )
 
     light_gold = (
-        242,
-        211,
-        135,
+        243,
+        210,
+        126,
         255
     )
 
     muted = (
-        215,
-        210,
-        200,
+        220,
+        214,
+        202,
         255
     )
 
@@ -925,8 +930,8 @@ def create_shugo_card(
 
     draw_text_with_shadow(
         draw,
-        (72, 50),
-        "SHUGO GAMES",
+        (72, 48),
+        "SHUGO FESTIVAL",
         title_font,
         white
     )
@@ -940,7 +945,7 @@ def create_shugo_card(
     )
 
     # --------------------------------------------------------
-    # ROTATIONEN
+    # NÄCHSTE ROTATION
     # --------------------------------------------------------
 
     next_rotation = (
@@ -950,31 +955,25 @@ def create_shugo_card(
         )
     )
 
-    following_rotation = (
-        shugo_rotation_for_time(
-            shugo_following,
-            shugo_data
-        )
-    )
-
-    # --------------------------------------------------------
-    # KOMMEND
-    # --------------------------------------------------------
-
     draw_text_with_shadow(
         draw,
-        (74, 185),
+        (74, 190),
         (
-            f"KOMMEND · "
+            f"NÄCHSTES FESTIVAL · "
             f"{shugo_next.strftime('%H:%M')} Uhr"
         ),
         label_font,
         gold
     )
 
-    y = 230
+    # --------------------------------------------------------
+    # SPIELE – DEUTLICH GRÖSSER
+    # --------------------------------------------------------
+
+    y = 245
 
     for game in next_rotation:
+
         draw_text_with_shadow(
             draw,
             (82, y),
@@ -983,37 +982,24 @@ def create_shugo_card(
             white
         )
 
-        y += 36
+        y += 48
 
     # --------------------------------------------------------
-    # DANACH
+    # DANACH NUR NOCH DIE ZEIT
     # --------------------------------------------------------
 
-    y += 18
+    y += 22
 
     draw_text_with_shadow(
         draw,
         (74, y),
         (
-            f"DANACH · "
+            f"Danach: "
             f"{shugo_following.strftime('%H:%M')} Uhr"
         ),
-        label_font,
-        gold
+        next_font,
+        muted
     )
-
-    y += 45
-
-    for game in following_rotation:
-        draw_text_with_shadow(
-            draw,
-            (82, y),
-            f"• {game}",
-            game_font,
-            muted
-        )
-
-        y += 36
 
     image = image.convert(
         "RGB"
@@ -1148,7 +1134,7 @@ def build_embeds(data):
     }
 
     # --------------------------------------------------------
-    # SHUGO
+    # SHUGO FESTIVAL
     # --------------------------------------------------------
 
     shugo_embed = {
