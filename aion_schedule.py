@@ -663,7 +663,7 @@ def create_rift_card(
         bold=True
     )
 
-    next_line_font = load_font(
+    secondary_font = load_font(
         30,
         bold=False
     )
@@ -689,10 +689,10 @@ def create_rift_card(
         255
     )
 
-    muted = (
-        215,
-        210,
-        215,
+    secondary_color = (
+        225,
+        222,
+        225,
         255
     )
 
@@ -735,10 +735,6 @@ def create_rift_card(
             ]
         )
 
-        secondary_label = (
-            "Nächster Rift"
-        )
-
         secondary_start = (
             rift_times[
                 "next_start"
@@ -764,10 +760,6 @@ def create_rift_card(
                     "duration_minutes"
                 ]
             )
-        )
-
-        secondary_label = (
-            "Folgender Rift"
         )
 
         secondary_start = (
@@ -804,8 +796,12 @@ def create_rift_card(
         white
     )
 
+    # --------------------------------------------------------
+    # NÄCHSTER TERMIN – MINIMALISTISCH
+    # --------------------------------------------------------
+
     secondary_text = (
-        f"→ {secondary_label}: "
+        f"→ "
         f"{format_time_range(
             secondary_start,
             secondary_end
@@ -814,10 +810,10 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (80, 390),
+        (80, 400),
         secondary_text,
-        next_line_font,
-        muted
+        secondary_font,
+        secondary_color
     )
 
     image = image.convert(
@@ -863,10 +859,6 @@ def create_shugo_card(
         "RGBA"
     )
 
-    # --------------------------------------------------------
-    # SCHRIFTEN
-    # --------------------------------------------------------
-
     title_font = load_font(
         56,
         bold=True
@@ -887,14 +879,11 @@ def create_shugo_card(
         bold=False
     )
 
-    next_font = load_font(
-        27,
+    # Exakt dieselbe Größe wie die zweite Rift-Zeile
+    secondary_font = load_font(
+        30,
         bold=False
     )
-
-    # --------------------------------------------------------
-    # FARBEN
-    # --------------------------------------------------------
 
     white = (
         250,
@@ -917,16 +906,13 @@ def create_shugo_card(
         255
     )
 
-    muted = (
-        220,
-        214,
-        202,
+    # Exakt dieselbe Helligkeit wie beim Rift
+    secondary_color = (
+        225,
+        222,
+        225,
         255
     )
-
-    # --------------------------------------------------------
-    # TITEL
-    # --------------------------------------------------------
 
     draw_text_with_shadow(
         draw,
@@ -943,10 +929,6 @@ def create_shugo_card(
         subtitle_font,
         light_gold
     )
-
-    # --------------------------------------------------------
-    # NÄCHSTE ROTATION
-    # --------------------------------------------------------
 
     next_rotation = (
         shugo_rotation_for_time(
@@ -966,10 +948,6 @@ def create_shugo_card(
         gold
     )
 
-    # --------------------------------------------------------
-    # SPIELE – DEUTLICH GRÖSSER
-    # --------------------------------------------------------
-
     y = 245
 
     for game in next_rotation:
@@ -985,20 +963,22 @@ def create_shugo_card(
         y += 48
 
     # --------------------------------------------------------
-    # DANACH NUR NOCH DIE ZEIT
+    # NÄCHSTER TERMIN – MIT MEHR ABSTAND
     # --------------------------------------------------------
 
-    y += 22
+    y += 38
+
+    secondary_text = (
+        f"→ "
+        f"{shugo_following.strftime('%H:%M')} Uhr"
+    )
 
     draw_text_with_shadow(
         draw,
         (74, y),
-        (
-            f"Danach: "
-            f"{shugo_following.strftime('%H:%M')} Uhr"
-        ),
-        next_font,
-        muted
+        secondary_text,
+        secondary_font,
+        secondary_color
     )
 
     image = image.convert(
@@ -1029,10 +1009,6 @@ def build_embeds(data):
         "shugo_games"
     ]
 
-    # --------------------------------------------------------
-    # RIFT
-    # --------------------------------------------------------
-
     rift_times = build_rift_times(
         rift_data,
         timezone
@@ -1049,10 +1025,6 @@ def build_embeds(data):
         rift_times
     )
 
-    # --------------------------------------------------------
-    # SHUGO
-    # --------------------------------------------------------
-
     (
         shugo_next,
         shugo_following
@@ -1066,10 +1038,6 @@ def build_embeds(data):
         shugo_next,
         shugo_following
     )
-
-    # --------------------------------------------------------
-    # RESETS
-    # --------------------------------------------------------
 
     daily_reset = (
         next_daily_reset(
@@ -1091,10 +1059,6 @@ def build_embeds(data):
             timezone
         )
     )
-
-    # --------------------------------------------------------
-    # ALS NÄCHSTES
-    # --------------------------------------------------------
 
     next_event = find_next_event(
         rift_next,
@@ -1119,10 +1083,6 @@ def build_embeds(data):
             next_event["color"]
     }
 
-    # --------------------------------------------------------
-    # RIFT
-    # --------------------------------------------------------
-
     rift_embed = {
         "color":
             14555706,
@@ -1133,10 +1093,6 @@ def build_embeds(data):
         }
     }
 
-    # --------------------------------------------------------
-    # SHUGO FESTIVAL
-    # --------------------------------------------------------
-
     shugo_embed = {
         "color":
             14525510,
@@ -1146,10 +1102,6 @@ def build_embeds(data):
                 "attachment://shugo_games_card.png"
         }
     }
-
-    # --------------------------------------------------------
-    # RESETS
-    # --------------------------------------------------------
 
     reset_embed = {
         "title":
@@ -1217,10 +1169,6 @@ def webhook_request_with_files(
 
     body = bytearray()
 
-    # --------------------------------------------------------
-    # PAYLOAD JSON
-    # --------------------------------------------------------
-
     body.extend(
         (
             f"--{boundary}\r\n"
@@ -1239,10 +1187,6 @@ def webhook_request_with_files(
     body.extend(
         b"\r\n"
     )
-
-    # --------------------------------------------------------
-    # DATEIEN
-    # --------------------------------------------------------
 
     for index, file_path in enumerate(
         file_paths
