@@ -625,8 +625,9 @@ def create_rift_card(
 ):
     image = load_rift_background()
 
+    # Rift und Shugo bewusst gleich groß
     target_width = 1200
-    target_height = 540
+    target_height = 620
 
     image = crop_and_resize(
         image,
@@ -652,12 +653,12 @@ def create_rift_card(
     )
 
     subtitle_font = load_font(
-        28,
+        29,
         bold=False
     )
 
     status_font = load_font(
-        29,
+        31,
         bold=True
     )
 
@@ -699,9 +700,13 @@ def create_rift_card(
         255
     )
 
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
+
     draw_text_with_shadow(
         draw,
-        (78, 62),
+        (72, 48),
         "SPACETIME RIFT",
         title_font,
         white
@@ -709,7 +714,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (80, 132),
+        (74, 116),
         (
             f"Alle "
             f"{rift_data['interval_hours']} Stunden"
@@ -790,7 +795,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (80, 218),
+        (74, 190),
         main_label,
         status_font,
         red
@@ -806,8 +811,8 @@ def create_rift_card(
     )
 
     main_time_position = (
-        78,
-        260
+        72,
+        230
     )
 
     draw_text_with_shadow(
@@ -818,7 +823,6 @@ def create_rift_card(
         white
     )
 
-    # Tatsächliche Unterkante der Hauptzeit ermitteln
     main_bbox = draw.textbbox(
         main_time_position,
         main_time_text,
@@ -844,7 +848,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (80, secondary_y),
+        (74, secondary_y),
         secondary_text,
         secondary_font,
         secondary_color
@@ -872,6 +876,7 @@ def create_shugo_card(
 ):
     image = load_shugo_background()
 
+    # Exakt gleiche Kartengröße wie beim Rift
     target_width = 1200
     target_height = 620
 
@@ -903,8 +908,13 @@ def create_shugo_card(
         bold=False
     )
 
-    label_font = load_font(
+    status_font = load_font(
         31,
+        bold=True
+    )
+
+    time_font = load_font(
+        48,
         bold=True
     )
 
@@ -977,22 +987,38 @@ def create_shugo_card(
         )
     )
 
+    # Gleiche Position und Größe wie NÄCHSTER beim Rift
     draw_text_with_shadow(
         draw,
         (74, 190),
-        (
-            f"NÄCHSTES · "
-            f"{shugo_next.strftime('%H:%M')} Uhr"
-        ),
-        label_font,
+        "NÄCHSTES",
+        status_font,
         gold
+    )
+
+    # Große Uhrzeit bleibt erhalten
+    main_time_text = (
+        f"{shugo_next.strftime('%H:%M')} Uhr"
+    )
+
+    main_time_position = (
+        72,
+        230
+    )
+
+    draw_text_with_shadow(
+        draw,
+        main_time_position,
+        main_time_text,
+        time_font,
+        white
     )
 
     # --------------------------------------------------------
     # SPIELE
     # --------------------------------------------------------
 
-    y = 245
+    y = 305
 
     last_game_text = None
     last_game_position = None
@@ -1019,7 +1045,7 @@ def create_shugo_card(
         last_game_text = game_text
         last_game_position = game_position
 
-        y += 48
+        y += 43
 
     # Tatsächliche Unterkante des letzten Spiels
     last_game_bbox = draw.textbbox(
@@ -1028,14 +1054,14 @@ def create_shugo_card(
         font=game_font
     )
 
+    # --------------------------------------------------------
+    # UNTERE ZEILE
+    # --------------------------------------------------------
+
     secondary_y = (
         last_game_bbox[3] +
         SECONDARY_GAP
     )
-
-    # --------------------------------------------------------
-    # UNTERE ZEILE
-    # --------------------------------------------------------
 
     secondary_text = (
         f"→ Danach: "
