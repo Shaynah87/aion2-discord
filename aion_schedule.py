@@ -433,7 +433,7 @@ def load_rift_background():
 
 
 # ============================================================
-# WEICHER TEXT-VERLAUF
+# BREITER WEICHER TEXT-VERLAUF
 # ============================================================
 
 def add_left_gradient(image):
@@ -447,8 +447,10 @@ def add_left_gradient(image):
 
     pixels = overlay.load()
 
+    # Vorher ca. 62 %.
+    # Jetzt zieht der dunkle Bereich deutlich weiter ins Bild.
     fade_end = int(
-        width * 0.62
+        width * 0.76
     )
 
     for x in range(fade_end):
@@ -458,8 +460,8 @@ def add_left_gradient(image):
         )
 
         alpha = int(
-            225 *
-            ((1.0 - progress) ** 1.7)
+            235 *
+            ((1.0 - progress) ** 1.55)
         )
 
         for y in range(height):
@@ -501,7 +503,7 @@ def draw_text_with_shadow(
             0,
             0,
             0,
-            190
+            200
         )
     )
 
@@ -523,8 +525,10 @@ def create_rift_card(
 ):
     image = load_rift_background()
 
+    # Etwas höher als vorher, damit die Karte weniger
+    # gequetscht wirkt.
     target_width = 1200
-    target_height = 500
+    target_height = 540
 
     source_width, source_height = (
         image.size
@@ -600,31 +604,31 @@ def create_rift_card(
     )
 
     # --------------------------------------------------------
-    # SCHRIFTEN
+    # SCHRIFTEN – GRÖSSER ALS BISHER
     # --------------------------------------------------------
 
     title_font = load_font(
-        48,
+        56,
         bold=True
     )
 
     subtitle_font = load_font(
-        25,
+        28,
         bold=False
     )
 
-    label_font = load_font(
-        24,
+    status_font = load_font(
+        29,
         bold=True
     )
 
     time_font = load_font(
-        39,
+        48,
         bold=True
     )
 
-    small_font = load_font(
-        25,
+    next_line_font = load_font(
+        27,
         bold=False
     )
 
@@ -633,9 +637,9 @@ def create_rift_card(
     # --------------------------------------------------------
 
     white = (
-        248,
-        246,
         250,
+        248,
+        251,
         255
     )
 
@@ -655,8 +659,8 @@ def create_rift_card(
 
     muted = (
         205,
-        195,
-        200,
+        198,
+        204,
         255
     )
 
@@ -666,7 +670,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (72, 64),
+        (78, 62),
         "SPACETIME RIFT",
         title_font,
         white
@@ -674,7 +678,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (74, 126),
+        (80, 132),
         (
             f"Alle "
             f"{rift_data['interval_hours']} Stunden"
@@ -684,37 +688,34 @@ def create_rift_card(
     )
 
     # --------------------------------------------------------
-    # AKTIV ODER NÄCHSTER RIFT
+    # AKTIVER / NÄCHSTER RIFT
     # --------------------------------------------------------
 
     if rift_times[
         "active_start"
     ]:
 
-        active_start = (
+        main_label = (
+            "JETZT AKTIV"
+        )
+
+        main_start = (
             rift_times[
                 "active_start"
             ]
         )
 
-        active_end = (
+        main_end = (
             rift_times[
                 "active_end"
             ]
         )
 
-        main_label = (
-            "JETZT AKTIV"
+        secondary_label = (
+            "Nächster Rift"
         )
 
-        main_range = (
-            format_time_range(
-                active_start,
-                active_end
-            )
-        )
-
-        second_start = (
+        secondary_start = (
             rift_times[
                 "next_start"
             ]
@@ -722,14 +723,18 @@ def create_rift_card(
 
     else:
 
-        next_start = (
+        main_label = (
+            "NÄCHSTER RIFT"
+        )
+
+        main_start = (
             rift_times[
                 "next_start"
             ]
         )
 
-        next_end = (
-            next_start +
+        main_end = (
+            main_start +
             timedelta(
                 minutes=rift_data[
                     "duration_minutes"
@@ -737,49 +742,18 @@ def create_rift_card(
             )
         )
 
-        main_label = (
-            "NÄCHSTER RIFT"
+        secondary_label = (
+            "Folgender Rift"
         )
 
-        main_range = (
-            format_time_range(
-                next_start,
-                next_end
-            )
-        )
-
-        second_start = (
+        secondary_start = (
             rift_times[
                 "following_start"
             ]
         )
 
-    # --------------------------------------------------------
-    # HAUPTZEIT
-    # --------------------------------------------------------
-
-    draw_text_with_shadow(
-        draw,
-        (74, 205),
-        main_label,
-        label_font,
-        red
-    )
-
-    draw_text_with_shadow(
-        draw,
-        (72, 245),
-        main_range,
-        time_font,
-        white
-    )
-
-    # --------------------------------------------------------
-    # DANACH
-    # --------------------------------------------------------
-
-    second_end = (
-        second_start +
+    secondary_end = (
+        secondary_start +
         timedelta(
             minutes=rift_data[
                 "duration_minutes"
@@ -787,23 +761,51 @@ def create_rift_card(
         )
     )
 
+    # --------------------------------------------------------
+    # HAUPTSTATUS
+    # --------------------------------------------------------
+
     draw_text_with_shadow(
         draw,
-        (74, 345),
-        "Danach",
-        label_font,
-        muted
+        (80, 218),
+        main_label,
+        status_font,
+        red
+    )
+
+    # --------------------------------------------------------
+    # HAUPTZEIT
+    # --------------------------------------------------------
+
+    draw_text_with_shadow(
+        draw,
+        (78, 260),
+        format_time_range(
+            main_start,
+            main_end
+        ),
+        time_font,
+        white
+    )
+
+    # --------------------------------------------------------
+    # KOMPAKTE ZWEITE ZEILE
+    # --------------------------------------------------------
+
+    secondary_text = (
+        f"→ {secondary_label} · "
+        f"{format_time_range(
+            secondary_start,
+            secondary_end
+        )}"
     )
 
     draw_text_with_shadow(
         draw,
-        (74, 386),
-        format_time_range(
-            second_start,
-            second_end
-        ),
-        small_font,
-        white
+        (80, 390),
+        secondary_text,
+        next_line_font,
+        muted
     )
 
     image = image.convert(
