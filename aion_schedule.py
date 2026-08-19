@@ -447,8 +447,6 @@ def add_left_gradient(image):
 
     pixels = overlay.load()
 
-    # Vorher ca. 62 %.
-    # Jetzt zieht der dunkle Bereich deutlich weiter ins Bild.
     fade_end = int(
         width * 0.76
     )
@@ -525,14 +523,10 @@ def create_rift_card(
 ):
     image = load_rift_background()
 
-    # Etwas höher als vorher, damit die Karte weniger
-    # gequetscht wirkt.
     target_width = 1200
     target_height = 540
 
-    source_width, source_height = (
-        image.size
-    )
+    source_width, source_height = image.size
 
     source_ratio = (
         source_width /
@@ -604,7 +598,7 @@ def create_rift_card(
     )
 
     # --------------------------------------------------------
-    # SCHRIFTEN – GRÖSSER ALS BISHER
+    # SCHRIFTEN
     # --------------------------------------------------------
 
     title_font = load_font(
@@ -627,8 +621,9 @@ def create_rift_card(
         bold=True
     )
 
+    # Etwa auf Größe von "Alle 3 Stunden"
     next_line_font = load_font(
-        27,
+        30,
         bold=False
     )
 
@@ -658,9 +653,9 @@ def create_rift_card(
     )
 
     muted = (
-        205,
-        198,
-        204,
+        215,
+        210,
+        215,
         255
     )
 
@@ -789,11 +784,11 @@ def create_rift_card(
     )
 
     # --------------------------------------------------------
-    # KOMPAKTE ZWEITE ZEILE
+    # NÄCHSTER / FOLGENDER RIFT
     # --------------------------------------------------------
 
     secondary_text = (
-        f"→ {secondary_label} · "
+        f"→ {secondary_label}: "
         f"{format_time_range(
             secondary_start,
             secondary_end
