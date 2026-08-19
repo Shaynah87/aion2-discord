@@ -10,6 +10,11 @@ WEBHOOK_URL = os.environ.get("AION_SCHEDULE_WEBHOOK")
 DATA_FILE = "schedule_data.json"
 STATE_FILE = "schedule_message.json"
 
+RIFT_IMAGE_URL = (
+    "https://raw.githubusercontent.com/"
+    "Shaynah87/aion2-discord/main/spacetime_rift.png"
+)
+
 
 # ------------------------------------------------------------
 # DATEIEN
@@ -226,7 +231,6 @@ def build_rift_times(
         ]
     )
 
-    # Genügend Termine von gestern bis morgen erzeugen.
     starts = []
 
     start = (
@@ -243,7 +247,6 @@ def build_rift_times(
         starts.append(start)
         start += interval
 
-
     active_start = None
     active_end = None
     active_entry_end = None
@@ -251,8 +254,6 @@ def build_rift_times(
     next_start = None
     following_start = None
 
-
-    # Prüfen, ob aktuell ein Rift aktiv ist.
     for start_time in starts:
         end_time = (
             start_time +
@@ -273,8 +274,6 @@ def build_rift_times(
 
             break
 
-
-    # Nächsten und übernächsten Start suchen.
     future_starts = [
         start_time
         for start_time in starts
@@ -288,7 +287,6 @@ def build_rift_times(
 
     if len(future_starts) > 1:
         following_start = future_starts[1]
-
 
     return {
         "active_start":
@@ -304,13 +302,7 @@ def build_rift_times(
             next_start,
 
         "following_start":
-            following_start,
-
-        "duration":
-            duration,
-
-        "entry_duration":
-            entry_duration
+            following_start
     }
 
 
@@ -326,7 +318,6 @@ def next_shugo_starts(
 
     candidates = []
 
-    # Heute und morgen prüfen.
     for day_offset in range(0, 2):
 
         day = (
@@ -352,15 +343,11 @@ def next_shugo_starts(
                         candidate
                     )
 
-
     candidates.sort()
 
-    next_start = candidates[0]
-    following_start = candidates[1]
-
     return (
-        next_start,
-        following_start
+        candidates[0],
+        candidates[1]
     )
 
 
@@ -379,7 +366,7 @@ def shugo_rotation_for_time(
 
 
 # ------------------------------------------------------------
-# "ALS NÄCHSTES"
+# ALS NÄCHSTES
 # ------------------------------------------------------------
 
 def find_next_event(
@@ -435,9 +422,8 @@ def build_embeds(data):
     rift_data = data["rift"]
     shugo_data = data["shugo_games"]
 
-
     # --------------------------------------------------------
-    # RIFT BERECHNEN
+    # RIFT
     # --------------------------------------------------------
 
     rift_times = build_rift_times(
@@ -453,9 +439,8 @@ def build_embeds(data):
         "following_start"
     ]
 
-
     # --------------------------------------------------------
-    # SHUGO BERECHNEN
+    # SHUGO
     # --------------------------------------------------------
 
     (
@@ -465,7 +450,6 @@ def build_embeds(data):
         shugo_data,
         timezone
     )
-
 
     # --------------------------------------------------------
     # RESETS
@@ -482,7 +466,6 @@ def build_embeds(data):
         timezone
     )
 
-
     # --------------------------------------------------------
     # GLOBAL NÄCHSTES EVENT
     # --------------------------------------------------------
@@ -498,10 +481,8 @@ def build_embeds(data):
         weekly_reset
     )
 
-
     # ========================================================
-    # EMBED 1
-    # ALS NÄCHSTES
+    # EMBED 1 · ALS NÄCHSTES
     # ========================================================
 
     next_embed = {
@@ -519,54 +500,30 @@ def build_embeds(data):
         "color": 10181046
     }
 
-
     # ========================================================
-    # EMBED 2
-    # SPACETIME RIFT
+    # EMBED 2 · SPACETIME RIFT
     # ========================================================
 
     if rift_times["active_start"]:
 
-        active_start = (
-            rift_times[
-                "active_start"
-            ]
+        active_start = rift_times[
+            "active_start"
+        ]
+
+        active_end = rift_times[
+            "active_end"
+        ]
+
+        rift_status = (
+            "🟢 **RIFT AKTIV**\n"
+            f"{format_time_range(
+                active_start,
+                active_end
+            )}"
         )
-
-        active_end = (
-            rift_times[
-                "active_end"
-            ]
-        )
-
-        entry_end = (
-            rift_times[
-                "active_entry_end"
-            ]
-        )
-
-        if now < entry_end:
-            rift_status = (
-                "🟢 **RIFT AKTIV**\n"
-                f"{format_time_range(
-                    active_start,
-                    active_end
-                )}\n"
-                f"⚠️ Eintritt nur bis "
-                f"{entry_end.strftime('%H:%M')} Uhr"
-            )
-
-        else:
-            rift_status = (
-                "🟢 **RIFT AKTIV**\n"
-                f"{format_time_range(
-                    active_start,
-                    active_end
-                )}\n"
-                "🔒 Eintritt bereits geschlossen"
-            )
 
     else:
+
         next_end = (
             rift_next +
             timedelta(
@@ -576,25 +533,13 @@ def build_embeds(data):
             )
         )
 
-        next_entry_end = (
-            rift_next +
-            timedelta(
-                minutes=rift_data[
-                    "entry_minutes"
-                ]
-            )
-        )
-
         rift_status = (
             "🔮 **NÄCHSTER RIFT**\n"
             f"{format_time_range(
                 rift_next,
                 next_end
-            )}\n"
-            f"⚠️ Eintritt nur bis "
-            f"{next_entry_end.strftime('%H:%M')} Uhr"
+            )}"
         )
-
 
     following_end = (
         rift_following +
@@ -609,27 +554,25 @@ def build_embeds(data):
         "title": "🌀 SPACETIME RIFT",
 
         "description": (
+            f"Alle "
+            f"{rift_data['interval_hours']} Stunden\n\n"
             f"{rift_status}\n\n"
             f"**Danach**\n"
             f"{format_time_range(
                 rift_following,
                 following_end
-            )}\n\n"
-            f"Alle "
-            f"{rift_data['interval_hours']} Stunden "
-            f"· Aufenthalt bis zu "
-            f"{rift_data['duration_minutes'] // 60} Stunde\n"
-            f"⚠️ Eintritt nur in den ersten "
-            f"{rift_data['entry_minutes']} Minuten"
+            )}"
         ),
 
-        "color": 5793266
+        "color": 5793266,
+
+        "image": {
+            "url": RIFT_IMAGE_URL
+        }
     }
 
-
     # ========================================================
-    # EMBED 3
-    # SHUGO GAMES
+    # EMBED 3 · SHUGO GAMES
     # ========================================================
 
     next_rotation = (
@@ -656,13 +599,11 @@ def build_embeds(data):
         for game in following_rotation
     )
 
-
     shugo_embed = {
         "title": "🐹 SHUGO GAMES",
 
         "description": (
-            "Alle 30 Minuten · Starts um "
-            "**:15** und **:45**"
+            "Alle 30 Minuten"
         ),
 
         "fields": [
@@ -692,10 +633,8 @@ def build_embeds(data):
         "color": 14058735
     }
 
-
     # ========================================================
-    # EMBED 4
-    # RESETS
+    # EMBED 4 · RESETS
     # ========================================================
 
     reset_embed = {
@@ -709,7 +648,7 @@ def build_embeds(data):
                     f"**{data['resets']['daily']} Uhr**"
                 ),
 
-                "inline": True
+                "inline": False
             },
 
             {
@@ -722,13 +661,12 @@ def build_embeds(data):
                     f"{data['resets']['weekly_time']} Uhr**"
                 ),
 
-                "inline": True
+                "inline": False
             }
         ],
 
         "color": 6724044
     }
-
 
     return [
         next_embed,
@@ -794,7 +732,6 @@ def main():
         )
 
     data = load_data()
-
     state = load_state()
 
     embeds = build_embeds(
@@ -804,11 +741,6 @@ def main():
     message_id = state.get(
         "message_id"
     )
-
-
-    # --------------------------------------------------------
-    # VORHANDENE NACHRICHT BEARBEITEN
-    # --------------------------------------------------------
 
     if message_id:
 
@@ -829,11 +761,6 @@ def main():
             "Bestehende Veranstaltungs-"
             "Nachricht aktualisiert."
         )
-
-
-    # --------------------------------------------------------
-    # NEUE NACHRICHT ERSTELLEN
-    # --------------------------------------------------------
 
     else:
 
