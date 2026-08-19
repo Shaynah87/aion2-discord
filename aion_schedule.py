@@ -51,7 +51,7 @@ def save_state(data):
 
 
 # ------------------------------------------------------------
-# NÄCHSTE TÄGLICHE UHRZEIT BERECHNEN
+# NÄCHSTE TÄGLICHE UHRZEIT
 # ------------------------------------------------------------
 
 def next_time_today_or_tomorrow(
@@ -79,7 +79,7 @@ def next_time_today_or_tomorrow(
 
 
 # ------------------------------------------------------------
-# NÄCHSTEN WOCHENTERMIN BERECHNEN
+# NÄCHSTER WOCHENTERMIN
 # ------------------------------------------------------------
 
 def next_weekly_time(
@@ -144,25 +144,22 @@ def german_weekday(dt):
 
 
 # ------------------------------------------------------------
-# DATUM / UHRZEIT FÜR DISCORD
+# UHRZEIT FÜR "ALS NÄCHSTES"
 # ------------------------------------------------------------
 
-def format_event_time(
+def format_next_event_time(
     dt,
     now
 ):
-    today = now.date()
-    tomorrow = (
-        now + timedelta(days=1)
-    ).date()
-
-    if dt.date() == today:
+    if dt.date() == now.date():
         return (
             f"Heute · "
             f"{dt.strftime('%H:%M')} Uhr"
         )
 
-    if dt.date() == tomorrow:
+    if dt.date() == (
+        now + timedelta(days=1)
+    ).date():
         return (
             f"Morgen · "
             f"{dt.strftime('%H:%M')} Uhr"
@@ -205,8 +202,6 @@ def build_embed(data):
         if not rift_times:
             continue
 
-        # Jede einzelne Rift-Zeit zählt
-        # für "Als Nächstes".
         for time_string in rift_times:
             next_rift_time = (
                 next_time_today_or_tomorrow(
@@ -223,15 +218,12 @@ def build_embed(data):
                 )
             )
 
-        # Im normalen Fahrplan werden
-        # alle festen Tageszeiten angezeigt.
-        formatted_times = " · ".join(
-            f"{time_string} Uhr"
-            for time_string in rift_times
+        formatted_times = " / ".join(
+            rift_times
         )
 
         rift_lines.append(
-            f"**{rift['name']}**\n"
+            f"**{rift['name']}** · "
             f"{formatted_times}"
         )
 
@@ -262,8 +254,8 @@ def build_embed(data):
         )
 
         shugo_lines.append(
-            f"**{game['name']}**\n"
-            f"{game['time']} Uhr"
+            f"**{game['name']}** · "
+            f"{game['time']}"
         )
 
 
@@ -324,7 +316,7 @@ def build_embed(data):
 
 
     # --------------------------------------------------------
-    # DISCORD-FELDER
+    # FELDER
     # --------------------------------------------------------
 
     fields = [
@@ -332,8 +324,8 @@ def build_embed(data):
             "name": "⚡ ALS NÄCHSTES",
             "value": (
                 f"{next_event_icon} "
-                f"**{next_event_name}**\n"
-                f"{format_event_time(
+                f"**{next_event_name}** — "
+                f"{format_next_event_time(
                     next_event_time,
                     now
                 )}"
@@ -351,7 +343,7 @@ def build_embed(data):
         fields.append(
             {
                 "name": "🌀 SPACE RIFTS",
-                "value": "\n\n".join(
+                "value": "\n".join(
                     rift_lines
                 ),
                 "inline": False
@@ -367,7 +359,7 @@ def build_embed(data):
         fields.append(
             {
                 "name": "🐹 SHUGO GAMES",
-                "value": "\n\n".join(
+                "value": "\n".join(
                     shugo_lines
                 ),
                 "inline": False
@@ -383,16 +375,11 @@ def build_embed(data):
         {
             "name": "🔄 RESETS",
             "value": (
-                f"**Daily Reset**\n"
-                f"{format_event_time(
-                    daily_reset,
-                    now
-                )}\n\n"
-                f"**Weekly Reset**\n"
-                f"{format_event_time(
-                    weekly_reset,
-                    now
-                )}"
+                f"**Daily Reset** · "
+                f"{data['resets']['daily']}\n"
+                f"**Weekly Reset** · "
+                f"{german_weekday(weekly_reset)} "
+                f"{data['resets']['weekly_time']}"
             ),
             "inline": False
         }
@@ -411,15 +398,12 @@ def build_embed(data):
             "auf einen Blick."
         ),
 
-        # Violett
         "color": 10181046,
 
         "fields": fields,
 
         "footer": {
-            "text": (
-                "Automatisch aktualisiert"
-            )
+            "text": "Automatisch aktualisiert"
         }
     }
 
@@ -457,9 +441,7 @@ def webhook_request(
         timeout=30
     ) as response:
 
-        response_data = (
-            response.read()
-        )
+        response_data = response.read()
 
         if not response_data:
             return {}
