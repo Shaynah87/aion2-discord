@@ -110,6 +110,17 @@ def parse_time_today(
     )
 
 
+def discord_timestamp(dt):
+    unix = int(
+        dt.timestamp()
+    )
+
+    return (
+        f"<t:{unix}:t> · "
+        f"<t:{unix}:R>"
+    )
+
+
 def german_weekday(dt):
     weekdays = {
         0: "Montag",
@@ -124,33 +135,6 @@ def german_weekday(dt):
     return weekdays[
         dt.weekday()
     ]
-
-
-def format_day_time(
-    dt,
-    now
-):
-    if dt.date() == now.date():
-        return (
-            f"Heute · "
-            f"{dt.strftime('%H:%M')} Uhr"
-        )
-
-    tomorrow = (
-        now +
-        timedelta(days=1)
-    ).date()
-
-    if dt.date() == tomorrow:
-        return (
-            f"Morgen · "
-            f"{dt.strftime('%H:%M')} Uhr"
-        )
-
-    return (
-        f"{german_weekday(dt)} · "
-        f"{dt.strftime('%H:%M')} Uhr"
-    )
 
 
 def format_time_range(
@@ -462,8 +446,6 @@ def add_left_gradient(image):
 
     pixels = overlay.load()
 
-    # Links stark dunkel.
-    # Ab ca. 62 % Bildbreite vollständig transparent.
     fade_end = int(
         width * 0.62
     )
@@ -474,9 +456,6 @@ def add_left_gradient(image):
             x / fade_end
         )
 
-        # Weicher Verlauf:
-        # links fast schwarz,
-        # nach rechts immer transparenter.
         alpha = int(
             225 *
             ((1.0 - progress) ** 1.7)
@@ -546,10 +525,6 @@ def create_rift_card(
     target_width = 1200
     target_height = 500
 
-    # --------------------------------------------------------
-    # BILD AUF FORMAT ZUSCHNEIDEN
-    # --------------------------------------------------------
-
     source_width, source_height = (
         image.size
     )
@@ -613,10 +588,6 @@ def create_rift_card(
         ),
         Image.Resampling.LANCZOS
     )
-
-    # --------------------------------------------------------
-    # WEICHER VERLAUF STATT TEXTBOX
-    # --------------------------------------------------------
 
     image = add_left_gradient(
         image
@@ -712,7 +683,7 @@ def create_rift_card(
     )
 
     # --------------------------------------------------------
-    # AKTIV ODER KOMMEND
+    # AKTIV ODER NÄCHSTER RIFT
     # --------------------------------------------------------
 
     if rift_times[
@@ -742,8 +713,6 @@ def create_rift_card(
             )
         )
 
-        # Wenn Rift läuft, ist "Danach"
-        # der direkt nächste Start.
         second_start = (
             rift_times[
                 "next_start"
@@ -856,10 +825,6 @@ def build_embeds(data):
         data["timezone"]
     )
 
-    now = datetime.now(
-        timezone
-    )
-
     rift_data = data[
         "rift"
     ]
@@ -947,10 +912,7 @@ def build_embeds(data):
         "description": (
             f"{next_event_icon} "
             f"**{next_event_name}**\n"
-            f"{format_day_time(
-                next_event_time,
-                now
-            )}"
+            f"{discord_timestamp(next_event_time)}"
         ),
 
         "color":
@@ -962,7 +924,6 @@ def build_embeds(data):
     # --------------------------------------------------------
 
     rift_embed = {
-        # Dunkles Rift-Rot statt Blau
         "color":
             14555706,
 
@@ -1115,10 +1076,6 @@ def webhook_request_with_file(
 
     body = bytearray()
 
-    # --------------------------------------------------------
-    # PAYLOAD JSON
-    # --------------------------------------------------------
-
     body.extend(
         (
             f"--{boundary}\r\n"
@@ -1137,10 +1094,6 @@ def webhook_request_with_file(
     body.extend(
         b"\r\n"
     )
-
-    # --------------------------------------------------------
-    # DATEI
-    # --------------------------------------------------------
 
     body.extend(
         (
