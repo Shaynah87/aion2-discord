@@ -27,6 +27,9 @@ SHUGO_BACKGROUND_URL = (
 RIFT_CARD_FILE = "spacetime_rift_card.png"
 SHUGO_CARD_FILE = "shugo_games_card.png"
 
+# Einheitlicher Abstand vor der unteren Zusatzzeile
+SECONDARY_GAP = 62
+
 
 # ============================================================
 # DATEIEN
@@ -576,7 +579,7 @@ def add_left_gradient(
 
 
 # ============================================================
-# TEXT MIT LEICHTEM SCHATTEN
+# TEXT MIT SCHATTEN
 # ============================================================
 
 def draw_text_with_shadow(
@@ -613,7 +616,7 @@ def draw_text_with_shadow(
 
 
 # ============================================================
-# RIFT-KARTE ERZEUGEN
+# RIFT-KARTE
 # ============================================================
 
 def create_rift_card(
@@ -715,13 +718,15 @@ def create_rift_card(
         light_red
     )
 
+    # --------------------------------------------------------
+    # STATUS
+    # --------------------------------------------------------
+
     if rift_times[
         "active_start"
     ]:
 
-        main_label = (
-            "JETZT AKTIV"
-        )
+        main_label = "JETZT AKTIV"
 
         main_start = (
             rift_times[
@@ -735,6 +740,8 @@ def create_rift_card(
             ]
         )
 
+        secondary_label = "Nächster"
+
         secondary_start = (
             rift_times[
                 "next_start"
@@ -743,9 +750,7 @@ def create_rift_card(
 
     else:
 
-        main_label = (
-            "NÄCHSTER RIFT"
-        )
+        main_label = "NÄCHSTER"
 
         main_start = (
             rift_times[
@@ -762,6 +767,8 @@ def create_rift_card(
             )
         )
 
+        secondary_label = "Danach"
+
         secondary_start = (
             rift_times[
                 "following_start"
@@ -777,6 +784,10 @@ def create_rift_card(
         )
     )
 
+    # --------------------------------------------------------
+    # HAUPTSTATUS
+    # --------------------------------------------------------
+
     draw_text_with_shadow(
         draw,
         (80, 218),
@@ -785,23 +796,46 @@ def create_rift_card(
         red
     )
 
+    # --------------------------------------------------------
+    # HAUPTZEIT
+    # --------------------------------------------------------
+
+    main_time_text = format_time_range(
+        main_start,
+        main_end
+    )
+
+    main_time_position = (
+        78,
+        260
+    )
+
     draw_text_with_shadow(
         draw,
-        (78, 260),
-        format_time_range(
-            main_start,
-            main_end
-        ),
+        main_time_position,
+        main_time_text,
         time_font,
         white
     )
 
+    # Tatsächliche Unterkante der Hauptzeit ermitteln
+    main_bbox = draw.textbbox(
+        main_time_position,
+        main_time_text,
+        font=time_font
+    )
+
+    secondary_y = (
+        main_bbox[3] +
+        SECONDARY_GAP
+    )
+
     # --------------------------------------------------------
-    # NÄCHSTER TERMIN – MINIMALISTISCH
+    # UNTERE ZEILE
     # --------------------------------------------------------
 
     secondary_text = (
-        f"→ "
+        f"→ {secondary_label}: "
         f"{format_time_range(
             secondary_start,
             secondary_end
@@ -810,7 +844,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (80, 400),
+        (80, secondary_y),
         secondary_text,
         secondary_font,
         secondary_color
@@ -828,7 +862,7 @@ def create_rift_card(
 
 
 # ============================================================
-# SHUGO-FESTIVAL-KARTE ERZEUGEN
+# SHUGO-FESTIVAL-KARTE
 # ============================================================
 
 def create_shugo_card(
@@ -879,7 +913,6 @@ def create_shugo_card(
         bold=False
     )
 
-    # Exakt dieselbe Größe wie die zweite Rift-Zeile
     secondary_font = load_font(
         30,
         bold=False
@@ -906,13 +939,16 @@ def create_shugo_card(
         255
     )
 
-    # Exakt dieselbe Helligkeit wie beim Rift
     secondary_color = (
         225,
         222,
         225,
         255
     )
+
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
 
     draw_text_with_shadow(
         draw,
@@ -930,6 +966,10 @@ def create_shugo_card(
         light_gold
     )
 
+    # --------------------------------------------------------
+    # NÄCHSTES FESTIVAL
+    # --------------------------------------------------------
+
     next_rotation = (
         shugo_rotation_for_time(
             shugo_next,
@@ -941,41 +981,70 @@ def create_shugo_card(
         draw,
         (74, 190),
         (
-            f"NÄCHSTES FESTIVAL · "
+            f"NÄCHSTES · "
             f"{shugo_next.strftime('%H:%M')} Uhr"
         ),
         label_font,
         gold
     )
 
+    # --------------------------------------------------------
+    # SPIELE
+    # --------------------------------------------------------
+
     y = 245
+
+    last_game_text = None
+    last_game_position = None
 
     for game in next_rotation:
 
+        game_text = (
+            f"• {game}"
+        )
+
+        game_position = (
+            82,
+            y
+        )
+
         draw_text_with_shadow(
             draw,
-            (82, y),
-            f"• {game}",
+            game_position,
+            game_text,
             game_font,
             white
         )
 
+        last_game_text = game_text
+        last_game_position = game_position
+
         y += 48
 
-    # --------------------------------------------------------
-    # NÄCHSTER TERMIN – MIT MEHR ABSTAND
-    # --------------------------------------------------------
+    # Tatsächliche Unterkante des letzten Spiels
+    last_game_bbox = draw.textbbox(
+        last_game_position,
+        last_game_text,
+        font=game_font
+    )
 
-    y += 38
+    secondary_y = (
+        last_game_bbox[3] +
+        SECONDARY_GAP
+    )
+
+    # --------------------------------------------------------
+    # UNTERE ZEILE
+    # --------------------------------------------------------
 
     secondary_text = (
-        f"→ "
+        f"→ Danach: "
         f"{shugo_following.strftime('%H:%M')} Uhr"
     )
 
     draw_text_with_shadow(
         draw,
-        (74, y),
+        (82, secondary_y),
         secondary_text,
         secondary_font,
         secondary_color
@@ -1009,6 +1078,10 @@ def build_embeds(data):
         "shugo_games"
     ]
 
+    # --------------------------------------------------------
+    # RIFT
+    # --------------------------------------------------------
+
     rift_times = build_rift_times(
         rift_data,
         timezone
@@ -1025,6 +1098,10 @@ def build_embeds(data):
         rift_times
     )
 
+    # --------------------------------------------------------
+    # SHUGO
+    # --------------------------------------------------------
+
     (
         shugo_next,
         shugo_following
@@ -1038,6 +1115,10 @@ def build_embeds(data):
         shugo_next,
         shugo_following
     )
+
+    # --------------------------------------------------------
+    # RESETS
+    # --------------------------------------------------------
 
     daily_reset = (
         next_daily_reset(
@@ -1059,6 +1140,10 @@ def build_embeds(data):
             timezone
         )
     )
+
+    # --------------------------------------------------------
+    # ALS NÄCHSTES
+    # --------------------------------------------------------
 
     next_event = find_next_event(
         rift_next,
@@ -1083,6 +1168,10 @@ def build_embeds(data):
             next_event["color"]
     }
 
+    # --------------------------------------------------------
+    # RIFT
+    # --------------------------------------------------------
+
     rift_embed = {
         "color":
             14555706,
@@ -1093,6 +1182,10 @@ def build_embeds(data):
         }
     }
 
+    # --------------------------------------------------------
+    # SHUGO FESTIVAL
+    # --------------------------------------------------------
+
     shugo_embed = {
         "color":
             14525510,
@@ -1102,6 +1195,10 @@ def build_embeds(data):
                 "attachment://shugo_games_card.png"
         }
     }
+
+    # --------------------------------------------------------
+    # RESETS
+    # --------------------------------------------------------
 
     reset_embed = {
         "title":
@@ -1169,6 +1266,10 @@ def webhook_request_with_files(
 
     body = bytearray()
 
+    # --------------------------------------------------------
+    # PAYLOAD JSON
+    # --------------------------------------------------------
+
     body.extend(
         (
             f"--{boundary}\r\n"
@@ -1187,6 +1288,10 @@ def webhook_request_with_files(
     body.extend(
         b"\r\n"
     )
+
+    # --------------------------------------------------------
+    # DATEIEN
+    # --------------------------------------------------------
 
     for index, file_path in enumerate(
         file_paths
