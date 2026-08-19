@@ -1,39 +1,38 @@
 {
   "timezone": "Europe/Berlin",
 
-  "rifts": [
-    {
-      "name": "Rift 1",
-      "times": ["18:00", "21:00"]
-    },
-    {
-      "name": "Rift 2",
-      "times": ["00:00", "03:00"]
-    }
-  ],
+  "rift": {
+    "name": "Spacetime Rift",
+    "interval_hours": 3,
+    "first_start": "00:00",
+    "duration_minutes": 60,
+    "entry_minutes": 5
+  },
 
-  "shugo_games": [
-    {
-      "name": "Shugo Game 1",
-      "time": "19:00"
-    },
-    {
-      "name": "Shugo Game 2",
-      "time": "21:00"
-    }
-  ],
+  "shugo_games": {
+    "name": "Shugo Games",
+    "start_minutes": [15, 45],
+
+    "rotation_15": [
+      "Jump Jump",
+      "Not This Tile?",
+      "Wraith Evasion",
+      "Defend Shugo Merchants",
+      "Odyle Flight Frenzy"
+    ],
+
+    "rotation_45": [
+      "Goldrin's Treasure",
+      "Hidden Lugi",
+      "Mysterious Track",
+      "Up! Up! Up!",
+      "Pang Pang Pang"
+    ]
+  },
 
   "resets": {
     "daily": "09:00",
     "weekly_day": "Wednesday",
     "weekly_time": "09:00"
-  },
-
-  "events": [
-    {
-      "name": "Event 1",
-      "day": "Friday",
-      "time": "20:00"
-    }
-  ]
+  }
 }
