@@ -110,15 +110,12 @@ def parse_time_today(
     )
 
 
-def discord_timestamp(dt):
+def discord_time(dt):
     unix = int(
         dt.timestamp()
     )
 
-    return (
-        f"<t:{unix}:t> · "
-        f"<t:{unix}:R>"
-    )
+    return f"<t:{unix}:t>"
 
 
 def german_weekday(dt):
@@ -375,33 +372,37 @@ def find_next_event(
     weekly_reset
 ):
     events = [
-        (
-            rift_next,
-            "🌀",
-            "Spacetime Rift"
-        ),
+        {
+            "time": rift_next,
+            "icon": "🌀",
+            "name": "Spacetime Rift",
+            "color": 14555706
+        },
 
-        (
-            shugo_next,
-            "🐹",
-            "Shugo Games"
-        ),
+        {
+            "time": shugo_next,
+            "icon": "🐹",
+            "name": "Shugo Games",
+            "color": 14058735
+        },
 
-        (
-            daily_reset,
-            "🔄",
-            "Daily Reset"
-        ),
+        {
+            "time": daily_reset,
+            "icon": "🔄",
+            "name": "Daily Reset",
+            "color": 6724044
+        },
 
-        (
-            weekly_reset,
-            "🔄",
-            "Weekly Reset"
-        )
+        {
+            "time": weekly_reset,
+            "icon": "🔄",
+            "name": "Weekly Reset",
+            "color": 6724044
+        }
     ]
 
     events.sort(
-        key=lambda item: item[0]
+        key=lambda item: item["time"]
     )
 
     return events[0]
@@ -894,11 +895,7 @@ def build_embeds(data):
     # ALS NÄCHSTES
     # --------------------------------------------------------
 
-    (
-        next_event_time,
-        next_event_icon,
-        next_event_name
-    ) = find_next_event(
+    next_event = find_next_event(
         rift_next,
         shugo_next,
         daily_reset,
@@ -910,13 +907,15 @@ def build_embeds(data):
             "⚡ ALS NÄCHSTES",
 
         "description": (
-            f"{next_event_icon} "
-            f"**{next_event_name}**\n"
-            f"{discord_timestamp(next_event_time)}"
+            f"{next_event['icon']} "
+            f"**{next_event['name']}** · "
+            f"{discord_time(
+                next_event['time']
+            )}"
         ),
 
         "color":
-            10181046
+            next_event["color"]
     }
 
     # --------------------------------------------------------
