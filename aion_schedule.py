@@ -1,7 +1,6 @@
 import os
 import json
 import urllib.request
-import urllib.error
 import uuid
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -304,13 +303,8 @@ def build_rift_times(
 
     future_starts.sort()
 
-    next_start = (
-        future_starts[0]
-    )
-
-    following_start = (
-        future_starts[1]
-    )
+    next_start = future_starts[0]
+    following_start = future_starts[1]
 
     return {
         "active_start":
@@ -448,11 +442,95 @@ def load_rift_background():
     ) as response:
         image_data = response.read()
 
-    image = Image.open(
+    return Image.open(
         BytesIO(image_data)
-    ).convert("RGB")
+    ).convert("RGBA")
 
-    return image
+
+# ============================================================
+# WEICHER TEXT-VERLAUF
+# ============================================================
+
+def add_left_gradient(image):
+    width, height = image.size
+
+    overlay = Image.new(
+        "RGBA",
+        (width, height),
+        (0, 0, 0, 0)
+    )
+
+    pixels = overlay.load()
+
+    # Links stark dunkel.
+    # Ab ca. 62 % Bildbreite vollständig transparent.
+    fade_end = int(
+        width * 0.62
+    )
+
+    for x in range(fade_end):
+
+        progress = (
+            x / fade_end
+        )
+
+        # Weicher Verlauf:
+        # links fast schwarz,
+        # nach rechts immer transparenter.
+        alpha = int(
+            225 *
+            ((1.0 - progress) ** 1.7)
+        )
+
+        for y in range(height):
+            pixels[x, y] = (
+                3,
+                2,
+                7,
+                alpha
+            )
+
+    return Image.alpha_composite(
+        image,
+        overlay
+    )
+
+
+# ============================================================
+# TEXT MIT LEICHTEM SCHATTEN
+# ============================================================
+
+def draw_text_with_shadow(
+    draw,
+    position,
+    text,
+    font,
+    fill,
+    shadow_offset=2
+):
+    x, y = position
+
+    draw.text(
+        (
+            x + shadow_offset,
+            y + shadow_offset
+        ),
+        text,
+        font=font,
+        fill=(
+            0,
+            0,
+            0,
+            190
+        )
+    )
+
+    draw.text(
+        position,
+        text,
+        font=font,
+        fill=fill
+    )
 
 
 # ============================================================
@@ -465,9 +543,68 @@ def create_rift_card(
 ):
     image = load_rift_background()
 
-    # Discord-taugliche Größe
     target_width = 1200
     target_height = 500
+
+    # --------------------------------------------------------
+    # BILD AUF FORMAT ZUSCHNEIDEN
+    # --------------------------------------------------------
+
+    source_width, source_height = (
+        image.size
+    )
+
+    source_ratio = (
+        source_width /
+        source_height
+    )
+
+    target_ratio = (
+        target_width /
+        target_height
+    )
+
+    if source_ratio > target_ratio:
+
+        new_width = int(
+            source_height *
+            target_ratio
+        )
+
+        left = (
+            source_width -
+            new_width
+        ) // 2
+
+        image = image.crop(
+            (
+                left,
+                0,
+                left + new_width,
+                source_height
+            )
+        )
+
+    else:
+
+        new_height = int(
+            source_width /
+            target_ratio
+        )
+
+        top = (
+            source_height -
+            new_height
+        ) // 2
+
+        image = image.crop(
+            (
+                0,
+                top,
+                source_width,
+                top + new_height
+            )
+        )
 
     image = image.resize(
         (
@@ -477,45 +614,12 @@ def create_rift_card(
         Image.Resampling.LANCZOS
     )
 
-    draw = ImageDraw.Draw(
-        image,
-        "RGBA"
-    )
-
     # --------------------------------------------------------
-    # LINKEN BEREICH ABDUNKELN
+    # WEICHER VERLAUF STATT TEXTBOX
     # --------------------------------------------------------
 
-    overlay = Image.new(
-        "RGBA",
-        image.size,
-        (0, 0, 0, 0)
-    )
-
-    overlay_draw = ImageDraw.Draw(
-        overlay,
-        "RGBA"
-    )
-
-    overlay_draw.rounded_rectangle(
-        (
-            35,
-            35,
-            720,
-            465
-        ),
-        radius=30,
-        fill=(
-            5,
-            7,
-            20,
-            205
-        )
-    )
-
-    image = Image.alpha_composite(
-        image.convert("RGBA"),
-        overlay
+    image = add_left_gradient(
+        image
     )
 
     draw = ImageDraw.Draw(
@@ -528,12 +632,12 @@ def create_rift_card(
     # --------------------------------------------------------
 
     title_font = load_font(
-        50,
+        48,
         bold=True
     )
 
     subtitle_font = load_font(
-        27,
+        25,
         bold=False
     )
 
@@ -543,12 +647,12 @@ def create_rift_card(
     )
 
     time_font = load_font(
-        40,
+        39,
         bold=True
     )
 
     small_font = load_font(
-        24,
+        25,
         bold=False
     )
 
@@ -557,30 +661,30 @@ def create_rift_card(
     # --------------------------------------------------------
 
     white = (
-        245,
-        245,
-        255,
+        248,
+        246,
+        250,
         255
     )
 
-    violet = (
-        190,
-        115,
+    red = (
         255,
+        78,
+        88,
         255
     )
 
-    light_violet = (
-        215,
-        180,
+    light_red = (
         255,
+        135,
+        140,
         255
     )
 
     muted = (
+        205,
         195,
-        195,
-        215,
+        200,
         255
     )
 
@@ -588,25 +692,27 @@ def create_rift_card(
     # TITEL
     # --------------------------------------------------------
 
-    draw.text(
-        (80, 70),
+    draw_text_with_shadow(
+        draw,
+        (72, 64),
         "SPACETIME RIFT",
-        font=title_font,
-        fill=white
+        title_font,
+        white
     )
 
-    draw.text(
-        (82, 135),
+    draw_text_with_shadow(
+        draw,
+        (74, 126),
         (
             f"Alle "
             f"{rift_data['interval_hours']} Stunden"
         ),
-        font=subtitle_font,
-        fill=light_violet
+        subtitle_font,
+        light_red
     )
 
     # --------------------------------------------------------
-    # AKTIVER ODER NÄCHSTER RIFT
+    # AKTIV ODER KOMMEND
     # --------------------------------------------------------
 
     if rift_times[
@@ -625,11 +731,8 @@ def create_rift_card(
             ]
         )
 
-        draw.text(
-            (82, 205),
-            "JETZT AKTIV",
-            font=label_font,
-            fill=violet
+        main_label = (
+            "JETZT AKTIV"
         )
 
         main_range = (
@@ -637,6 +740,14 @@ def create_rift_card(
                 active_start,
                 active_end
             )
+        )
+
+        # Wenn Rift läuft, ist "Danach"
+        # der direkt nächste Start.
+        second_start = (
+            rift_times[
+                "next_start"
+            ]
         )
 
     else:
@@ -656,11 +767,8 @@ def create_rift_card(
             )
         )
 
-        draw.text(
-            (82, 205),
-            "NÄCHSTER RIFT",
-            font=label_font,
-            fill=violet
+        main_label = (
+            "NÄCHSTER RIFT"
         )
 
         main_range = (
@@ -670,25 +778,38 @@ def create_rift_card(
             )
         )
 
-    draw.text(
-        (80, 245),
+        second_start = (
+            rift_times[
+                "following_start"
+            ]
+        )
+
+    # --------------------------------------------------------
+    # HAUPTZEIT
+    # --------------------------------------------------------
+
+    draw_text_with_shadow(
+        draw,
+        (74, 205),
+        main_label,
+        label_font,
+        red
+    )
+
+    draw_text_with_shadow(
+        draw,
+        (72, 245),
         main_range,
-        font=time_font,
-        fill=white
+        time_font,
+        white
     )
 
     # --------------------------------------------------------
     # DANACH
     # --------------------------------------------------------
 
-    following_start = (
-        rift_times[
-            "following_start"
-        ]
-    )
-
-    following_end = (
-        following_start +
+    second_end = (
+        second_start +
         timedelta(
             minutes=rift_data[
                 "duration_minutes"
@@ -696,21 +817,23 @@ def create_rift_card(
         )
     )
 
-    draw.text(
-        (82, 340),
+    draw_text_with_shadow(
+        draw,
+        (74, 345),
         "Danach",
-        font=label_font,
-        fill=muted
+        label_font,
+        muted
     )
 
-    draw.text(
-        (82, 380),
+    draw_text_with_shadow(
+        draw,
+        (74, 386),
         format_time_range(
-            following_start,
-            following_end
+            second_start,
+            second_end
         ),
-        font=small_font,
-        fill=white
+        small_font,
+        white
     )
 
     image = image.convert(
@@ -760,7 +883,6 @@ def build_embeds(data):
         ]
     )
 
-    # Rift-Karte rendern
     create_rift_card(
         rift_data,
         rift_times
@@ -836,12 +958,13 @@ def build_embeds(data):
     }
 
     # --------------------------------------------------------
-    # RIFT NUR ALS BILD
+    # RIFT
     # --------------------------------------------------------
 
     rift_embed = {
+        # Dunkles Rift-Rot statt Blau
         "color":
-            5793266,
+            14555706,
 
         "image": {
             "url":
@@ -1087,7 +1210,6 @@ def main():
         )
 
     data = load_data()
-
     state = load_state()
 
     embeds = build_embeds(
@@ -1113,10 +1235,6 @@ def main():
         "message_id"
     )
 
-    # --------------------------------------------------------
-    # BESTEHENDE NACHRICHT
-    # --------------------------------------------------------
-
     if message_id:
 
         edit_url = (
@@ -1135,10 +1253,6 @@ def main():
             "Bestehende Veranstaltungs-"
             "Nachricht aktualisiert."
         )
-
-    # --------------------------------------------------------
-    # NEUE NACHRICHT
-    # --------------------------------------------------------
 
     else:
 
