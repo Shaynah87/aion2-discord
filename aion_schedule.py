@@ -12,7 +12,7 @@ STATE_FILE = "schedule_message.json"
 
 
 # ------------------------------------------------------------
-# DATEIEN LADEN / SPEICHERN
+# DATEIEN
 # ------------------------------------------------------------
 
 def load_data():
@@ -51,10 +51,10 @@ def save_state(data):
 
 
 # ------------------------------------------------------------
-# NÄCHSTE TÄGLICHE UHRZEIT
+# ALLGEMEINE ZEITFUNKTIONEN
 # ------------------------------------------------------------
 
-def next_time_today_or_tomorrow(
+def parse_time_today(
     time_string,
     timezone
 ):
@@ -65,69 +65,13 @@ def next_time_today_or_tomorrow(
 
     now = datetime.now(timezone)
 
-    candidate = now.replace(
+    return now.replace(
         hour=hour,
         minute=minute,
         second=0,
         microsecond=0
     )
 
-    if candidate <= now:
-        candidate += timedelta(days=1)
-
-    return candidate
-
-
-# ------------------------------------------------------------
-# NÄCHSTER WOCHENTERMIN
-# ------------------------------------------------------------
-
-def next_weekly_time(
-    day_name,
-    time_string,
-    timezone
-):
-    weekdays = {
-        "Monday": 0,
-        "Tuesday": 1,
-        "Wednesday": 2,
-        "Thursday": 3,
-        "Friday": 4,
-        "Saturday": 5,
-        "Sunday": 6
-    }
-
-    target_weekday = weekdays[day_name]
-
-    hour, minute = map(
-        int,
-        time_string.split(":")
-    )
-
-    now = datetime.now(timezone)
-
-    days_ahead = (
-        target_weekday - now.weekday()
-    ) % 7
-
-    candidate = (
-        now + timedelta(days=days_ahead)
-    ).replace(
-        hour=hour,
-        minute=minute,
-        second=0,
-        microsecond=0
-    )
-
-    if candidate <= now:
-        candidate += timedelta(days=7)
-
-    return candidate
-
-
-# ------------------------------------------------------------
-# DEUTSCHE WOCHENTAGE
-# ------------------------------------------------------------
 
 def german_weekday(dt):
     weekdays = {
@@ -143,11 +87,7 @@ def german_weekday(dt):
     return weekdays[dt.weekday()]
 
 
-# ------------------------------------------------------------
-# UHRZEIT FÜR "ALS NÄCHSTES"
-# ------------------------------------------------------------
-
-def format_next_event_time(
+def format_day_time(
     dt,
     now
 ):
@@ -157,9 +97,11 @@ def format_next_event_time(
             f"{dt.strftime('%H:%M')} Uhr"
         )
 
-    if dt.date() == (
+    tomorrow = (
         now + timedelta(days=1)
-    ).date():
+    ).date()
+
+    if dt.date() == tomorrow:
         return (
             f"Morgen · "
             f"{dt.strftime('%H:%M')} Uhr"
@@ -171,247 +113,633 @@ def format_next_event_time(
     )
 
 
+def format_time_range(
+    start,
+    end
+):
+    return (
+        f"{start.strftime('%H:%M')} – "
+        f"{end.strftime('%H:%M')} Uhr"
+    )
+
+
 # ------------------------------------------------------------
-# EMBED ERSTELLEN
+# DAILY RESET
 # ------------------------------------------------------------
 
-def build_embed(data):
+def next_daily_reset(
+    time_string,
+    timezone
+):
+    now = datetime.now(timezone)
+
+    candidate = parse_time_today(
+        time_string,
+        timezone
+    )
+
+    if candidate <= now:
+        candidate += timedelta(days=1)
+
+    return candidate
+
+
+# ------------------------------------------------------------
+# WEEKLY RESET
+# ------------------------------------------------------------
+
+def next_weekly_reset(
+    day_name,
+    time_string,
+    timezone
+):
+    weekdays = {
+        "Monday": 0,
+        "Tuesday": 1,
+        "Wednesday": 2,
+        "Thursday": 3,
+        "Friday": 4,
+        "Saturday": 5,
+        "Sunday": 6
+    }
+
+    now = datetime.now(timezone)
+
+    target_weekday = weekdays[
+        day_name
+    ]
+
+    hour, minute = map(
+        int,
+        time_string.split(":")
+    )
+
+    days_ahead = (
+        target_weekday -
+        now.weekday()
+    ) % 7
+
+    candidate = (
+        now +
+        timedelta(days=days_ahead)
+    ).replace(
+        hour=hour,
+        minute=minute,
+        second=0,
+        microsecond=0
+    )
+
+    if candidate <= now:
+        candidate += timedelta(days=7)
+
+    return candidate
+
+
+# ------------------------------------------------------------
+# SPACETIME RIFT
+# ------------------------------------------------------------
+
+def build_rift_times(
+    rift_data,
+    timezone
+):
+    now = datetime.now(timezone)
+
+    first_start = parse_time_today(
+        rift_data["first_start"],
+        timezone
+    )
+
+    interval = timedelta(
+        hours=rift_data["interval_hours"]
+    )
+
+    duration = timedelta(
+        minutes=rift_data[
+            "duration_minutes"
+        ]
+    )
+
+    entry_duration = timedelta(
+        minutes=rift_data[
+            "entry_minutes"
+        ]
+    )
+
+    # Genügend Termine von gestern bis morgen erzeugen.
+    starts = []
+
+    start = (
+        first_start -
+        timedelta(days=1)
+    )
+
+    end_limit = (
+        first_start +
+        timedelta(days=2)
+    )
+
+    while start <= end_limit:
+        starts.append(start)
+        start += interval
+
+
+    active_start = None
+    active_end = None
+    active_entry_end = None
+
+    next_start = None
+    following_start = None
+
+
+    # Prüfen, ob aktuell ein Rift aktiv ist.
+    for start_time in starts:
+        end_time = (
+            start_time +
+            duration
+        )
+
+        if (
+            start_time <= now <
+            end_time
+        ):
+            active_start = start_time
+            active_end = end_time
+
+            active_entry_end = (
+                start_time +
+                entry_duration
+            )
+
+            break
+
+
+    # Nächsten und übernächsten Start suchen.
+    future_starts = [
+        start_time
+        for start_time in starts
+        if start_time > now
+    ]
+
+    future_starts.sort()
+
+    if future_starts:
+        next_start = future_starts[0]
+
+    if len(future_starts) > 1:
+        following_start = future_starts[1]
+
+
+    return {
+        "active_start":
+            active_start,
+
+        "active_end":
+            active_end,
+
+        "active_entry_end":
+            active_entry_end,
+
+        "next_start":
+            next_start,
+
+        "following_start":
+            following_start,
+
+        "duration":
+            duration,
+
+        "entry_duration":
+            entry_duration
+    }
+
+
+# ------------------------------------------------------------
+# SHUGO GAMES
+# ------------------------------------------------------------
+
+def next_shugo_starts(
+    shugo_data,
+    timezone
+):
+    now = datetime.now(timezone)
+
+    candidates = []
+
+    # Heute und morgen prüfen.
+    for day_offset in range(0, 2):
+
+        day = (
+            now +
+            timedelta(days=day_offset)
+        )
+
+        for hour in range(24):
+
+            for minute in shugo_data[
+                "start_minutes"
+            ]:
+
+                candidate = day.replace(
+                    hour=hour,
+                    minute=minute,
+                    second=0,
+                    microsecond=0
+                )
+
+                if candidate > now:
+                    candidates.append(
+                        candidate
+                    )
+
+
+    candidates.sort()
+
+    next_start = candidates[0]
+    following_start = candidates[1]
+
+    return (
+        next_start,
+        following_start
+    )
+
+
+def shugo_rotation_for_time(
+    dt,
+    shugo_data
+):
+    if dt.minute == 15:
+        return shugo_data[
+            "rotation_15"
+        ]
+
+    return shugo_data[
+        "rotation_45"
+    ]
+
+
+# ------------------------------------------------------------
+# "ALS NÄCHSTES"
+# ------------------------------------------------------------
+
+def find_next_event(
+    rift_next,
+    shugo_next,
+    daily_reset,
+    weekly_reset
+):
+    events = [
+        (
+            rift_next,
+            "🌀",
+            "Spacetime Rift"
+        ),
+
+        (
+            shugo_next,
+            "🐹",
+            "Shugo Games"
+        ),
+
+        (
+            daily_reset,
+            "🔄",
+            "Daily Reset"
+        ),
+
+        (
+            weekly_reset,
+            "🔄",
+            "Weekly Reset"
+        )
+    ]
+
+    events.sort(
+        key=lambda item: item[0]
+    )
+
+    return events[0]
+
+
+# ------------------------------------------------------------
+# DISCORD EMBEDS
+# ------------------------------------------------------------
+
+def build_embeds(data):
     timezone = ZoneInfo(
         data["timezone"]
     )
 
     now = datetime.now(timezone)
 
-    upcoming = []
-
-    # --------------------------------------------------------
-    # SPACE RIFTS
-    # --------------------------------------------------------
-
-    rift_lines = []
-
-    for rift in data.get(
-        "rifts",
-        []
-    ):
-        rift_times = rift.get(
-            "times",
-            []
-        )
-
-        if not rift_times:
-            continue
-
-        for time_string in rift_times:
-            next_rift_time = (
-                next_time_today_or_tomorrow(
-                    time_string,
-                    timezone
-                )
-            )
-
-            upcoming.append(
-                (
-                    next_rift_time,
-                    "🌀",
-                    rift["name"]
-                )
-            )
-
-        formatted_times = " / ".join(
-            rift_times
-        )
-
-        rift_lines.append(
-            f"**{rift['name']}** · "
-            f"{formatted_times}"
-        )
+    rift_data = data["rift"]
+    shugo_data = data["shugo_games"]
 
 
     # --------------------------------------------------------
-    # SHUGO GAMES
+    # RIFT BERECHNEN
     # --------------------------------------------------------
 
-    shugo_lines = []
-
-    for game in data.get(
-        "shugo_games",
-        []
-    ):
-        game_time = (
-            next_time_today_or_tomorrow(
-                game["time"],
-                timezone
-            )
-        )
-
-        upcoming.append(
-            (
-                game_time,
-                "🐹",
-                game["name"]
-            )
-        )
-
-        shugo_lines.append(
-            f"**{game['name']}** · "
-            f"{game['time']}"
-        )
-
-
-    # --------------------------------------------------------
-    # DAILY RESET
-    # --------------------------------------------------------
-
-    daily_reset = (
-        next_time_today_or_tomorrow(
-            data["resets"]["daily"],
-            timezone
-        )
+    rift_times = build_rift_times(
+        rift_data,
+        timezone
     )
 
-    upcoming.append(
-        (
-            daily_reset,
-            "🔄",
-            "Daily Reset"
-        )
-    )
+    rift_next = rift_times[
+        "next_start"
+    ]
 
-
-    # --------------------------------------------------------
-    # WEEKLY RESET
-    # --------------------------------------------------------
-
-    weekly_reset = (
-        next_weekly_time(
-            data["resets"]["weekly_day"],
-            data["resets"]["weekly_time"],
-            timezone
-        )
-    )
-
-    upcoming.append(
-        (
-            weekly_reset,
-            "🔄",
-            "Weekly Reset"
-        )
-    )
-
-
-    # --------------------------------------------------------
-    # NÄCHSTES EREIGNIS
-    # --------------------------------------------------------
-
-    upcoming.sort(
-        key=lambda item: item[0]
-    )
-
-    (
-        next_event_time,
-        next_event_icon,
-        next_event_name
-    ) = upcoming[0]
-
-
-    # --------------------------------------------------------
-    # FELDER
-    # --------------------------------------------------------
-
-    fields = [
-        {
-            "name": "⚡ ALS NÄCHSTES",
-            "value": (
-                f"{next_event_icon} "
-                f"**{next_event_name}** — "
-                f"{format_next_event_time(
-                    next_event_time,
-                    now
-                )}"
-            ),
-            "inline": False
-        }
+    rift_following = rift_times[
+        "following_start"
     ]
 
 
     # --------------------------------------------------------
-    # RIFTS
+    # SHUGO BERECHNEN
     # --------------------------------------------------------
 
-    if rift_lines:
-        fields.append(
-            {
-                "name": "🌀 SPACE RIFTS",
-                "value": "\n".join(
-                    rift_lines
-                ),
-                "inline": False
-            }
-        )
-
-
-    # --------------------------------------------------------
-    # SHUGO
-    # --------------------------------------------------------
-
-    if shugo_lines:
-        fields.append(
-            {
-                "name": "🐹 SHUGO GAMES",
-                "value": "\n".join(
-                    shugo_lines
-                ),
-                "inline": False
-            }
-        )
+    (
+        shugo_next,
+        shugo_following
+    ) = next_shugo_starts(
+        shugo_data,
+        timezone
+    )
 
 
     # --------------------------------------------------------
     # RESETS
     # --------------------------------------------------------
 
-    fields.append(
-        {
-            "name": "🔄 RESETS",
-            "value": (
-                f"**Daily Reset** · "
-                f"{data['resets']['daily']}\n"
-                f"**Weekly Reset** · "
-                f"{german_weekday(weekly_reset)} "
-                f"{data['resets']['weekly_time']}"
-            ),
-            "inline": False
-        }
+    daily_reset = next_daily_reset(
+        data["resets"]["daily"],
+        timezone
+    )
+
+    weekly_reset = next_weekly_reset(
+        data["resets"]["weekly_day"],
+        data["resets"]["weekly_time"],
+        timezone
     )
 
 
     # --------------------------------------------------------
-    # EMBED
+    # GLOBAL NÄCHSTES EVENT
     # --------------------------------------------------------
 
-    embed = {
-        "title": "AION 2 · Veranstaltungszentrale",
+    (
+        next_event_time,
+        next_event_icon,
+        next_event_name
+    ) = find_next_event(
+        rift_next,
+        shugo_next,
+        daily_reset,
+        weekly_reset
+    )
+
+
+    # ========================================================
+    # EMBED 1
+    # ALS NÄCHSTES
+    # ========================================================
+
+    next_embed = {
+        "title": "⚡ ALS NÄCHSTES",
 
         "description": (
-            "Alle regelmäßigen Zeiten "
-            "auf einen Blick."
+            f"{next_event_icon} "
+            f"**{next_event_name}**\n"
+            f"{format_day_time(
+                next_event_time,
+                now
+            )}"
         ),
 
-        "color": 10181046,
-
-        "fields": fields,
-
-        "footer": {
-            "text": "Automatisch aktualisiert"
-        }
+        "color": 10181046
     }
 
-    return embed
+
+    # ========================================================
+    # EMBED 2
+    # SPACETIME RIFT
+    # ========================================================
+
+    if rift_times["active_start"]:
+
+        active_start = (
+            rift_times[
+                "active_start"
+            ]
+        )
+
+        active_end = (
+            rift_times[
+                "active_end"
+            ]
+        )
+
+        entry_end = (
+            rift_times[
+                "active_entry_end"
+            ]
+        )
+
+        if now < entry_end:
+            rift_status = (
+                "🟢 **RIFT AKTIV**\n"
+                f"{format_time_range(
+                    active_start,
+                    active_end
+                )}\n"
+                f"⚠️ Eintritt nur bis "
+                f"{entry_end.strftime('%H:%M')} Uhr"
+            )
+
+        else:
+            rift_status = (
+                "🟢 **RIFT AKTIV**\n"
+                f"{format_time_range(
+                    active_start,
+                    active_end
+                )}\n"
+                "🔒 Eintritt bereits geschlossen"
+            )
+
+    else:
+        next_end = (
+            rift_next +
+            timedelta(
+                minutes=rift_data[
+                    "duration_minutes"
+                ]
+            )
+        )
+
+        next_entry_end = (
+            rift_next +
+            timedelta(
+                minutes=rift_data[
+                    "entry_minutes"
+                ]
+            )
+        )
+
+        rift_status = (
+            "🔮 **NÄCHSTER RIFT**\n"
+            f"{format_time_range(
+                rift_next,
+                next_end
+            )}\n"
+            f"⚠️ Eintritt nur bis "
+            f"{next_entry_end.strftime('%H:%M')} Uhr"
+        )
+
+
+    following_end = (
+        rift_following +
+        timedelta(
+            minutes=rift_data[
+                "duration_minutes"
+            ]
+        )
+    )
+
+    rift_embed = {
+        "title": "🌀 SPACETIME RIFT",
+
+        "description": (
+            f"{rift_status}\n\n"
+            f"**Danach**\n"
+            f"{format_time_range(
+                rift_following,
+                following_end
+            )}\n\n"
+            f"Alle "
+            f"{rift_data['interval_hours']} Stunden "
+            f"· Aufenthalt bis zu "
+            f"{rift_data['duration_minutes'] // 60} Stunde\n"
+            f"⚠️ Eintritt nur in den ersten "
+            f"{rift_data['entry_minutes']} Minuten"
+        ),
+
+        "color": 5793266
+    }
+
+
+    # ========================================================
+    # EMBED 3
+    # SHUGO GAMES
+    # ========================================================
+
+    next_rotation = (
+        shugo_rotation_for_time(
+            shugo_next,
+            shugo_data
+        )
+    )
+
+    following_rotation = (
+        shugo_rotation_for_time(
+            shugo_following,
+            shugo_data
+        )
+    )
+
+    next_games = "\n".join(
+        f"• {game}"
+        for game in next_rotation
+    )
+
+    following_games = "\n".join(
+        f"• {game}"
+        for game in following_rotation
+    )
+
+
+    shugo_embed = {
+        "title": "🐹 SHUGO GAMES",
+
+        "description": (
+            "Alle 30 Minuten · Starts um "
+            "**:15** und **:45**"
+        ),
+
+        "fields": [
+            {
+                "name": (
+                    f"🟣 KOMMEND · "
+                    f"{shugo_next.strftime('%H:%M')} Uhr"
+                ),
+
+                "value": next_games,
+
+                "inline": True
+            },
+
+            {
+                "name": (
+                    f"⚪ DANACH · "
+                    f"{shugo_following.strftime('%H:%M')} Uhr"
+                ),
+
+                "value": following_games,
+
+                "inline": True
+            }
+        ],
+
+        "color": 14058735
+    }
+
+
+    # ========================================================
+    # EMBED 4
+    # RESETS
+    # ========================================================
+
+    reset_embed = {
+        "title": "🔄 RESETS",
+
+        "fields": [
+            {
+                "name": "Daily Reset",
+
+                "value": (
+                    f"**{data['resets']['daily']} Uhr**"
+                ),
+
+                "inline": True
+            },
+
+            {
+                "name": "Weekly Reset",
+
+                "value": (
+                    f"**{german_weekday(
+                        weekly_reset
+                    )} · "
+                    f"{data['resets']['weekly_time']} Uhr**"
+                ),
+
+                "inline": True
+            }
+        ],
+
+        "color": 6724044
+    }
+
+
+    return [
+        next_embed,
+        rift_embed,
+        shugo_embed,
+        reset_embed
+    ]
 
 
 # ------------------------------------------------------------
-# DISCORD WEBHOOK
+# DISCORD
 # ------------------------------------------------------------
 
 def webhook_request(
@@ -441,7 +769,9 @@ def webhook_request(
         timeout=30
     ) as response:
 
-        response_data = response.read()
+        response_data = (
+            response.read()
+        )
 
         if not response_data:
             return {}
@@ -464,9 +794,12 @@ def main():
         )
 
     data = load_data()
+
     state = load_state()
 
-    embed = build_embed(data)
+    embeds = build_embeds(
+        data
+    )
 
     message_id = state.get(
         "message_id"
@@ -474,10 +807,11 @@ def main():
 
 
     # --------------------------------------------------------
-    # BESTEHENDE NACHRICHT AKTUALISIEREN
+    # VORHANDENE NACHRICHT BEARBEITEN
     # --------------------------------------------------------
 
     if message_id:
+
         edit_url = (
             f"{WEBHOOK_URL}"
             f"/messages/{message_id}"
@@ -486,16 +820,14 @@ def main():
         webhook_request(
             edit_url,
             {
-                "embeds": [
-                    embed
-                ]
+                "embeds": embeds
             },
             method="PATCH"
         )
 
         print(
-            "Bestehende Fahrplan-Nachricht "
-            "aktualisiert."
+            "Bestehende Veranstaltungs-"
+            "Nachricht aktualisiert."
         )
 
 
@@ -504,6 +836,7 @@ def main():
     # --------------------------------------------------------
 
     else:
+
         create_url = (
             f"{WEBHOOK_URL}"
             f"?wait=true"
@@ -512,9 +845,7 @@ def main():
         result = webhook_request(
             create_url,
             {
-                "embeds": [
-                    embed
-                ]
+                "embeds": embeds
             },
             method="POST"
         )
@@ -527,8 +858,8 @@ def main():
         )
 
         print(
-            "Neue Fahrplan-Nachricht "
-            "erstellt."
+            "Neue Veranstaltungs-"
+            "Nachricht erstellt."
         )
 
 
