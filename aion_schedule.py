@@ -872,7 +872,7 @@ def draw_event_marker(
 #
 # ÜBERSICHT
 #
-# → ALS NÄCHSTES       = 31 px bold + grau
+# ALS NÄCHSTES         = 31 px bold + grau
 # ● Shugo ...
 # ● Rift ...
 #
@@ -950,7 +950,6 @@ def create_overview_card(
         255
     )
 
-    # Grau für Hauptstatus, wenn gerade nichts aktiv ist
     status_gray = (
         170,
         170,
@@ -965,8 +964,8 @@ def create_overview_card(
 
     if active_events:
 
-        # Wenn etwas aktiv ist:
-        # Sekundärinformation wie "→ Danach"
+        # Sekundärstatus:
+        # Pfeil + normale Schreibweise + weiß
         next_title_text = (
             "→ Als Nächstes"
         )
@@ -980,10 +979,10 @@ def create_overview_card(
 
     else:
 
-        # Wenn nichts aktiv ist:
-        # Hauptstatus wie NÄCHSTER / NÄCHSTES
+        # Hauptstatus:
+        # KEIN Pfeil + Großbuchstaben + bold + grau
         next_title_text = (
-            "→ ALS NÄCHSTES"
+            "ALS NÄCHSTES"
         )
 
         next_title_font = load_font(
@@ -1247,10 +1246,6 @@ def create_overview_card(
             title_bbox[3] + 52
         )
 
-        # ----------------------------------------------------
-        # JETZT AKTIV
-        # ----------------------------------------------------
-
         draw_text_with_shadow(
             draw,
             (
@@ -1384,12 +1379,12 @@ def create_overview_card(
     # ALS NÄCHSTES
     #
     # NICHTS AKTIV:
-    # → ALS NÄCHSTES
-    # 31 px / bold / grau
+    # ALS NÄCHSTES
+    # 31 px / bold / grau / OHNE Pfeil
     #
     # ETWAS AKTIV:
     # → Als Nächstes
-    # 30 px / normal / weiß
+    # 30 px / normal / weiß / MIT Pfeil
     # ========================================================
 
     draw_text_with_shadow(
