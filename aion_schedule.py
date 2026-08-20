@@ -73,10 +73,19 @@ RESET_CARD_FILE = "resets_card.png"
 
 
 # ============================================================
-# GEMEINSAME ABSTÄNDE
+# GEMEINSAMES DESIGNRASTER
+#
+# Dieses Raster gilt jetzt für ALLE vier Karten.
 # ============================================================
 
+TITLE_TO_SUBTITLE = 68
+SUBTITLE_TO_STATUS = 74
+STATUS_TO_MAIN = 40
+
 SECONDARY_GAP = 62
+
+ACTIVE_EVENT_GAP = 34
+NEXT_ENTRY_GAP = 18
 
 
 # ============================================================
@@ -296,6 +305,7 @@ def build_rift_times(
     active_end = None
 
     for start_time in starts:
+
         end_time = (
             start_time +
             duration
@@ -377,6 +387,7 @@ def build_shugo_times(
     active_end = None
 
     for start_time in candidates:
+
         end_time = (
             start_time +
             timedelta(minutes=10)
@@ -483,7 +494,7 @@ def build_event_overview(
 
 
     # --------------------------------------------------------
-    # NÄCHSTER RIFT
+    # KOMMENDE EVENTS
     # --------------------------------------------------------
 
     upcoming_events.append(
@@ -499,10 +510,6 @@ def build_event_overview(
     )
 
 
-    # --------------------------------------------------------
-    # NÄCHSTES SHUGO
-    # --------------------------------------------------------
-
     upcoming_events.append(
         {
             "key": "shugo",
@@ -515,10 +522,6 @@ def build_event_overview(
         }
     )
 
-
-    # --------------------------------------------------------
-    # TÄGLICHER RESET
-    # --------------------------------------------------------
 
     upcoming_events.append(
         {
@@ -534,10 +537,6 @@ def build_event_overview(
         }
     )
 
-
-    # --------------------------------------------------------
-    # WÖCHENTLICHER RESET
-    # --------------------------------------------------------
 
     upcoming_events.append(
         {
@@ -558,6 +557,7 @@ def build_event_overview(
         key=lambda item:
             item["time"]
     )
+
 
     next_events = (
         upcoming_events[:2]
@@ -744,7 +744,7 @@ def prepare_overview_background(
 
 
 # ============================================================
-# EINHEITLICHER DUNKLER VERLAUF
+# LINKER SCHWARZVERLAUF
 # ============================================================
 
 def add_strong_left_gradient(
@@ -844,7 +844,7 @@ def draw_text_with_shadow(
 
 
 # ============================================================
-# FARBIGER EVENT-PUNKT
+# EVENT-PUNKT
 # ============================================================
 
 def draw_event_marker(
@@ -866,28 +866,7 @@ def draw_event_marker(
 
 
 # ============================================================
-# DYNAMISCHE ÜBERSICHT
-#
-# NICHTS AKTIV:
-#
 # ÜBERSICHT
-#
-# ALS NÄCHSTES         = 31 px bold + grau
-# ● Shugo ...
-# ● Rift ...
-#
-#
-# ETWAS AKTIV:
-#
-# ÜBERSICHT
-#
-# JETZT AKTIV          = 31 px bold + weiß
-# ● SHUGO FESTIVAL     = 48 px bold
-#   bis 10:55 Uhr      = 30 px normal
-#
-# → Als Nächstes       = 30 px normal + weiß
-# ● Shugo ...
-# ● Rift ...
 # ============================================================
 
 def create_overview_card(
@@ -931,6 +910,11 @@ def create_overview_card(
         bold=False
     )
 
+    secondary_bold_font = load_font(
+        30,
+        bold=True
+    )
+
 
     # --------------------------------------------------------
     # FARBEN
@@ -959,38 +943,63 @@ def create_overview_card(
 
 
     # --------------------------------------------------------
-    # ALS NÄCHSTES
+    # HAUPTPOSITIONEN
+    #
+    # Gleiche Designlogik wie die anderen Karten.
+    # --------------------------------------------------------
+
+    title_x = 74
+    title_y = 58
+
+    # Eine Karte mit Untertitel hat:
+    #
+    # Titel
+    # +68
+    # Untertitel
+    # +74
+    # Status
+    #
+    # Die Übersicht hat keinen Untertitel.
+    # Der Status sitzt trotzdem auf derselben
+    # Rasterhöhe wie Status in Rift/Shugo.
+    overview_status_y = (
+        title_y
+        + TITLE_TO_SUBTITLE
+        + SUBTITLE_TO_STATUS
+    )
+
+
+    # --------------------------------------------------------
+    # ALS-NÄCHSTES-ZUSTAND
     # --------------------------------------------------------
 
     if active_events:
 
-        # Sekundärstatus:
-        # Pfeil + normale Schreibweise + weiß
         next_title_text = (
             "→ Als Nächstes"
         )
 
-        next_title_font = load_font(
-            30,
-            bold=False
+        next_title_font = (
+            secondary_bold_font
         )
 
-        next_title_color = white
+        next_title_color = (
+            white
+        )
 
     else:
 
-        # Hauptstatus:
-        # KEIN Pfeil + Großbuchstaben + bold + grau
         next_title_text = (
             "ALS NÄCHSTES"
         )
 
-        next_title_font = load_font(
-            31,
-            bold=True
+        next_title_font = (
+            status_font
         )
 
-        next_title_color = status_gray
+        next_title_color = (
+            status_gray
+        )
 
 
     # --------------------------------------------------------
@@ -1017,53 +1026,22 @@ def create_overview_card(
 
 
     # ========================================================
-    # TITEL
-    # ========================================================
-
-    title_x = 74
-    title_y = 58
-
-    title_bbox = measure_draw.textbbox(
-        (
-            title_x,
-            title_y
-        ),
-        DISPLAY_NAMES[
-            "overview_card"
-        ],
-        font=title_font
-    )
-
-
-    # ========================================================
     # AKTIVER ZUSTAND
     # ========================================================
 
     if active_events:
 
         status_y = (
-            title_bbox[3] + 52
-        )
-
-        status_bbox = measure_draw.textbbox(
-            (
-                76,
-                status_y
-            ),
-            "JETZT AKTIV",
-            font=status_font
+            overview_status_y
         )
 
         current_y = (
-            status_bbox[3] + 10
+            status_y
+            + STATUS_TO_MAIN
         )
 
         last_active_bottom = None
 
-
-        # ----------------------------------------------------
-        # AKTIVE EVENTS
-        # ----------------------------------------------------
 
         for event in active_events:
 
@@ -1103,29 +1081,33 @@ def create_overview_card(
             )
 
             current_y = (
-                last_active_bottom + 34
+                last_active_bottom
+                + ACTIVE_EVENT_GAP
             )
 
 
         next_section_y = (
-            last_active_bottom +
-            SECONDARY_GAP
+            last_active_bottom
+            + SECONDARY_GAP
         )
 
 
     # ========================================================
     # NICHTS AKTIV
+    #
+    # ALS NÄCHSTES sitzt auf derselben Rasterhöhe
+    # wie NÄCHSTER/NÄCHSTES/JETZT AKTIV.
     # ========================================================
 
     else:
 
         next_section_y = (
-            title_bbox[3] + 60
+            overview_status_y
         )
 
 
     # ========================================================
-    # ALS NÄCHSTES
+    # ALS NÄCHSTES MESSEN
     # ========================================================
 
     next_title_bbox = measure_draw.textbbox(
@@ -1171,13 +1153,16 @@ def create_overview_card(
         )
 
         current_y = (
-            last_next_bottom + 18
+            last_next_bottom
+            + NEXT_ENTRY_GAP
         )
 
 
     # ========================================================
     # DYNAMISCHE HÖHE
     # ========================================================
+
+    target_width = 1200
 
     target_height = (
         last_next_bottom + 58
@@ -1187,8 +1172,6 @@ def create_overview_card(
         target_height,
         360
     )
-
-    target_width = 1200
 
 
     # ========================================================
@@ -1237,14 +1220,21 @@ def create_overview_card(
 
 
     # ========================================================
-    # AKTIVE EVENTS
+    # AKTIVER ZUSTAND
     # ========================================================
 
     if active_events:
 
         status_y = (
-            title_bbox[3] + 52
+            overview_status_y
         )
+
+
+        # ----------------------------------------------------
+        # JETZT AKTIV
+        #
+        # GRAU – genau wie vereinbart.
+        # ----------------------------------------------------
 
         draw_text_with_shadow(
             draw,
@@ -1254,20 +1244,13 @@ def create_overview_card(
             ),
             "JETZT AKTIV",
             status_font,
-            white
+            status_gray
         )
 
-        status_bbox = draw.textbbox(
-            (
-                76,
-                status_y
-            ),
-            "JETZT AKTIV",
-            font=status_font
-        )
 
         current_y = (
-            status_bbox[3] + 10
+            status_y
+            + STATUS_TO_MAIN
         )
 
         last_active_bottom = None
@@ -1284,7 +1267,6 @@ def create_overview_card(
             )
 
 
-            # Farbiger Punkt
             draw_event_marker(
                 draw,
                 78,
@@ -1294,7 +1276,6 @@ def create_overview_card(
             )
 
 
-            # Eventname
             draw_text_with_shadow(
                 draw,
                 (
@@ -1306,6 +1287,7 @@ def create_overview_card(
                 white
             )
 
+
             name_bbox = draw.textbbox(
                 (
                     108,
@@ -1316,10 +1298,6 @@ def create_overview_card(
             )
 
 
-            # ------------------------------------------------
-            # ENDZEIT
-            # ------------------------------------------------
-
             until_y = (
                 name_bbox[3] + 4
             )
@@ -1328,6 +1306,7 @@ def create_overview_card(
                 f"bis "
                 f"{event['end'].strftime('%H:%M')} Uhr"
             )
+
 
             draw_text_with_shadow(
                 draw,
@@ -1339,6 +1318,7 @@ def create_overview_card(
                 active_until_font,
                 soft_white
             )
+
 
             until_bbox = draw.textbbox(
                 (
@@ -1354,13 +1334,14 @@ def create_overview_card(
             )
 
             current_y = (
-                last_active_bottom + 34
+                last_active_bottom
+                + ACTIVE_EVENT_GAP
             )
 
 
         next_section_y = (
-            last_active_bottom +
-            SECONDARY_GAP
+            last_active_bottom
+            + SECONDARY_GAP
         )
 
 
@@ -1371,7 +1352,7 @@ def create_overview_card(
     else:
 
         next_section_y = (
-            title_bbox[3] + 60
+            overview_status_y
         )
 
 
@@ -1380,11 +1361,11 @@ def create_overview_card(
     #
     # NICHTS AKTIV:
     # ALS NÄCHSTES
-    # 31 px / bold / grau / OHNE Pfeil
+    # 31 / bold / grau / ohne Pfeil
     #
-    # ETWAS AKTIV:
+    # AKTIV:
     # → Als Nächstes
-    # 30 px / normal / weiß / MIT Pfeil
+    # 30 / BOLD / weiß / mit Pfeil
     # ========================================================
 
     draw_text_with_shadow(
@@ -1398,6 +1379,7 @@ def create_overview_card(
         next_title_color
     )
 
+
     next_title_bbox = draw.textbbox(
         (
             76,
@@ -1406,6 +1388,7 @@ def create_overview_card(
         next_title_text,
         font=next_title_font
     )
+
 
     current_y = (
         next_title_bbox[3] + 22
@@ -1426,10 +1409,12 @@ def create_overview_card(
             size=16
         )
 
+
         next_text = (
             f"{event['name']} · "
             f"{event['time'].strftime('%H:%M')} Uhr"
         )
+
 
         draw_text_with_shadow(
             draw,
@@ -1442,6 +1427,7 @@ def create_overview_card(
             soft_white
         )
 
+
         next_bbox = draw.textbbox(
             (
                 106,
@@ -1451,8 +1437,10 @@ def create_overview_card(
             font=secondary_font
         )
 
+
         current_y = (
-            next_bbox[3] + 18
+            next_bbox[3]
+            + NEXT_ENTRY_GAP
         )
 
 
@@ -1499,6 +1487,7 @@ def create_rift_card(
         "RGBA"
     )
 
+
     title_font = load_font(
         56,
         bold=True
@@ -1523,6 +1512,7 @@ def create_rift_card(
         30,
         bold=False
     )
+
 
     white = (
         250,
@@ -1552,9 +1542,35 @@ def create_rift_card(
         255
     )
 
+
+    # --------------------------------------------------------
+    # GEMEINSAMES RASTER
+    # --------------------------------------------------------
+
+    title_y = 62
+
+    subtitle_y = (
+        title_y
+        + TITLE_TO_SUBTITLE
+    )
+
+    status_y = (
+        subtitle_y
+        + SUBTITLE_TO_STATUS
+    )
+
+    main_y = (
+        status_y
+        + STATUS_TO_MAIN
+    )
+
+
     draw_text_with_shadow(
         draw,
-        (78, 62),
+        (
+            78,
+            title_y
+        ),
         DISPLAY_NAMES[
             "rift_card"
         ],
@@ -1562,9 +1578,13 @@ def create_rift_card(
         white
     )
 
+
     draw_text_with_shadow(
         draw,
-        (80, 132),
+        (
+            80,
+            subtitle_y
+        ),
         (
             f"Alle "
             f"{rift_data['interval_hours']} Stunden"
@@ -1573,11 +1593,14 @@ def create_rift_card(
         light_red
     )
 
+
     if rift_times[
         "active_start"
     ]:
 
-        main_label = "JETZT AKTIV"
+        main_label = (
+            "JETZT AKTIV"
+        )
 
         main_start = (
             rift_times[
@@ -1591,7 +1614,9 @@ def create_rift_card(
             ]
         )
 
-        secondary_label = "Nächster"
+        secondary_label = (
+            "Nächster"
+        )
 
         secondary_start = (
             rift_times[
@@ -1601,7 +1626,9 @@ def create_rift_card(
 
     else:
 
-        main_label = "NÄCHSTER"
+        main_label = (
+            "NÄCHSTER"
+        )
 
         main_start = (
             rift_times[
@@ -1618,13 +1645,16 @@ def create_rift_card(
             )
         )
 
-        secondary_label = "Danach"
+        secondary_label = (
+            "Danach"
+        )
 
         secondary_start = (
             rift_times[
                 "following_start"
             ]
         )
+
 
     secondary_end = (
         secondary_start +
@@ -1635,42 +1665,54 @@ def create_rift_card(
         )
     )
 
+
     draw_text_with_shadow(
         draw,
-        (80, 218),
+        (
+            80,
+            status_y
+        ),
         main_label,
         status_font,
         red
     )
 
-    main_time_text = format_time_range(
-        main_start,
-        main_end
+
+    main_time_text = (
+        format_time_range(
+            main_start,
+            main_end
+        )
     )
 
-    main_time_position = (
-        78,
-        260
-    )
 
     draw_text_with_shadow(
         draw,
-        main_time_position,
+        (
+            78,
+            main_y
+        ),
         main_time_text,
         time_font,
         white
     )
 
+
     main_bbox = draw.textbbox(
-        main_time_position,
+        (
+            78,
+            main_y
+        ),
         main_time_text,
         font=time_font
     )
 
+
     secondary_y = (
-        main_bbox[3] +
-        SECONDARY_GAP
+        main_bbox[3]
+        + SECONDARY_GAP
     )
+
 
     secondary_text = (
         f"→ {secondary_label}: "
@@ -1680,13 +1722,18 @@ def create_rift_card(
         )}"
     )
 
+
     draw_text_with_shadow(
         draw,
-        (80, secondary_y),
+        (
+            80,
+            secondary_y
+        ),
         secondary_text,
         secondary_font,
         secondary_color
     )
+
 
     image = image.convert(
         "RGB"
@@ -1731,6 +1778,7 @@ def create_shugo_card(
         "RGBA"
     )
 
+
     title_font = load_font(
         56,
         bold=True
@@ -1761,6 +1809,7 @@ def create_shugo_card(
         bold=False
     )
 
+
     white = (
         250,
         248,
@@ -1789,9 +1838,35 @@ def create_shugo_card(
         255
     )
 
+
+    # --------------------------------------------------------
+    # GEMEINSAMES RASTER
+    # --------------------------------------------------------
+
+    title_y = 48
+
+    subtitle_y = (
+        title_y
+        + TITLE_TO_SUBTITLE
+    )
+
+    status_y = (
+        subtitle_y
+        + SUBTITLE_TO_STATUS
+    )
+
+    main_y = (
+        status_y
+        + STATUS_TO_MAIN
+    )
+
+
     draw_text_with_shadow(
         draw,
-        (72, 48),
+        (
+            72,
+            title_y
+        ),
         DISPLAY_NAMES[
             "shugo_card"
         ],
@@ -1799,19 +1874,26 @@ def create_shugo_card(
         white
     )
 
+
     draw_text_with_shadow(
         draw,
-        (74, 116),
+        (
+            74,
+            subtitle_y
+        ),
         "Alle 30 Minuten",
         subtitle_font,
         light_gold
     )
 
+
     if shugo_times[
         "active_start"
     ]:
 
-        main_label = "JETZT AKTIV"
+        main_label = (
+            "JETZT AKTIV"
+        )
 
         main_start = (
             shugo_times[
@@ -1819,7 +1901,9 @@ def create_shugo_card(
             ]
         )
 
-        secondary_label = "Nächstes"
+        secondary_label = (
+            "Nächstes"
+        )
 
         secondary_start = (
             shugo_times[
@@ -1829,7 +1913,9 @@ def create_shugo_card(
 
     else:
 
-        main_label = "NÄCHSTES"
+        main_label = (
+            "NÄCHSTES"
+        )
 
         main_start = (
             shugo_times[
@@ -1837,13 +1923,16 @@ def create_shugo_card(
             ]
         )
 
-        secondary_label = "Danach"
+        secondary_label = (
+            "Danach"
+        )
 
         secondary_start = (
             shugo_times[
                 "following_start"
             ]
         )
+
 
     current_rotation = (
         shugo_rotation_for_time(
@@ -1852,35 +1941,43 @@ def create_shugo_card(
         )
     )
 
+
     draw_text_with_shadow(
         draw,
-        (74, 190),
+        (
+            74,
+            status_y
+        ),
         main_label,
         status_font,
         gold
     )
 
+
     main_time_text = (
         f"{main_start.strftime('%H:%M')} Uhr"
     )
 
-    main_time_position = (
-        72,
-        230
-    )
 
     draw_text_with_shadow(
         draw,
-        main_time_position,
+        (
+            72,
+            main_y
+        ),
         main_time_text,
         time_font,
         white
     )
 
-    y = 305
+
+    y = (
+        main_y + 75
+    )
 
     last_game_text = None
     last_game_position = None
+
 
     for game in current_rotation:
 
@@ -1901,10 +1998,16 @@ def create_shugo_card(
             white
         )
 
-        last_game_text = game_text
-        last_game_position = game_position
+        last_game_text = (
+            game_text
+        )
+
+        last_game_position = (
+            game_position
+        )
 
         y += 43
+
 
     last_game_bbox = draw.textbbox(
         last_game_position,
@@ -1912,23 +2015,30 @@ def create_shugo_card(
         font=game_font
     )
 
+
     secondary_y = (
-        last_game_bbox[3] +
-        SECONDARY_GAP
+        last_game_bbox[3]
+        + SECONDARY_GAP
     )
+
 
     secondary_text = (
         f"→ {secondary_label}: "
         f"{secondary_start.strftime('%H:%M')} Uhr"
     )
 
+
     draw_text_with_shadow(
         draw,
-        (82, secondary_y),
+        (
+            82,
+            secondary_y
+        ),
         secondary_text,
         secondary_font,
         secondary_color
     )
+
 
     image = image.convert(
         "RGB"
@@ -1970,6 +2080,7 @@ def create_reset_card():
         "RGBA"
     )
 
+
     title_font = load_font(
         56,
         bold=True
@@ -1984,6 +2095,7 @@ def create_reset_card():
         46,
         bold=True
     )
+
 
     white = (
         248,
@@ -2006,9 +2118,30 @@ def create_reset_card():
         255
     )
 
+
+    # --------------------------------------------------------
+    # RESET ebenfalls ans gemeinsame Raster
+    # --------------------------------------------------------
+
+    title_y = 58
+
+    daily_label_y = (
+        title_y
+        + TITLE_TO_SUBTITLE
+    )
+
+    daily_time_y = (
+        daily_label_y
+        + STATUS_TO_MAIN
+    )
+
+
     draw_text_with_shadow(
         draw,
-        (74, 58),
+        (
+            74,
+            title_y
+        ),
         DISPLAY_NAMES[
             "reset_card"
         ],
@@ -2016,9 +2149,13 @@ def create_reset_card():
         white
     )
 
+
     draw_text_with_shadow(
         draw,
-        (76, 170),
+        (
+            76,
+            daily_label_y
+        ),
         DISPLAY_NAMES[
             "daily_card"
         ],
@@ -2026,17 +2163,46 @@ def create_reset_card():
         light_blue
     )
 
+
     draw_text_with_shadow(
         draw,
-        (74, 212),
+        (
+            74,
+            daily_time_y
+        ),
         "23:00 Uhr",
         time_font,
         white
     )
 
+
+    daily_time_bbox = draw.textbbox(
+        (
+            74,
+            daily_time_y
+        ),
+        "23:00 Uhr",
+        font=time_font
+    )
+
+
+    weekly_label_y = (
+        daily_time_bbox[3]
+        + SECONDARY_GAP
+    )
+
+    weekly_time_y = (
+        weekly_label_y
+        + STATUS_TO_MAIN
+    )
+
+
     draw_text_with_shadow(
         draw,
-        (76, 330),
+        (
+            76,
+            weekly_label_y
+        ),
         DISPLAY_NAMES[
             "weekly_card"
         ],
@@ -2044,13 +2210,18 @@ def create_reset_card():
         blue
     )
 
+
     draw_text_with_shadow(
         draw,
-        (74, 372),
+        (
+            74,
+            weekly_time_y
+        ),
         "Dienstag · 23:00 Uhr",
         time_font,
         white
     )
+
 
     image = image.convert(
         "RGB"
@@ -2156,6 +2327,7 @@ def build_embeds(data):
         }
     }
 
+
     rift_embed = {
         "color":
             14555706,
@@ -2166,6 +2338,7 @@ def build_embeds(data):
         }
     }
 
+
     shugo_embed = {
         "color":
             14525510,
@@ -2175,6 +2348,7 @@ def build_embeds(data):
                 "attachment://shugo_games_card.png"
         }
     }
+
 
     reset_embed = {
         "color":
@@ -2231,6 +2405,7 @@ def webhook_request_with_files(
         b"\r\n"
     )
 
+
     for index, file_path in enumerate(
         file_paths
     ):
@@ -2241,6 +2416,7 @@ def webhook_request_with_files(
         ) as f:
 
             file_data = f.read()
+
 
         body.extend(
             (
@@ -2260,11 +2436,13 @@ def webhook_request_with_files(
             b"\r\n"
         )
 
+
     body.extend(
         (
             f"--{boundary}--\r\n"
         ).encode("utf-8")
     )
+
 
     req = urllib.request.Request(
         url,
@@ -2279,6 +2457,7 @@ def webhook_request_with_files(
                 "AION2-Schedule-Bot"
         }
     )
+
 
     with urllib.request.urlopen(
         req,
@@ -2309,12 +2488,15 @@ def main():
             "AION_SCHEDULE_WEBHOOK fehlt."
         )
 
+
     data = load_data()
     state = load_state()
+
 
     embeds = build_embeds(
         data
     )
+
 
     payload = {
         "embeds":
@@ -2347,9 +2529,11 @@ def main():
         ]
     }
 
+
     message_id = state.get(
         "message_id"
     )
+
 
     files = [
         OVERVIEW_CARD_FILE,
@@ -2370,12 +2554,14 @@ def main():
             f"/messages/{message_id}"
         )
 
+
         webhook_request_with_files(
             edit_url,
             payload,
             files,
             method="PATCH"
         )
+
 
         print(
             "Bestehende Veranstaltungs-"
@@ -2394,6 +2580,7 @@ def main():
             f"?wait=true"
         )
 
+
         result = (
             webhook_request_with_files(
                 create_url,
@@ -2403,12 +2590,14 @@ def main():
             )
         )
 
+
         save_state(
             {
                 "message_id":
                     result["id"]
             }
         )
+
 
         print(
             "Neue Veranstaltungs-"
