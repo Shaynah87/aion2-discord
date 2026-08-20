@@ -78,11 +78,8 @@ RESET_CARD_FILE = "resets_card.png"
 # Dieses Raster gilt jetzt für ALLE vier Karten.
 # ============================================================
 
-TITLE_TO_SUBTITLE = 68
-SUBTITLE_TO_STATUS = 74
-STATUS_TO_MAIN = 40
-
-SECONDARY_GAP = 62
+PRIMARY_VISUAL_GAP = 20
+SECTION_VISUAL_GAP = 47
 
 ACTIVE_EVENT_GAP = 34
 NEXT_ENTRY_GAP = 18
@@ -454,11 +451,6 @@ def build_event_overview(
     active_events = []
     upcoming_events = []
 
-
-    # --------------------------------------------------------
-    # AKTIVE EVENTS
-    # --------------------------------------------------------
-
     if rift_times[
         "active_start"
     ]:
@@ -474,7 +466,6 @@ def build_event_overview(
                     RIFT_COLOR
             }
         )
-
 
     if shugo_times[
         "active_start"
@@ -492,11 +483,6 @@ def build_event_overview(
             }
         )
 
-
-    # --------------------------------------------------------
-    # KOMMENDE EVENTS
-    # --------------------------------------------------------
-
     upcoming_events.append(
         {
             "key": "rift",
@@ -509,7 +495,6 @@ def build_event_overview(
         }
     )
 
-
     upcoming_events.append(
         {
             "key": "shugo",
@@ -521,7 +506,6 @@ def build_event_overview(
                 SHUGO_COLOR
         }
     )
-
 
     upcoming_events.append(
         {
@@ -537,7 +521,6 @@ def build_event_overview(
         }
     )
 
-
     upcoming_events.append(
         {
             "key": "weekly_reset",
@@ -552,17 +535,14 @@ def build_event_overview(
         }
     )
 
-
     upcoming_events.sort(
         key=lambda item:
             item["time"]
     )
 
-
     next_events = (
         upcoming_events[:2]
     )
-
 
     return {
         "active":
@@ -880,11 +860,6 @@ def create_overview_card(
         event_overview["next"]
     )
 
-
-    # --------------------------------------------------------
-    # SCHRIFTEN
-    # --------------------------------------------------------
-
     title_font = load_font(
         56,
         bold=True
@@ -915,11 +890,6 @@ def create_overview_card(
         bold=True
     )
 
-
-    # --------------------------------------------------------
-    # FARBEN
-    # --------------------------------------------------------
-
     white = (
         250,
         249,
@@ -941,37 +911,10 @@ def create_overview_card(
         255
     )
 
-
-    # --------------------------------------------------------
-    # HAUPTPOSITIONEN
-    #
-    # Gleiche Designlogik wie die anderen Karten.
-    # --------------------------------------------------------
-
     title_x = 74
     title_y = 58
 
-    # Eine Karte mit Untertitel hat:
-    #
-    # Titel
-    # +68
-    # Untertitel
-    # +74
-    # Status
-    #
-    # Die Übersicht hat keinen Untertitel.
-    # Der Status sitzt trotzdem auf derselben
-    # Rasterhöhe wie Status in Rift/Shugo.
-    overview_status_y = (
-        title_y
-        + TITLE_TO_SUBTITLE
-        + SUBTITLE_TO_STATUS
-    )
-
-
-    # --------------------------------------------------------
-    # ALS-NÄCHSTES-ZUSTAND
-    # --------------------------------------------------------
+    overview_status_y = None
 
     if active_events:
 
@@ -1001,11 +944,6 @@ def create_overview_card(
             status_gray
         )
 
-
-    # --------------------------------------------------------
-    # TEMPORÄRE MESSFLÄCHE
-    # --------------------------------------------------------
-
     measure_image = Image.new(
         "RGBA",
         (
@@ -1024,10 +962,23 @@ def create_overview_card(
         measure_image
     )
 
+    title_bbox = measure_draw.textbbox(
+        (title_x, title_y),
+        DISPLAY_NAMES["overview_card"],
+        font=title_font
+    )
 
-    # ========================================================
-    # AKTIVER ZUSTAND
-    # ========================================================
+    status_probe = measure_draw.textbbox(
+        (0, 0),
+        "JETZT AKTIV",
+        font=status_font
+    )
+
+    overview_status_y = (
+        title_bbox[3]
+        + SECTION_VISUAL_GAP
+        - status_probe[1]
+    )
 
     if active_events:
 
@@ -1035,13 +986,25 @@ def create_overview_card(
             overview_status_y
         )
 
+        status_bbox = measure_draw.textbbox(
+            (76, status_y),
+            "JETZT AKTIV",
+            font=status_font
+        )
+
+        active_probe = measure_draw.textbbox(
+            (0, 0),
+            "SPACETIME RIFT",
+            font=active_name_font
+        )
+
         current_y = (
-            status_y
-            + STATUS_TO_MAIN
+            status_bbox[3]
+            + PRIMARY_VISUAL_GAP
+            - active_probe[1]
         )
 
         last_active_bottom = None
-
 
         for event in active_events:
 
@@ -1085,30 +1048,23 @@ def create_overview_card(
                 + ACTIVE_EVENT_GAP
             )
 
+        next_probe = measure_draw.textbbox(
+            (0, 0),
+            next_title_text,
+            font=next_title_font
+        )
 
         next_section_y = (
             last_active_bottom
-            + SECONDARY_GAP
+            + SECTION_VISUAL_GAP
+            - next_probe[1]
         )
-
-
-    # ========================================================
-    # NICHTS AKTIV
-    #
-    # ALS NÄCHSTES sitzt auf derselben Rasterhöhe
-    # wie NÄCHSTER/NÄCHSTES/JETZT AKTIV.
-    # ========================================================
 
     else:
 
         next_section_y = (
             overview_status_y
         )
-
-
-    # ========================================================
-    # ALS NÄCHSTES MESSEN
-    # ========================================================
 
     next_title_bbox = measure_draw.textbbox(
         (
@@ -1119,14 +1075,17 @@ def create_overview_card(
         font=next_title_font
     )
 
-    current_y = (
-        next_title_bbox[3] + 22
+    next_entry_probe = measure_draw.textbbox(
+        (0, 0),
+        "Spacetime Rift · 00:00 Uhr",
+        font=secondary_font
     )
 
-
-    # ========================================================
-    # KOMMENDE EVENTS
-    # ========================================================
+    current_y = (
+        next_title_bbox[3]
+        + PRIMARY_VISUAL_GAP
+        - next_entry_probe[1]
+    )
 
     last_next_bottom = (
         next_title_bbox[3]
@@ -1157,11 +1116,6 @@ def create_overview_card(
             + NEXT_ENTRY_GAP
         )
 
-
-    # ========================================================
-    # DYNAMISCHE HÖHE
-    # ========================================================
-
     target_width = 1200
 
     target_height = (
@@ -1172,11 +1126,6 @@ def create_overview_card(
         target_height,
         360
     )
-
-
-    # ========================================================
-    # HINTERGRUND
-    # ========================================================
 
     image = load_overview_background()
 
@@ -1194,16 +1143,10 @@ def create_overview_card(
         tone=(2, 2, 3)
     )
 
-
     draw = ImageDraw.Draw(
         image,
         "RGBA"
     )
-
-
-    # ========================================================
-    # TITEL
-    # ========================================================
 
     draw_text_with_shadow(
         draw,
@@ -1218,23 +1161,11 @@ def create_overview_card(
         white
     )
 
-
-    # ========================================================
-    # AKTIVER ZUSTAND
-    # ========================================================
-
     if active_events:
 
         status_y = (
             overview_status_y
         )
-
-
-        # ----------------------------------------------------
-        # JETZT AKTIV
-        #
-        # GRAU – genau wie vereinbart.
-        # ----------------------------------------------------
 
         draw_text_with_shadow(
             draw,
@@ -1247,25 +1178,31 @@ def create_overview_card(
             status_gray
         )
 
+        status_bbox = draw.textbbox(
+            (76, status_y),
+            "JETZT AKTIV",
+            font=status_font
+        )
+
+        active_probe = draw.textbbox(
+            (0, 0),
+            "SPACETIME RIFT",
+            font=active_name_font
+        )
 
         current_y = (
-            status_y
-            + STATUS_TO_MAIN
+            status_bbox[3]
+            + PRIMARY_VISUAL_GAP
+            - active_probe[1]
         )
 
         last_active_bottom = None
-
-
-        # ----------------------------------------------------
-        # AKTIVE EVENTS
-        # ----------------------------------------------------
 
         for event in active_events:
 
             event_name = (
                 event["name"].upper()
             )
-
 
             draw_event_marker(
                 draw,
@@ -1274,7 +1211,6 @@ def create_overview_card(
                 event["color"],
                 size=18
             )
-
 
             draw_text_with_shadow(
                 draw,
@@ -1287,7 +1223,6 @@ def create_overview_card(
                 white
             )
 
-
             name_bbox = draw.textbbox(
                 (
                     108,
@@ -1297,7 +1232,6 @@ def create_overview_card(
                 font=active_name_font
             )
 
-
             until_y = (
                 name_bbox[3] + 4
             )
@@ -1306,7 +1240,6 @@ def create_overview_card(
                 f"bis "
                 f"{event['end'].strftime('%H:%M')} Uhr"
             )
-
 
             draw_text_with_shadow(
                 draw,
@@ -1318,7 +1251,6 @@ def create_overview_card(
                 active_until_font,
                 soft_white
             )
-
 
             until_bbox = draw.textbbox(
                 (
@@ -1338,35 +1270,23 @@ def create_overview_card(
                 + ACTIVE_EVENT_GAP
             )
 
+        next_probe = draw.textbbox(
+            (0, 0),
+            next_title_text,
+            font=next_title_font
+        )
 
         next_section_y = (
             last_active_bottom
-            + SECONDARY_GAP
+            + SECTION_VISUAL_GAP
+            - next_probe[1]
         )
-
-
-    # ========================================================
-    # NICHTS AKTIV
-    # ========================================================
 
     else:
 
         next_section_y = (
             overview_status_y
         )
-
-
-    # ========================================================
-    # ALS NÄCHSTES
-    #
-    # NICHTS AKTIV:
-    # ALS NÄCHSTES
-    # 31 / bold / grau / ohne Pfeil
-    #
-    # AKTIV:
-    # → Als Nächstes
-    # 30 / BOLD / weiß / mit Pfeil
-    # ========================================================
 
     draw_text_with_shadow(
         draw,
@@ -1379,7 +1299,6 @@ def create_overview_card(
         next_title_color
     )
 
-
     next_title_bbox = draw.textbbox(
         (
             76,
@@ -1389,15 +1308,17 @@ def create_overview_card(
         font=next_title_font
     )
 
-
-    current_y = (
-        next_title_bbox[3] + 22
+    next_entry_probe = draw.textbbox(
+        (0, 0),
+        "Spacetime Rift · 00:00 Uhr",
+        font=secondary_font
     )
 
-
-    # ========================================================
-    # NÄCHSTE EVENTS
-    # ========================================================
+    current_y = (
+        next_title_bbox[3]
+        + PRIMARY_VISUAL_GAP
+        - next_entry_probe[1]
+    )
 
     for event in next_events:
 
@@ -1409,12 +1330,10 @@ def create_overview_card(
             size=16
         )
 
-
         next_text = (
             f"{event['name']} · "
             f"{event['time'].strftime('%H:%M')} Uhr"
         )
-
 
         draw_text_with_shadow(
             draw,
@@ -1427,7 +1346,6 @@ def create_overview_card(
             soft_white
         )
 
-
         next_bbox = draw.textbbox(
             (
                 106,
@@ -1437,12 +1355,10 @@ def create_overview_card(
             font=secondary_font
         )
 
-
         current_y = (
             next_bbox[3]
             + NEXT_ENTRY_GAP
         )
-
 
     image = image.convert(
         "RGB"
@@ -1487,7 +1403,6 @@ def create_rift_card(
         "RGBA"
     )
 
-
     title_font = load_font(
         56,
         bold=True
@@ -1512,7 +1427,6 @@ def create_rift_card(
         30,
         bold=False
     )
-
 
     white = (
         250,
@@ -1542,28 +1456,51 @@ def create_rift_card(
         255
     )
 
+    title_y = 58
 
-    # --------------------------------------------------------
-    # GEMEINSAMES RASTER
-    # --------------------------------------------------------
+    title_probe = draw.textbbox(
+        (78, title_y),
+        DISPLAY_NAMES["rift_card"],
+        font=title_font
+    )
 
-    title_y = 62
+    subtitle_probe = draw.textbbox(
+        (0, 0),
+        f"Alle {rift_data['interval_hours']} Stunden",
+        font=subtitle_font
+    )
 
     subtitle_y = (
-        title_y
-        + TITLE_TO_SUBTITLE
+        title_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - subtitle_probe[1]
+    )
+
+    status_probe = draw.textbbox(
+        (0, 0),
+        "NÄCHSTER",
+        font=status_font
     )
 
     status_y = (
         subtitle_y
-        + SUBTITLE_TO_STATUS
+        + subtitle_probe[3]
+        + SECTION_VISUAL_GAP
+        - status_probe[1]
+    )
+
+    main_probe = draw.textbbox(
+        (0, 0),
+        "00:00 – 00:00 Uhr",
+        font=time_font
     )
 
     main_y = (
         status_y
-        + STATUS_TO_MAIN
+        + status_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - main_probe[1]
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1578,7 +1515,6 @@ def create_rift_card(
         white
     )
 
-
     draw_text_with_shadow(
         draw,
         (
@@ -1592,7 +1528,6 @@ def create_rift_card(
         subtitle_font,
         light_red
     )
-
 
     if rift_times[
         "active_start"
@@ -1655,7 +1590,6 @@ def create_rift_card(
             ]
         )
 
-
     secondary_end = (
         secondary_start +
         timedelta(
@@ -1664,7 +1598,6 @@ def create_rift_card(
             ]
         )
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1677,14 +1610,12 @@ def create_rift_card(
         red
     )
 
-
     main_time_text = (
         format_time_range(
             main_start,
             main_end
         )
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1697,7 +1628,6 @@ def create_rift_card(
         white
     )
 
-
     main_bbox = draw.textbbox(
         (
             78,
@@ -1707,12 +1637,17 @@ def create_rift_card(
         font=time_font
     )
 
+    secondary_probe = draw.textbbox(
+        (0, 0),
+        "→ Danach: 00:00 – 00:00 Uhr",
+        font=secondary_font
+    )
 
     secondary_y = (
         main_bbox[3]
-        + SECONDARY_GAP
+        + SECTION_VISUAL_GAP
+        - secondary_probe[1]
     )
-
 
     secondary_text = (
         f"→ {secondary_label}: "
@@ -1721,7 +1656,6 @@ def create_rift_card(
             secondary_end
         )}"
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1733,7 +1667,6 @@ def create_rift_card(
         secondary_font,
         secondary_color
     )
-
 
     image = image.convert(
         "RGB"
@@ -1778,7 +1711,6 @@ def create_shugo_card(
         "RGBA"
     )
 
-
     title_font = load_font(
         56,
         bold=True
@@ -1809,7 +1741,6 @@ def create_shugo_card(
         bold=False
     )
 
-
     white = (
         250,
         248,
@@ -1838,28 +1769,51 @@ def create_shugo_card(
         255
     )
 
+    title_y = 58
 
-    # --------------------------------------------------------
-    # GEMEINSAMES RASTER
-    # --------------------------------------------------------
+    title_probe = draw.textbbox(
+        (72, title_y),
+        DISPLAY_NAMES["shugo_card"],
+        font=title_font
+    )
 
-    title_y = 48
+    subtitle_probe = draw.textbbox(
+        (0, 0),
+        "Alle 30 Minuten",
+        font=subtitle_font
+    )
 
     subtitle_y = (
-        title_y
-        + TITLE_TO_SUBTITLE
+        title_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - subtitle_probe[1]
+    )
+
+    status_probe = draw.textbbox(
+        (0, 0),
+        "NÄCHSTES",
+        font=status_font
     )
 
     status_y = (
         subtitle_y
-        + SUBTITLE_TO_STATUS
+        + subtitle_probe[3]
+        + SECTION_VISUAL_GAP
+        - status_probe[1]
+    )
+
+    main_probe = draw.textbbox(
+        (0, 0),
+        "00:00 Uhr",
+        font=time_font
     )
 
     main_y = (
         status_y
-        + STATUS_TO_MAIN
+        + status_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - main_probe[1]
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1874,7 +1828,6 @@ def create_shugo_card(
         white
     )
 
-
     draw_text_with_shadow(
         draw,
         (
@@ -1885,7 +1838,6 @@ def create_shugo_card(
         subtitle_font,
         light_gold
     )
-
 
     if shugo_times[
         "active_start"
@@ -1933,14 +1885,12 @@ def create_shugo_card(
             ]
         )
 
-
     current_rotation = (
         shugo_rotation_for_time(
             main_start,
             shugo_data
         )
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1953,11 +1903,9 @@ def create_shugo_card(
         gold
     )
 
-
     main_time_text = (
         f"{main_start.strftime('%H:%M')} Uhr"
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -1970,14 +1918,12 @@ def create_shugo_card(
         white
     )
 
-
     y = (
         main_y + 75
     )
 
     last_game_text = None
     last_game_position = None
-
 
     for game in current_rotation:
 
@@ -2008,25 +1954,28 @@ def create_shugo_card(
 
         y += 43
 
-
     last_game_bbox = draw.textbbox(
         last_game_position,
         last_game_text,
         font=game_font
     )
 
+    secondary_probe = draw.textbbox(
+        (0, 0),
+        "→ Danach: 00:00 Uhr",
+        font=secondary_font
+    )
 
     secondary_y = (
         last_game_bbox[3]
-        + SECONDARY_GAP
+        + SECTION_VISUAL_GAP
+        - secondary_probe[1]
     )
-
 
     secondary_text = (
         f"→ {secondary_label}: "
         f"{secondary_start.strftime('%H:%M')} Uhr"
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -2038,7 +1987,6 @@ def create_shugo_card(
         secondary_font,
         secondary_color
     )
-
 
     image = image.convert(
         "RGB"
@@ -2080,7 +2028,6 @@ def create_reset_card():
         "RGBA"
     )
 
-
     title_font = load_font(
         56,
         bold=True
@@ -2095,7 +2042,6 @@ def create_reset_card():
         46,
         bold=True
     )
-
 
     white = (
         248,
@@ -2118,23 +2064,38 @@ def create_reset_card():
         255
     )
 
-
-    # --------------------------------------------------------
-    # RESET ebenfalls ans gemeinsame Raster
-    # --------------------------------------------------------
-
     title_y = 58
 
+    title_probe = draw.textbbox(
+        (74, title_y),
+        DISPLAY_NAMES["reset_card"],
+        font=title_font
+    )
+
+    daily_label_probe = draw.textbbox(
+        (0, 0),
+        DISPLAY_NAMES["daily_card"],
+        font=label_font
+    )
+
     daily_label_y = (
-        title_y
-        + TITLE_TO_SUBTITLE
+        title_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - daily_label_probe[1]
+    )
+
+    time_probe = draw.textbbox(
+        (0, 0),
+        "23:00 Uhr",
+        font=time_font
     )
 
     daily_time_y = (
         daily_label_y
-        + STATUS_TO_MAIN
+        + daily_label_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - time_probe[1]
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -2149,7 +2110,6 @@ def create_reset_card():
         white
     )
 
-
     draw_text_with_shadow(
         draw,
         (
@@ -2163,7 +2123,6 @@ def create_reset_card():
         light_blue
     )
 
-
     draw_text_with_shadow(
         draw,
         (
@@ -2175,7 +2134,6 @@ def create_reset_card():
         white
     )
 
-
     daily_time_bbox = draw.textbbox(
         (
             74,
@@ -2185,17 +2143,30 @@ def create_reset_card():
         font=time_font
     )
 
+    weekly_label_probe = draw.textbbox(
+        (0, 0),
+        DISPLAY_NAMES["weekly_card"],
+        font=label_font
+    )
 
     weekly_label_y = (
         daily_time_bbox[3]
-        + SECONDARY_GAP
+        + SECTION_VISUAL_GAP
+        - weekly_label_probe[1]
+    )
+
+    weekly_time_probe = draw.textbbox(
+        (0, 0),
+        "Dienstag · 23:00 Uhr",
+        font=time_font
     )
 
     weekly_time_y = (
         weekly_label_y
-        + STATUS_TO_MAIN
+        + weekly_label_probe[3]
+        + PRIMARY_VISUAL_GAP
+        - weekly_time_probe[1]
     )
-
 
     draw_text_with_shadow(
         draw,
@@ -2210,7 +2181,6 @@ def create_reset_card():
         blue
     )
 
-
     draw_text_with_shadow(
         draw,
         (
@@ -2221,7 +2191,6 @@ def create_reset_card():
         time_font,
         white
     )
-
 
     image = image.convert(
         "RGB"
@@ -2251,11 +2220,6 @@ def build_embeds(data):
         "shugo_games"
     ]
 
-
-    # --------------------------------------------------------
-    # RIFT
-    # --------------------------------------------------------
-
     rift_times = build_rift_times(
         rift_data,
         timezone
@@ -2265,11 +2229,6 @@ def build_embeds(data):
         rift_data,
         rift_times
     )
-
-
-    # --------------------------------------------------------
-    # SHUGO
-    # --------------------------------------------------------
 
     shugo_times = build_shugo_times(
         shugo_data,
@@ -2281,11 +2240,6 @@ def build_embeds(data):
         shugo_times
     )
 
-
-    # --------------------------------------------------------
-    # RESET
-    # --------------------------------------------------------
-
     daily_reset = next_daily_reset(
         timezone
     )
@@ -2295,11 +2249,6 @@ def build_embeds(data):
     )
 
     create_reset_card()
-
-
-    # --------------------------------------------------------
-    # ÜBERSICHT
-    # --------------------------------------------------------
 
     event_overview = build_event_overview(
         rift_times,
@@ -2312,11 +2261,6 @@ def build_embeds(data):
         event_overview
     )
 
-
-    # --------------------------------------------------------
-    # EMBEDS
-    # --------------------------------------------------------
-
     overview_embed = {
         "color":
             8027525,
@@ -2326,7 +2270,6 @@ def build_embeds(data):
                 "attachment://event_overview_card.png"
         }
     }
-
 
     rift_embed = {
         "color":
@@ -2338,7 +2281,6 @@ def build_embeds(data):
         }
     }
 
-
     shugo_embed = {
         "color":
             14525510,
@@ -2349,7 +2291,6 @@ def build_embeds(data):
         }
     }
 
-
     reset_embed = {
         "color":
             4231679,
@@ -2359,7 +2300,6 @@ def build_embeds(data):
                 "attachment://resets_card.png"
         }
     }
-
 
     return [
         overview_embed,
@@ -2405,7 +2345,6 @@ def webhook_request_with_files(
         b"\r\n"
     )
 
-
     for index, file_path in enumerate(
         file_paths
     ):
@@ -2416,7 +2355,6 @@ def webhook_request_with_files(
         ) as f:
 
             file_data = f.read()
-
 
         body.extend(
             (
@@ -2436,13 +2374,11 @@ def webhook_request_with_files(
             b"\r\n"
         )
 
-
     body.extend(
         (
             f"--{boundary}--\r\n"
         ).encode("utf-8")
     )
-
 
     req = urllib.request.Request(
         url,
@@ -2457,7 +2393,6 @@ def webhook_request_with_files(
                 "AION2-Schedule-Bot"
         }
     )
-
 
     with urllib.request.urlopen(
         req,
@@ -2488,15 +2423,12 @@ def main():
             "AION_SCHEDULE_WEBHOOK fehlt."
         )
 
-
     data = load_data()
     state = load_state()
-
 
     embeds = build_embeds(
         data
     )
-
 
     payload = {
         "embeds":
@@ -2529,11 +2461,9 @@ def main():
         ]
     }
 
-
     message_id = state.get(
         "message_id"
     )
-
 
     files = [
         OVERVIEW_CARD_FILE,
@@ -2542,18 +2472,12 @@ def main():
         RESET_CARD_FILE
     ]
 
-
-    # --------------------------------------------------------
-    # BESTEHENDE NACHRICHT AKTUALISIEREN
-    # --------------------------------------------------------
-
     if message_id:
 
         edit_url = (
             f"{WEBHOOK_URL}"
             f"/messages/{message_id}"
         )
-
 
         webhook_request_with_files(
             edit_url,
@@ -2562,16 +2486,10 @@ def main():
             method="PATCH"
         )
 
-
         print(
             "Bestehende Veranstaltungs-"
             "Nachricht aktualisiert."
         )
-
-
-    # --------------------------------------------------------
-    # NEUE NACHRICHT ERSTELLEN
-    # --------------------------------------------------------
 
     else:
 
@@ -2579,7 +2497,6 @@ def main():
             f"{WEBHOOK_URL}"
             f"?wait=true"
         )
-
 
         result = (
             webhook_request_with_files(
@@ -2590,14 +2507,12 @@ def main():
             )
         )
 
-
         save_state(
             {
                 "message_id":
                     result["id"]
             }
         )
-
 
         print(
             "Neue Veranstaltungs-"
