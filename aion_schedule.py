@@ -38,10 +38,13 @@ DISPLAY_NAMES = {
 
 
 # ============================================================
-# HINTERGRUNDBILDER DER DREI HAUPTKARTEN
-#
-# Die Übersicht hat vorerst KEIN Hintergrundbild.
+# HINTERGRUNDBILDER
 # ============================================================
+
+OVERVIEW_BACKGROUND_URL = (
+    "https://raw.githubusercontent.com/"
+    "Shaynah87/aion2-discord/main/event_overview.png"
+)
 
 RIFT_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
@@ -67,6 +70,15 @@ OVERVIEW_CARD_FILE = "event_overview_card.png"
 RIFT_CARD_FILE = "spacetime_rift_card.png"
 SHUGO_CARD_FILE = "shugo_games_card.png"
 RESET_CARD_FILE = "resets_card.png"
+
+
+# ============================================================
+# GEMEINSAME ABSTÄNDE
+#
+# Dieser Abstand wird bereits bei Rift/Shugo zwischen
+# Hauptinformation und "Nächster / Danach" verwendet.
+# Genau dieselbe Logik verwenden wir jetzt auch oben.
+# ============================================================
 
 SECONDARY_GAP = 62
 
@@ -434,7 +446,15 @@ def shugo_rotation_for_time(
 # ============================================================
 # ÜBERSICHT
 #
-# Pro Kategorie wird nur EIN kommender Termin berücksichtigt.
+# Pro Kategorie nur EIN kommender Termin.
+#
+# Dadurch kommt z.B. nicht:
+# Shugo 10:15
+# Shugo 10:45
+#
+# sondern:
+# Shugo 10:15
+# Rift 12:00
 # ============================================================
 
 def build_event_overview(
@@ -444,7 +464,6 @@ def build_event_overview(
     weekly_reset
 ):
     active_events = []
-
     upcoming_events = []
 
 
@@ -603,6 +622,12 @@ def load_image_from_url(url):
     ).convert("RGBA")
 
 
+def load_overview_background():
+    return load_image_from_url(
+        OVERVIEW_BACKGROUND_URL
+    )
+
+
 def load_rift_background():
     return load_image_from_url(
         RIFT_BACKGROUND_URL
@@ -686,6 +711,26 @@ def crop_and_resize(
             )
         )
 
+    return image.resize(
+        (
+            target_width,
+            target_height
+        ),
+        Image.Resampling.LANCZOS
+    )
+
+
+# ============================================================
+# DYNAMISCHER ÜBERSICHT-HINTERGRUND
+#
+# Der neutrale Hintergrund kann vertikal mitwachsen.
+# ============================================================
+
+def resize_overview_background(
+    image,
+    target_width,
+    target_height
+):
     return image.resize(
         (
             target_width,
@@ -819,42 +864,37 @@ def draw_event_marker(
 
 
 # ============================================================
-# ÜBERSICHT
+# ÜBERSICHT – DYNAMISCHES LAYOUT
 #
-# Kein Hintergrundbild.
+# Hier werden die Abstände anhand der tatsächlich
+# gezeichneten Text-Unterkanten berechnet.
 #
-# Pfeil gehört VOR "ALS NÄCHSTES",
-# NICHT vor die einzelnen Events.
+# Dadurch funktionieren:
+#
+# 0 aktive Events
+# 1 aktives Event
+# 2 aktive Events
+# später auch 3+
+#
+# ohne dass sich die Blöcke gegenseitig zusammenschieben.
 # ============================================================
 
 def create_overview_card(
     event_overview
 ):
-    target_width = 1200
-    target_height = 500
-
-    image = Image.new(
-        "RGBA",
-        (
-            target_width,
-            target_height
-        ),
-        (
-            8,
-            9,
-            12,
-            255
-        )
+    active_events = (
+        event_overview["active"]
     )
 
-    draw = ImageDraw.Draw(
-        image,
-        "RGBA"
+    next_events = (
+        event_overview["next"]
     )
 
 
     # --------------------------------------------------------
     # SCHRIFTEN
+    #
+    # Gleiche Größen wie die drei fertigen Karten.
     # --------------------------------------------------------
 
     title_font = load_font(
@@ -889,6 +929,248 @@ def create_overview_card(
 
 
     # --------------------------------------------------------
+    # TEMPORÄRE ZEICHENFLÄCHE
+    #
+    # Damit berechnen wir zuerst die nötige Gesamthöhe.
+    # --------------------------------------------------------
+
+    measure_image = Image.new(
+        "RGBA",
+        (1200, 2000),
+        (0, 0, 0, 0)
+    )
+
+    measure_draw = ImageDraw.Draw(
+        measure_image
+    )
+
+
+    # --------------------------------------------------------
+    # STARTPOSITIONEN
+    #
+    # Analog zu unseren fertigen Karten.
+    # --------------------------------------------------------
+
+    title_y = 58
+
+    title_bbox = measure_draw.textbbox(
+        (
+            74,
+            title_y
+        ),
+        DISPLAY_NAMES[
+            "overview_card"
+        ],
+        font=title_font
+    )
+
+    title_bottom = (
+        title_bbox[3]
+    )
+
+
+    # ========================================================
+    # AKTIVE EVENTS
+    # ========================================================
+
+    if active_events:
+
+        # Derselbe optische Abstand nach dem Titel,
+        # den wir auch bei den anderen Karten nutzen.
+        status_y = (
+            title_bottom + 34
+        )
+
+        status_bbox = measure_draw.textbbox(
+            (
+                76,
+                status_y
+            ),
+            "JETZT AKTIV",
+            font=status_font
+        )
+
+        current_y = (
+            status_bbox[3] + 28
+        )
+
+
+        # ----------------------------------------------------
+        # AKTIVE EVENTS UNTEREINANDER
+        # ----------------------------------------------------
+
+        for event in active_events:
+
+            name_y = current_y
+
+            name_bbox = measure_draw.textbbox(
+                (
+                    108,
+                    name_y
+                ),
+                event[
+                    "name"
+                ].upper(),
+                font=active_name_font
+            )
+
+            time_y = (
+                name_bbox[3] + 8
+            )
+
+            time_text = (
+                f"bis "
+                f"{event['end'].strftime('%H:%M')} Uhr"
+            )
+
+            time_bbox = measure_draw.textbbox(
+                (
+                    108,
+                    time_y
+                ),
+                time_text,
+                font=active_time_font
+            )
+
+
+            # ------------------------------------------------
+            # Abstand zum nächsten aktiven Event
+            #
+            # Nicht überlappend, aber kompakter als
+            # der große Sekundär-Abstand.
+            # ------------------------------------------------
+
+            current_y = (
+                time_bbox[3] + 34
+            )
+
+
+        # ----------------------------------------------------
+        # NACH DEM LETZTEN AKTIVEN EVENT:
+        #
+        # Exakt unser bestehender SECONDARY_GAP.
+        # ----------------------------------------------------
+
+        next_section_y = (
+            current_y
+            - 34
+            + SECONDARY_GAP
+        )
+
+
+    # ========================================================
+    # NICHTS AKTIV
+    # ========================================================
+
+    else:
+
+        # Gleicher Abstand unter ÜBERSICHT wie ein
+        # eigener Statusbereich.
+        next_section_y = (
+            title_bottom + 60
+        )
+
+
+    # ========================================================
+    # ALS NÄCHSTES
+    # ========================================================
+
+    next_title_text = (
+        "→ ALS NÄCHSTES"
+    )
+
+    next_title_bbox = measure_draw.textbbox(
+        (
+            76,
+            next_section_y
+        ),
+        next_title_text,
+        font=secondary_title_font
+    )
+
+
+    current_y = (
+        next_title_bbox[3] + 26
+    )
+
+
+    # --------------------------------------------------------
+    # NÄCHSTE EVENTS
+    # --------------------------------------------------------
+
+    for event in next_events:
+
+        next_text = (
+            f"{event['name']} · "
+            f"{event['time'].strftime('%H:%M')} Uhr"
+        )
+
+        next_bbox = measure_draw.textbbox(
+            (
+                106,
+                current_y
+            ),
+            next_text,
+            font=secondary_font
+        )
+
+        current_y = (
+            next_bbox[3] + 18
+        )
+
+
+    # --------------------------------------------------------
+    # UNTERER RAND
+    # --------------------------------------------------------
+
+    target_height = (
+        current_y + 52
+    )
+
+    target_height = max(
+        target_height,
+        360
+    )
+
+
+    # ========================================================
+    # JETZT ECHTES BILD ERZEUGEN
+    # ========================================================
+
+    target_width = 1200
+
+    image = load_overview_background()
+
+    image = resize_overview_background(
+        image,
+        target_width,
+        target_height
+    )
+
+
+    # --------------------------------------------------------
+    # LEICHTE ABDUNKLUNG LINKS
+    #
+    # Deutlich schwächer als bei Rift/Shugo/Reset,
+    # weil der Hintergrund selbst bereits dunkel ist.
+    # --------------------------------------------------------
+
+    image = add_strong_left_gradient(
+        image,
+        solid_ratio=0.16,
+        fade_ratio=0.55,
+        max_alpha=115,
+        tone=(2, 3, 5)
+    )
+
+
+    draw = ImageDraw.Draw(
+        image,
+        "RGBA"
+    )
+
+
+    # --------------------------------------------------------
     # FARBEN
     # --------------------------------------------------------
 
@@ -914,15 +1196,15 @@ def create_overview_card(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # TITEL
-    # --------------------------------------------------------
+    # ========================================================
 
     draw_text_with_shadow(
         draw,
         (
             74,
-            34
+            title_y
         ),
         DISPLAY_NAMES[
             "overview_card"
@@ -932,51 +1214,51 @@ def create_overview_card(
     )
 
 
-    active_events = (
-        event_overview["active"]
-    )
-
-    next_events = (
-        event_overview["next"]
-    )
-
-
     # ========================================================
-    # WENN ETWAS AKTIV IST
+    # AKTIVE EVENTS
     # ========================================================
 
     if active_events:
 
-        # ----------------------------------------------------
-        # JETZT AKTIV
-        #
-        # Deutlicher Abstand unter ÜBERSICHT
-        # ----------------------------------------------------
+        status_y = (
+            title_bottom + 34
+        )
 
         draw_text_with_shadow(
             draw,
             (
                 76,
-                120
+                status_y
             ),
             "JETZT AKTIV",
             status_font,
             grey
         )
 
+        status_bbox = draw.textbbox(
+            (
+                76,
+                status_y
+            ),
+            "JETZT AKTIV",
+            font=status_font
+        )
 
-        # ----------------------------------------------------
-        # AKTIVE EVENTS UNTEREINANDER
-        # ----------------------------------------------------
+        current_y = (
+            status_bbox[3] + 28
+        )
 
-        active_y = 170
 
-        for event in active_events[:2]:
+        for event in active_events:
+
+            # ------------------------------------------------
+            # EVENTNAME
+            # ------------------------------------------------
 
             draw_event_marker(
                 draw,
                 78,
-                active_y + 9,
+                current_y + 9,
                 event["color"],
                 size=18
             )
@@ -985,7 +1267,7 @@ def create_overview_card(
                 draw,
                 (
                     108,
-                    active_y
+                    current_y
                 ),
                 event[
                     "name"
@@ -994,148 +1276,150 @@ def create_overview_card(
                 white
             )
 
+            name_bbox = draw.textbbox(
+                (
+                    108,
+                    current_y
+                ),
+                event[
+                    "name"
+                ].upper(),
+                font=active_name_font
+            )
+
+
+            # ------------------------------------------------
+            # GROSSE ZEIT
+            # ------------------------------------------------
+
+            time_y = (
+                name_bbox[3] + 8
+            )
+
+            time_text = (
+                f"bis "
+                f"{event['end'].strftime('%H:%M')} Uhr"
+            )
+
             draw_text_with_shadow(
                 draw,
                 (
                     108,
-                    active_y + 38
+                    time_y
                 ),
-                (
-                    f"bis "
-                    f"{event['end'].strftime('%H:%M')} Uhr"
-                ),
+                time_text,
                 active_time_font,
                 white
             )
 
-            active_y += 108
+            time_bbox = draw.textbbox(
+                (
+                    108,
+                    time_y
+                ),
+                time_text,
+                font=active_time_font
+            )
+
+            current_y = (
+                time_bbox[3] + 34
+            )
 
 
         # ----------------------------------------------------
-        # ALS NÄCHSTES
-        #
-        # Pfeil gehört HIERHER.
+        # WIE BEI RIFT/SHUGO:
+        # SECONDARY_GAP NACH DEM HAUPTBLOCK
         # ----------------------------------------------------
 
         next_section_y = (
-            active_y + 14
+            current_y
+            - 34
+            + SECONDARY_GAP
         )
-
-        draw_text_with_shadow(
-            draw,
-            (
-                76,
-                next_section_y
-            ),
-            "→ ALS NÄCHSTES",
-            secondary_title_font,
-            grey
-        )
-
-
-        # ----------------------------------------------------
-        # NÄCHSTE EVENTS
-        #
-        # KEINE Pfeile mehr vor den Events.
-        # ----------------------------------------------------
-
-        next_y = (
-            next_section_y + 48
-        )
-
-        for event in next_events[:2]:
-
-            draw_event_marker(
-                draw,
-                78,
-                next_y + 8,
-                event["color"],
-                size=16
-            )
-
-            next_text = (
-                f"{event['name']} · "
-                f"{event['time'].strftime('%H:%M')} Uhr"
-            )
-
-            draw_text_with_shadow(
-                draw,
-                (
-                    106,
-                    next_y
-                ),
-                next_text,
-                secondary_font,
-                soft_white
-            )
-
-            next_y += 44
 
 
     # ========================================================
-    # WENN NICHTS AKTIV IST
+    # NICHTS AKTIV
     # ========================================================
 
     else:
 
-        # ----------------------------------------------------
-        # Wichtig:
-        #
-        # ALS NÄCHSTES klebt NICHT direkt unter ÜBERSICHT.
-        #
-        # Wir lassen bewusst denselben großzügigen
-        # vertikalen Abstand wie bei den Hauptkarten.
-        # ----------------------------------------------------
+        next_section_y = (
+            title_bottom + 60
+        )
 
-        next_section_y = 150
+
+    # ========================================================
+    # → ALS NÄCHSTES
+    # ========================================================
+
+    draw_text_with_shadow(
+        draw,
+        (
+            76,
+            next_section_y
+        ),
+        "→ ALS NÄCHSTES",
+        secondary_title_font,
+        grey
+    )
+
+    next_title_bbox = draw.textbbox(
+        (
+            76,
+            next_section_y
+        ),
+        "→ ALS NÄCHSTES",
+        font=secondary_title_font
+    )
+
+    current_y = (
+        next_title_bbox[3] + 26
+    )
+
+
+    # ========================================================
+    # NÄCHSTE EVENTS
+    # ========================================================
+
+    for event in next_events:
+
+        draw_event_marker(
+            draw,
+            78,
+            current_y + 8,
+            event["color"],
+            size=16
+        )
+
+        next_text = (
+            f"{event['name']} · "
+            f"{event['time'].strftime('%H:%M')} Uhr"
+        )
 
         draw_text_with_shadow(
             draw,
             (
-                76,
-                next_section_y
+                106,
+                current_y
             ),
-            "→ ALS NÄCHSTES",
-            status_font,
-            grey
+            next_text,
+            secondary_font,
+            soft_white
         )
 
-
-        # ----------------------------------------------------
-        # NÄCHSTE EVENTS
-        # ----------------------------------------------------
-
-        next_y = (
-            next_section_y + 58
+        next_bbox = draw.textbbox(
+            (
+                106,
+                current_y
+            ),
+            next_text,
+            font=secondary_font
         )
 
-        for event in next_events[:2]:
-
-            draw_event_marker(
-                draw,
-                78,
-                next_y + 9,
-                event["color"],
-                size=18
-            )
-
-            next_text = (
-                f"{event['name']} · "
-                f"{event['time'].strftime('%H:%M')} Uhr"
-            )
-
-            draw_text_with_shadow(
-                draw,
-                (
-                    108,
-                    next_y
-                ),
-                next_text,
-                secondary_font,
-                soft_white
-            )
-
-            next_y += 50
+        current_y = (
+            next_bbox[3] + 18
+        )
 
 
     image = image.convert(
@@ -1236,10 +1520,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            78,
-            62
-        ),
+        (78, 62),
         DISPLAY_NAMES[
             "rift_card"
         ],
@@ -1249,10 +1530,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            80,
-            132
-        ),
+        (80, 132),
         (
             f"Alle "
             f"{rift_data['interval_hours']} Stunden"
@@ -1325,10 +1603,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            80,
-            218
-        ),
+        (80, 218),
         main_label,
         status_font,
         red
@@ -1373,10 +1648,7 @@ def create_rift_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            80,
-            secondary_y
-        ),
+        (80, secondary_y),
         secondary_text,
         secondary_font,
         secondary_color
@@ -1485,10 +1757,7 @@ def create_shugo_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            72,
-            48
-        ),
+        (72, 48),
         DISPLAY_NAMES[
             "shugo_card"
         ],
@@ -1498,10 +1767,7 @@ def create_shugo_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            74,
-            116
-        ),
+        (74, 116),
         "Alle 30 Minuten",
         subtitle_font,
         light_gold
@@ -1554,10 +1820,7 @@ def create_shugo_card(
 
     draw_text_with_shadow(
         draw,
-        (
-            74,
-            190
-        ),
+        (74, 190),
         main_label,
         status_font,
         gold
@@ -1622,19 +1885,12 @@ def create_shugo_card(
 
     secondary_text = (
         f"→ {secondary_label}: "
-        f"{shugo_times['following_start'].strftime('%H:%M')} Uhr"
-        if not shugo_times["active_start"]
-        else
-        f"→ {secondary_label}: "
         f"{secondary_start.strftime('%H:%M')} Uhr"
     )
 
     draw_text_with_shadow(
         draw,
-        (
-            82,
-            secondary_y
-        ),
+        (82, secondary_y),
         secondary_text,
         secondary_font,
         secondary_color
@@ -1718,10 +1974,7 @@ def create_reset_card():
 
     draw_text_with_shadow(
         draw,
-        (
-            74,
-            58
-        ),
+        (74, 58),
         DISPLAY_NAMES[
             "reset_card"
         ],
@@ -1731,10 +1984,7 @@ def create_reset_card():
 
     draw_text_with_shadow(
         draw,
-        (
-            76,
-            170
-        ),
+        (76, 170),
         DISPLAY_NAMES[
             "daily_card"
         ],
@@ -1744,10 +1994,7 @@ def create_reset_card():
 
     draw_text_with_shadow(
         draw,
-        (
-            74,
-            212
-        ),
+        (74, 212),
         "23:00 Uhr",
         time_font,
         white
@@ -1755,10 +2002,7 @@ def create_reset_card():
 
     draw_text_with_shadow(
         draw,
-        (
-            76,
-            330
-        ),
+        (76, 330),
         DISPLAY_NAMES[
             "weekly_card"
         ],
@@ -1768,10 +2012,7 @@ def create_reset_card():
 
     draw_text_with_shadow(
         draw,
-        (
-            74,
-            372
-        ),
+        (74, 372),
         "Dienstag · 23:00 Uhr",
         time_font,
         white
@@ -1869,7 +2110,8 @@ def build_embeds(data):
 
     # --------------------------------------------------------
     # ÜBERSICHT
-    # neutraler grauer Balken
+    # neutraler grauer Discord-Balken
+    # #7A7D85
     # --------------------------------------------------------
 
     overview_embed = {
