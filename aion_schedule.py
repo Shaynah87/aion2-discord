@@ -74,10 +74,6 @@ RESET_CARD_FILE = "resets_card.png"
 
 # ============================================================
 # GEMEINSAME ABSTÄNDE
-#
-# Dieser Abstand wird bereits bei Rift/Shugo zwischen
-# Hauptinformation und "Nächster / Danach" verwendet.
-# Genau dieselbe Logik verwenden wir jetzt auch oben.
 # ============================================================
 
 SECONDARY_GAP = 62
@@ -230,7 +226,6 @@ def next_daily_reset(timezone):
 def next_weekly_reset(timezone):
     now = datetime.now(timezone)
 
-    # Dienstag = 1
     target_weekday = 1
 
     days_ahead = (
@@ -343,12 +338,6 @@ def build_rift_times(
 
 # ============================================================
 # SHUGO FESTIVAL
-#
-# Aktiv:
-# :15 bis :24:59
-# :45 bis :54:59
-#
-# Immer genau 10 Minuten.
 # ============================================================
 
 def build_shugo_times(
@@ -445,16 +434,6 @@ def shugo_rotation_for_time(
 
 # ============================================================
 # ÜBERSICHT
-#
-# Pro Kategorie nur EIN kommender Termin.
-#
-# Dadurch kommt z.B. nicht:
-# Shugo 10:15
-# Shugo 10:45
-#
-# sondern:
-# Shugo 10:15
-# Rift 12:00
 # ============================================================
 
 def build_event_overview(
@@ -721,16 +700,61 @@ def crop_and_resize(
 
 
 # ============================================================
-# DYNAMISCHER ÜBERSICHT-HINTERGRUND
+# ÜBERSICHT-HINTERGRUND
 #
-# Der neutrale Hintergrund kann vertikal mitwachsen.
+# Der schwarze Rahmen aus dem generierten Bild wird
+# hier vor dem Skalieren weggeschnitten.
 # ============================================================
 
-def resize_overview_background(
+def prepare_overview_background(
     image,
     target_width,
     target_height
 ):
+    source_width, source_height = (
+        image.size
+    )
+
+    # --------------------------------------------------------
+    # Schwarzen Außenrahmen wegcroppen
+    #
+    # ca. 2,5 % links/rechts
+    # ca. 3 % oben/unten
+    # --------------------------------------------------------
+
+    crop_left = int(
+        source_width * 0.025
+    )
+
+    crop_right = int(
+        source_width * 0.025
+    )
+
+    crop_top = int(
+        source_height * 0.03
+    )
+
+    crop_bottom = int(
+        source_height * 0.03
+    )
+
+    image = image.crop(
+        (
+            crop_left,
+            crop_top,
+            source_width - crop_right,
+            source_height - crop_bottom
+        )
+    )
+
+
+    # --------------------------------------------------------
+    # Danach auf dynamische Zielgröße skalieren.
+    #
+    # Bei diesem neutralen Hintergrund ist vertikales
+    # Strecken unproblematisch.
+    # --------------------------------------------------------
+
     return image.resize(
         (
             target_width,
@@ -864,19 +888,14 @@ def draw_event_marker(
 
 
 # ============================================================
-# ÜBERSICHT – DYNAMISCHES LAYOUT
+# DYNAMISCHE ÜBERSICHT
 #
-# Hier werden die Abstände anhand der tatsächlich
-# gezeichneten Text-Unterkanten berechnet.
+# Abstände orientieren sich jetzt direkt am Raster der
+# vorhandenen Rift/Shugo-Karten:
 #
-# Dadurch funktionieren:
-#
-# 0 aktive Events
-# 1 aktives Event
-# 2 aktive Events
-# später auch 3+
-#
-# ohne dass sich die Blöcke gegenseitig zusammenschieben.
+# Titel      -> Status
+# Status     -> Hauptinhalt
+# Hauptblock -> SECONDARY_GAP
 # ============================================================
 
 def create_overview_card(
@@ -893,8 +912,6 @@ def create_overview_card(
 
     # --------------------------------------------------------
     # SCHRIFTEN
-    #
-    # Gleiche Größen wie die drei fertigen Karten.
     # --------------------------------------------------------
 
     title_font = load_font(
@@ -929,15 +946,47 @@ def create_overview_card(
 
 
     # --------------------------------------------------------
-    # TEMPORÄRE ZEICHENFLÄCHE
-    #
-    # Damit berechnen wir zuerst die nötige Gesamthöhe.
+    # FARBE
+    # --------------------------------------------------------
+
+    white = (
+        250,
+        249,
+        252,
+        255
+    )
+
+    soft_white = (
+        225,
+        222,
+        225,
+        255
+    )
+
+    grey = (
+        165,
+        168,
+        175,
+        255
+    )
+
+
+    # --------------------------------------------------------
+    # TEMPORÄRE FLÄCHE ZUM MESSEN
     # --------------------------------------------------------
 
     measure_image = Image.new(
         "RGBA",
-        (1200, 2000),
-        (0, 0, 0, 0)
+        (
+            1200,
+            2500
+        ),
+        (
+            0,
+            0,
+            0,
+            0
+        )
     )
 
     measure_draw = ImageDraw.Draw(
@@ -945,17 +994,18 @@ def create_overview_card(
     )
 
 
-    # --------------------------------------------------------
-    # STARTPOSITIONEN
+    # ========================================================
+    # GRUNDRaster
     #
-    # Analog zu unseren fertigen Karten.
-    # --------------------------------------------------------
+    # Titel liegt wie bei Reset/Rift ungefähr bei 58.
+    # ========================================================
 
+    title_x = 74
     title_y = 58
 
     title_bbox = measure_draw.textbbox(
         (
-            74,
+            title_x,
             title_y
         ),
         DISPLAY_NAMES[
@@ -964,21 +1014,28 @@ def create_overview_card(
         font=title_font
     )
 
-    title_bottom = (
-        title_bbox[3]
-    )
-
 
     # ========================================================
-    # AKTIVE EVENTS
+    # AKTIVER ZUSTAND
     # ========================================================
 
     if active_events:
 
-        # Derselbe optische Abstand nach dem Titel,
-        # den wir auch bei den anderen Karten nutzen.
+        # ----------------------------------------------------
+        # Titel -> Status
+        #
+        # Rift:
+        # Titel 62
+        # Status 218
+        #
+        # Dort liegt aber noch der Untertitel dazwischen.
+        #
+        # Übersicht hat keinen Untertitel,
+        # daher kompakter, aber bewusst nicht gequetscht.
+        # ----------------------------------------------------
+
         status_y = (
-            title_bottom + 34
+            title_bbox[3] + 30
         )
 
         status_bbox = measure_draw.textbbox(
@@ -990,14 +1047,25 @@ def create_overview_card(
             font=status_font
         )
 
+
+        # ----------------------------------------------------
+        # Status -> erster Eventname
+        #
+        # analog Status -> große Zeit bei Rift/Shugo,
+        # nur etwas kleiner, weil der Eventname noch
+        # dazwischensteht.
+        # ----------------------------------------------------
+
         current_y = (
-            status_bbox[3] + 28
+            status_bbox[3] + 14
         )
 
 
         # ----------------------------------------------------
-        # AKTIVE EVENTS UNTEREINANDER
+        # AKTIVE EVENTS
         # ----------------------------------------------------
+
+        last_time_bottom = None
 
         for event in active_events:
 
@@ -1014,8 +1082,10 @@ def create_overview_card(
                 font=active_name_font
             )
 
+
+            # Eventname -> große Zeit
             time_y = (
-                name_bbox[3] + 8
+                name_bbox[3] + 4
             )
 
             time_text = (
@@ -1032,29 +1102,32 @@ def create_overview_card(
                 font=active_time_font
             )
 
+            last_time_bottom = (
+                time_bbox[3]
+            )
+
 
             # ------------------------------------------------
             # Abstand zum nächsten aktiven Event
             #
-            # Nicht überlappend, aber kompakter als
-            # der große Sekundär-Abstand.
+            # vergleichbar mit dem Abstand zwischen
+            # Hauptbereichen in den anderen Karten.
             # ------------------------------------------------
 
             current_y = (
-                time_bbox[3] + 34
+                last_time_bottom + 34
             )
 
 
         # ----------------------------------------------------
-        # NACH DEM LETZTEN AKTIVEN EVENT:
+        # Nach letztem Hauptblock:
         #
-        # Exakt unser bestehender SECONDARY_GAP.
+        # exakt SECONDARY_GAP.
         # ----------------------------------------------------
 
         next_section_y = (
-            current_y
-            - 34
-            + SECONDARY_GAP
+            last_time_bottom +
+            SECONDARY_GAP
         )
 
 
@@ -1064,10 +1137,14 @@ def create_overview_card(
 
     else:
 
-        # Gleicher Abstand unter ÜBERSICHT wie ein
-        # eigener Statusbereich.
+        # ----------------------------------------------------
+        # Kein leerer JETZT-AKTIV-Bereich.
+        #
+        # Aber großzügiger Abstand nach ÜBERSICHT.
+        # ----------------------------------------------------
+
         next_section_y = (
-            title_bottom + 60
+            title_bbox[3] + 60
         )
 
 
@@ -1075,28 +1152,29 @@ def create_overview_card(
     # ALS NÄCHSTES
     # ========================================================
 
-    next_title_text = (
-        "→ ALS NÄCHSTES"
-    )
-
     next_title_bbox = measure_draw.textbbox(
         (
             76,
             next_section_y
         ),
-        next_title_text,
+        "→ ALS NÄCHSTES",
         font=secondary_title_font
     )
 
 
+    # Überschrift -> erster nächster Event
     current_y = (
-        next_title_bbox[3] + 26
+        next_title_bbox[3] + 22
     )
 
 
-    # --------------------------------------------------------
-    # NÄCHSTE EVENTS
-    # --------------------------------------------------------
+    # ========================================================
+    # KOMMENDE EVENTS
+    # ========================================================
+
+    last_next_bottom = (
+        next_title_bbox[3]
+    )
 
     for event in next_events:
 
@@ -1114,17 +1192,21 @@ def create_overview_card(
             font=secondary_font
         )
 
+        last_next_bottom = (
+            next_bbox[3]
+        )
+
         current_y = (
-            next_bbox[3] + 18
+            last_next_bottom + 18
         )
 
 
-    # --------------------------------------------------------
-    # UNTERER RAND
-    # --------------------------------------------------------
+    # ========================================================
+    # DYNAMISCHE HÖHE
+    # ========================================================
 
     target_height = (
-        current_y + 52
+        last_next_bottom + 58
     )
 
     target_height = max(
@@ -1132,16 +1214,16 @@ def create_overview_card(
         360
     )
 
-
-    # ========================================================
-    # JETZT ECHTES BILD ERZEUGEN
-    # ========================================================
-
     target_width = 1200
+
+
+    # ========================================================
+    # HINTERGRUND
+    # ========================================================
 
     image = load_overview_background()
 
-    image = resize_overview_background(
+    image = prepare_overview_background(
         image,
         target_width,
         target_height
@@ -1149,50 +1231,26 @@ def create_overview_card(
 
 
     # --------------------------------------------------------
-    # LEICHTE ABDUNKLUNG LINKS
+    # SCHWARZER VERLAUF LINKS
     #
-    # Deutlich schwächer als bei Rift/Shugo/Reset,
-    # weil der Hintergrund selbst bereits dunkel ist.
+    # Wieder deutlich kräftiger.
+    #
+    # Sehr ähnlich zu den drei Hauptkarten,
+    # aber minimal weicher als Rift.
     # --------------------------------------------------------
 
     image = add_strong_left_gradient(
         image,
-        solid_ratio=0.16,
-        fade_ratio=0.55,
-        max_alpha=115,
-        tone=(2, 3, 5)
+        solid_ratio=0.26,
+        fade_ratio=0.76,
+        max_alpha=220,
+        tone=(2, 2, 3)
     )
 
 
     draw = ImageDraw.Draw(
         image,
         "RGBA"
-    )
-
-
-    # --------------------------------------------------------
-    # FARBEN
-    # --------------------------------------------------------
-
-    white = (
-        250,
-        249,
-        252,
-        255
-    )
-
-    soft_white = (
-        220,
-        220,
-        226,
-        255
-    )
-
-    grey = (
-        165,
-        168,
-        175,
-        255
     )
 
 
@@ -1203,7 +1261,7 @@ def create_overview_card(
     draw_text_with_shadow(
         draw,
         (
-            74,
+            title_x,
             title_y
         ),
         DISPLAY_NAMES[
@@ -1221,7 +1279,7 @@ def create_overview_card(
     if active_events:
 
         status_y = (
-            title_bottom + 34
+            title_bbox[3] + 30
         )
 
         draw_text_with_shadow(
@@ -1245,14 +1303,16 @@ def create_overview_card(
         )
 
         current_y = (
-            status_bbox[3] + 28
+            status_bbox[3] + 14
         )
+
+        last_time_bottom = None
 
 
         for event in active_events:
 
             # ------------------------------------------------
-            # EVENTNAME
+            # Punkt
             # ------------------------------------------------
 
             draw_event_marker(
@@ -1263,15 +1323,22 @@ def create_overview_card(
                 size=18
             )
 
+
+            # ------------------------------------------------
+            # Eventname
+            # ------------------------------------------------
+
+            event_name = (
+                event["name"].upper()
+            )
+
             draw_text_with_shadow(
                 draw,
                 (
                     108,
                     current_y
                 ),
-                event[
-                    "name"
-                ].upper(),
+                event_name,
                 active_name_font,
                 white
             )
@@ -1281,19 +1348,17 @@ def create_overview_card(
                     108,
                     current_y
                 ),
-                event[
-                    "name"
-                ].upper(),
+                event_name,
                 font=active_name_font
             )
 
 
             # ------------------------------------------------
-            # GROSSE ZEIT
+            # Große Zeit
             # ------------------------------------------------
 
             time_y = (
-                name_bbox[3] + 8
+                name_bbox[3] + 4
             )
 
             time_text = (
@@ -1321,20 +1386,22 @@ def create_overview_card(
                 font=active_time_font
             )
 
+            last_time_bottom = (
+                time_bbox[3]
+            )
+
             current_y = (
-                time_bbox[3] + 34
+                last_time_bottom + 34
             )
 
 
         # ----------------------------------------------------
-        # WIE BEI RIFT/SHUGO:
-        # SECONDARY_GAP NACH DEM HAUPTBLOCK
+        # Exakt unser bestehender Sekundärabstand
         # ----------------------------------------------------
 
         next_section_y = (
-            current_y
-            - 34
-            + SECONDARY_GAP
+            last_time_bottom +
+            SECONDARY_GAP
         )
 
 
@@ -1345,7 +1412,7 @@ def create_overview_card(
     else:
 
         next_section_y = (
-            title_bottom + 60
+            title_bbox[3] + 60
         )
 
 
@@ -1374,7 +1441,7 @@ def create_overview_card(
     )
 
     current_y = (
-        next_title_bbox[3] + 26
+        next_title_bbox[3] + 22
     )
 
 
@@ -2110,8 +2177,7 @@ def build_embeds(data):
 
     # --------------------------------------------------------
     # ÜBERSICHT
-    # neutraler grauer Discord-Balken
-    # #7A7D85
+    # neutraler grauer Balken
     # --------------------------------------------------------
 
     overview_embed = {
