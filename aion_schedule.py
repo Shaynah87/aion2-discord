@@ -378,15 +378,15 @@ def find_next_event(
         {
             "time": daily_reset,
             "icon": "🔄",
-            "name": "Daily Reset",
-            "color": 5089535
+            "name": "Täglicher Reset",
+            "color": 4239871
         },
 
         {
             "time": weekly_reset,
             "icon": "🔄",
-            "name": "Weekly Reset",
-            "color": 5089535
+            "name": "Wöchentlicher Reset",
+            "color": 4239871
         }
     ]
 
@@ -620,10 +620,11 @@ def create_rift_card(
         target_height
     )
 
+    # Gleiche Verlaufstärke wie Shugo
     image = add_left_gradient(
         image,
-        fade_ratio=0.76,
-        max_alpha=235,
+        fade_ratio=0.74,
+        max_alpha=242,
         tone=(3, 2, 7)
     )
 
@@ -850,6 +851,7 @@ def create_shugo_card(
         target_height
     )
 
+    # Referenz-Verlauf
     image = add_left_gradient(
         image,
         fade_ratio=0.74,
@@ -1048,11 +1050,13 @@ def create_reset_card():
         target_height
     )
 
+    # Gleiche Verlaufstärke wie Shugo,
+    # aber mit sehr dunklem Blaustich
     image = add_left_gradient(
         image,
-        fade_ratio=0.76,
-        max_alpha=238,
-        tone=(2, 5, 12)
+        fade_ratio=0.74,
+        max_alpha=242,
+        tone=(2, 7, 18)
     )
 
     draw = ImageDraw.Draw(
@@ -1083,15 +1087,15 @@ def create_reset_card():
     )
 
     blue = (
-        77,
-        168,
+        64,
+        145,
         255,
         255
     )
 
     light_blue = (
-        145,
-        210,
+        110,
+        190,
         255,
         255
     )
@@ -1104,11 +1108,11 @@ def create_reset_card():
         white
     )
 
-    # DAILY
+    # TÄGLICH
     draw_text_with_shadow(
         draw,
         (76, 170),
-        "DAILY RESET",
+        "TÄGLICHER RESET",
         label_font,
         light_blue
     )
@@ -1121,11 +1125,11 @@ def create_reset_card():
         white
     )
 
-    # WEEKLY
+    # WÖCHENTLICH
     draw_text_with_shadow(
         draw,
         (76, 330),
-        "WEEKLY RESET",
+        "WÖCHENTLICHER RESET",
         label_font,
         blue
     )
@@ -1259,7 +1263,7 @@ def build_embeds(data):
 
     reset_embed = {
         "color":
-            5089535,
+            4239871,
 
         "image": {
             "url":
