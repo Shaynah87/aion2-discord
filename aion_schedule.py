@@ -75,32 +75,17 @@ RESET_CARD_FILE = "resets_card.png"
 # ============================================================
 # GEMEINSAMES VISUELLES RASTER
 #
-# SHUGO ist die Referenz.
+# 20 px:
+# Elemente gehören optisch zusammen.
 #
-# CLOSE_GAP
-#   enger Abstand innerhalb eines zusammengehörigen Blocks:
-#   Titel -> Untertitel
-#   Status -> Uhrzeit
-#   Blocktitel -> Inhalt
+# 56 px:
+# Ein neuer eigenständiger Abschnitt beginnt.
 #
-# SECTION_GAP
-#   Abstand zwischen eigenständigen Bereichen:
-#   Untertitel -> NÄCHSTES
-#   RESETS -> TÄGLICH
-#   ÜBERSICHT -> ALS NÄCHSTES / JETZT AKTIV
-#   täglicher Block -> wöchentlicher Block
-#
-# AFTER_CONTENT_GAP
-#   Abstand nach dem eigentlichen Hauptinhalt zu
-#   "Danach" / "Nächster".
-#
-# Die Werte beziehen sich auf die SICHTBAREN Textkanten,
-# nicht einfach auf Y-Koordinaten.
+# SHUGO ist die Referenz für das Raster.
 # ============================================================
 
 CLOSE_GAP = 20
-SECTION_GAP = 47
-AFTER_CONTENT_GAP = 67
+SECTION_GAP = 56
 
 ACTIVE_EVENT_GAP = 34
 NEXT_ENTRY_GAP = 18
@@ -212,10 +197,11 @@ def text_y_after(
     visual_gap,
 ):
     """
-    Berechnet die Y-Position des nächsten Textes so,
-    dass zwischen der sichtbaren Unterkante des vorherigen
-    Textes und der sichtbaren Oberkante des nächsten Textes
-    exakt visual_gap Pixel liegen.
+    Setzt den nächsten Text anhand der sichtbaren Textkanten.
+
+    visual_gap ist der tatsächlich sichtbare Abstand zwischen
+    der Unterkante des vorherigen Textes und der Oberkante
+    des folgenden Textes.
     """
 
     probe = draw.textbbox(
@@ -357,6 +343,7 @@ def build_rift_times(
     active_end = None
 
     for start_time in starts:
+
         end_time = (
             start_time
             + duration
@@ -1010,9 +997,9 @@ def create_overview_card(
         )
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # AKTIVER ZUSTAND
-    # --------------------------------------------------------
+    # ========================================================
 
     if active_events:
 
@@ -1039,7 +1026,7 @@ def create_overview_card(
             )
         )
 
-        active_probe_text = (
+        first_active_text = (
             active_events[0][
                 "name"
             ].upper()
@@ -1048,7 +1035,7 @@ def create_overview_card(
         current_y = text_y_after(
             measure_draw,
             status_bbox,
-            active_probe_text,
+            first_active_text,
             active_name_font,
             CLOSE_GAP,
         )
@@ -1065,7 +1052,7 @@ def create_overview_card(
 
             if event_index > 0:
 
-                probe = (
+                event_probe = (
                     measure_draw.textbbox(
                         (
                             0,
@@ -1079,7 +1066,7 @@ def create_overview_card(
                 current_y = (
                     last_active_bottom
                     + ACTIVE_EVENT_GAP
-                    - probe[1]
+                    - event_probe[1]
                 )
 
             name_bbox = (
@@ -1147,9 +1134,9 @@ def create_overview_card(
             - next_title_probe[1]
         )
 
-    # --------------------------------------------------------
+    # ========================================================
     # NICHTS AKTIV
-    # --------------------------------------------------------
+    # ========================================================
 
     else:
 
@@ -1212,7 +1199,7 @@ def create_overview_card(
 
         if event_index > 0:
 
-            probe = (
+            next_probe = (
                 measure_draw.textbbox(
                     (
                         0,
@@ -1226,7 +1213,7 @@ def create_overview_card(
             current_y = (
                 last_next_bottom
                 + NEXT_ENTRY_GAP
-                - probe[1]
+                - next_probe[1]
             )
 
         next_bbox = (
@@ -1244,6 +1231,10 @@ def create_overview_card(
             next_bbox[3]
         )
 
+    # ========================================================
+    # DYNAMISCHE HÖHE
+    # ========================================================
+
     target_width = 1200
 
     target_height = (
@@ -1255,6 +1246,10 @@ def create_overview_card(
         target_height,
         360,
     )
+
+    # ========================================================
+    # HINTERGRUND
+    # ========================================================
 
     image = load_overview_background()
 
@@ -1277,6 +1272,10 @@ def create_overview_card(
         "RGBA",
     )
 
+    # ========================================================
+    # TITEL
+    # ========================================================
+
     draw_text_with_shadow(
         draw,
         (
@@ -1288,6 +1287,19 @@ def create_overview_card(
         white,
     )
 
+    title_bbox = draw.textbbox(
+        (
+            title_x,
+            title_y,
+        ),
+        title_text,
+        font=title_font,
+    )
+
+    # ========================================================
+    # AKTIVER ZUSTAND
+    # ========================================================
+
     if active_events:
 
         status_text = (
@@ -1296,14 +1308,7 @@ def create_overview_card(
 
         status_y = text_y_after(
             draw,
-            draw.textbbox(
-                (
-                    title_x,
-                    title_y,
-                ),
-                title_text,
-                font=title_font,
-            ),
+            title_bbox,
             status_text,
             status_font,
             SECTION_GAP,
@@ -1320,15 +1325,13 @@ def create_overview_card(
             status_gray,
         )
 
-        status_bbox = (
-            draw.textbbox(
-                (
-                    76,
-                    status_y,
-                ),
-                status_text,
-                font=status_font,
-            )
+        status_bbox = draw.textbbox(
+            (
+                76,
+                status_y,
+            ),
+            status_text,
+            font=status_font,
         )
 
         first_active_text = (
@@ -1357,7 +1360,7 @@ def create_overview_card(
 
             if event_index > 0:
 
-                probe = draw.textbbox(
+                event_probe = draw.textbbox(
                     (
                         0,
                         0,
@@ -1369,7 +1372,7 @@ def create_overview_card(
                 current_y = (
                     last_active_bottom
                     + ACTIVE_EVENT_GAP
-                    - probe[1]
+                    - event_probe[1]
                 )
 
             draw_event_marker(
@@ -1434,15 +1437,25 @@ def create_overview_card(
                 until_bbox[3]
             )
 
-        next_title_probe = (
-            draw.textbbox(
-                (
-                    0,
-                    0,
-                ),
-                next_title_text,
-                font=next_title_font,
-            )
+        next_title_text = (
+            "→ Als Nächstes"
+        )
+
+        next_title_font = (
+            secondary_bold_font
+        )
+
+        next_title_color = (
+            white
+        )
+
+        next_title_probe = draw.textbbox(
+            (
+                0,
+                0,
+            ),
+            next_title_text,
+            font=next_title_font,
         )
 
         next_section_y = (
@@ -1451,15 +1464,22 @@ def create_overview_card(
             - next_title_probe[1]
         )
 
+    # ========================================================
+    # NICHTS AKTIV
+    # ========================================================
+
     else:
 
-        title_bbox = draw.textbbox(
-            (
-                title_x,
-                title_y,
-            ),
-            title_text,
-            font=title_font,
+        next_title_text = (
+            "ALS NÄCHSTES"
+        )
+
+        next_title_font = (
+            status_font
+        )
+
+        next_title_color = (
+            status_gray
         )
 
         next_section_y = text_y_after(
@@ -1469,6 +1489,10 @@ def create_overview_card(
             next_title_font,
             SECTION_GAP,
         )
+
+    # ========================================================
+    # ALS NÄCHSTES
+    # ========================================================
 
     draw_text_with_shadow(
         draw,
@@ -1518,7 +1542,7 @@ def create_overview_card(
 
         if event_index > 0:
 
-            probe = draw.textbbox(
+            next_probe = draw.textbbox(
                 (
                     0,
                     0,
@@ -1530,7 +1554,7 @@ def create_overview_card(
             current_y = (
                 last_next_bottom
                 + NEXT_ENTRY_GAP
-                - probe[1]
+                - next_probe[1]
             )
 
         draw_event_marker(
@@ -1683,6 +1707,8 @@ def create_rift_card(
         font=title_font,
     )
 
+    # Titel und "Alle 3 Stunden" gehören zusammen.
+
     subtitle_y = text_y_after(
         draw,
         title_bbox,
@@ -1770,6 +1796,8 @@ def create_rift_card(
         )
     )
 
+    # Nach dem Untertitel beginnt der Hauptblock.
+
     status_y = text_y_after(
         draw,
         subtitle_bbox,
@@ -1793,6 +1821,8 @@ def create_rift_card(
             main_end,
         )
     )
+
+    # Status und Uhrzeit gehören zusammen.
 
     main_y = text_y_after(
         draw,
@@ -1863,12 +1893,14 @@ def create_rift_card(
         )}"
     )
 
+    # Nach der Hauptzeit beginnt der nächste Abschnitt.
+
     secondary_y = text_y_after(
         draw,
         main_bbox,
         secondary_text,
         secondary_font,
-        AFTER_CONTENT_GAP,
+        SECTION_GAP,
     )
 
     draw_text_with_shadow(
@@ -1896,7 +1928,7 @@ def create_rift_card(
 # ============================================================
 # SHUGO-FESTIVAL-KARTE
 #
-# MASTER-REFERENZ FÜR DIE ABSTÄNDE
+# MASTER-REFERENZ
 # ============================================================
 
 def create_shugo_card(
@@ -2006,6 +2038,8 @@ def create_shugo_card(
         font=title_font,
     )
 
+    # Titel und Untertitel = ein Block.
+
     subtitle_y = text_y_after(
         draw,
         title_bbox,
@@ -2069,6 +2103,8 @@ def create_shugo_card(
             ]
         )
 
+    # Untertitel -> Hauptblock = neuer Abschnitt.
+
     status_y = text_y_after(
         draw,
         subtitle_bbox,
@@ -2089,6 +2125,8 @@ def create_shugo_card(
     main_time_text = (
         f"{main_start.strftime('%H:%M')} Uhr"
     )
+
+    # NÄCHSTES / JETZT AKTIV + Uhrzeit gehören zusammen.
 
     main_y = text_y_after(
         draw,
@@ -2158,9 +2196,10 @@ def create_shugo_card(
         font=time_font,
     )
 
-    first_game_text = None
+    # Spiele bleiben wie bisher kompakt.
 
     if current_rotation:
+
         first_game_text = (
             f"• {current_rotation[0]}"
         )
@@ -2181,6 +2220,7 @@ def create_shugo_card(
         )
 
     else:
+
         y = (
             main_bbox[3]
             + SHUGO_TIME_TO_GAMES_GAP
@@ -2225,20 +2265,22 @@ def create_shugo_card(
 
     if last_game_text is not None:
 
-        last_game_bbox = (
-            draw.textbbox(
-                last_game_position,
-                last_game_text,
-                font=game_font,
-            )
+        last_game_bbox = draw.textbbox(
+            last_game_position,
+            last_game_text,
+            font=game_font,
         )
+
+        # Letztes Spiel -> Danach = neuer Abschnitt.
+        # Exakt derselbe 56-px-Abstand wie
+        # "Alle 30 Minuten -> NÄCHSTES".
 
         secondary_y = text_y_after(
             draw,
             last_game_bbox,
             secondary_text,
             secondary_font,
-            AFTER_CONTENT_GAP,
+            SECTION_GAP,
         )
 
     else:
@@ -2248,7 +2290,7 @@ def create_shugo_card(
             main_bbox,
             secondary_text,
             secondary_font,
-            AFTER_CONTENT_GAP,
+            SECTION_GAP,
         )
 
     draw_text_with_shadow(
@@ -2375,8 +2417,8 @@ def create_reset_card():
         font=title_font,
     )
 
-    # TÄGLICH ist ein EIGENER BLOCK.
-    # Deshalb hier SECTION_GAP und NICHT CLOSE_GAP.
+    # RESETS -> TÄGLICH = neuer Abschnitt.
+    # TÄGLICH ist KEIN Untertitel.
 
     daily_label_y = text_y_after(
         draw,
@@ -2395,6 +2437,8 @@ def create_reset_card():
         font=label_font,
     )
 
+    # TÄGLICH + Uhrzeit gehören zusammen.
+
     daily_time_y = text_y_after(
         draw,
         daily_label_bbox,
@@ -2412,7 +2456,7 @@ def create_reset_card():
         font=time_font,
     )
 
-    # WÖCHENTLICH beginnt wieder einen eigenen Block.
+    # Tagesblock -> Wochenblock = neuer Abschnitt.
 
     weekly_label_y = text_y_after(
         draw,
@@ -2430,6 +2474,8 @@ def create_reset_card():
         weekly_label_text,
         font=label_font,
     )
+
+    # WÖCHENTLICH + Uhrzeit gehören zusammen.
 
     weekly_time_y = text_y_after(
         draw,
