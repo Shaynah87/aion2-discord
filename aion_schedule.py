@@ -18,11 +18,13 @@ STATE_FILE = "schedule_message.json"
 # ============================================================
 # ANZEIGENAMEN
 #
-# Später müssen wir nur noch HIER die offiziellen
-# deutschen Global-Namen eintragen.
+# Später können hier die offiziellen deutschen
+# Global-Namen zentral geändert werden.
 # ============================================================
 
 DISPLAY_NAMES = {
+    "overview_card": "EVENT-ÜBERSICHT",
+
     "rift": "Spacetime Rift",
     "rift_card": "SPACETIME RIFT",
 
@@ -41,6 +43,11 @@ DISPLAY_NAMES = {
 # ============================================================
 # HINTERGRUNDBILDER
 # ============================================================
+
+OVERVIEW_BACKGROUND_URL = (
+    "https://raw.githubusercontent.com/"
+    "Shaynah87/aion2-discord/main/event_overview.png"
+)
 
 RIFT_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
@@ -62,11 +69,45 @@ RESET_BACKGROUND_URL = (
 # AUSGABEDATEIEN
 # ============================================================
 
+OVERVIEW_CARD_FILE = "event_overview_card.png"
 RIFT_CARD_FILE = "spacetime_rift_card.png"
 SHUGO_CARD_FILE = "shugo_games_card.png"
 RESET_CARD_FILE = "resets_card.png"
 
 SECONDARY_GAP = 62
+
+
+# ============================================================
+# EVENT-FARBEN
+# ============================================================
+
+RIFT_COLOR = (
+    255,
+    78,
+    88,
+    255
+)
+
+SHUGO_COLOR = (
+    229,
+    177,
+    62,
+    255
+)
+
+RESET_COLOR = (
+    64,
+    145,
+    255,
+    255
+)
+
+OVERVIEW_COLOR = (
+    140,
+    110,
+    220,
+    255
+)
 
 
 # ============================================================
@@ -155,14 +196,6 @@ def parse_time_today(
         second=0,
         microsecond=0
     )
-
-
-def discord_time(dt):
-    unix = int(
-        dt.timestamp()
-    )
-
-    return f"<t:{unix}:t>"
 
 
 def format_time_range(
@@ -316,7 +349,7 @@ def build_rift_times(
 # :15 bis :24:59
 # :45 bis :54:59
 #
-# Also immer genau 10 Minuten.
+# Immer genau 10 Minuten.
 # ============================================================
 
 def build_shugo_times(
@@ -412,14 +445,19 @@ def shugo_rotation_for_time(
 
 
 # ============================================================
-# EVENT-ZENTRALE
+# EVENT-ÜBERSICHT
 #
-# Sammelt:
-# - alle aktuell aktiven Events
-# - die nächsten kommenden Events
+# Wichtig:
+# Pro Kategorie wird nur der jeweils NÄCHSTE
+# kommende Termin berücksichtigt.
 #
-# Später können wir hier Abyss, Bosse usw.
-# einfach ergänzen.
+# Dadurch gibt es nicht mehr:
+# Shugo 09:45
+# Shugo 10:15
+#
+# sondern z. B.:
+# Shugo 09:45
+# Rift 12:00
 # ============================================================
 
 def build_event_overview(
@@ -434,7 +472,7 @@ def build_event_overview(
 
 
     # --------------------------------------------------------
-    # RIFT AKTIV
+    # AKTIVE EVENTS
     # --------------------------------------------------------
 
     if rift_times[
@@ -443,18 +481,16 @@ def build_event_overview(
 
         active_events.append(
             {
-                "icon": "🌀",
+                "key": "rift",
                 "name":
                     DISPLAY_NAMES["rift"],
                 "end":
-                    rift_times["active_end"]
+                    rift_times["active_end"],
+                "color":
+                    RIFT_COLOR
             }
         )
 
-
-    # --------------------------------------------------------
-    # SHUGO AKTIV
-    # --------------------------------------------------------
 
     if shugo_times[
         "active_start"
@@ -462,97 +498,88 @@ def build_event_overview(
 
         active_events.append(
             {
-                "icon": "🐹",
+                "key": "shugo",
                 "name":
                     DISPLAY_NAMES["shugo"],
                 "end":
-                    shugo_times["active_end"]
+                    shugo_times["active_end"],
+                "color":
+                    SHUGO_COLOR
             }
         )
 
 
     # --------------------------------------------------------
-    # KOMMENDE RIFTS
+    # NUR DER NÄCHSTE RIFT
     # --------------------------------------------------------
 
     upcoming_events.append(
         {
-            "icon": "🌀",
+            "key": "rift",
             "name":
                 DISPLAY_NAMES["rift"],
             "time":
-                rift_times["next_start"]
-        }
-    )
-
-    upcoming_events.append(
-        {
-            "icon": "🌀",
-            "name":
-                DISPLAY_NAMES["rift"],
-            "time":
-                rift_times["following_start"]
+                rift_times["next_start"],
+            "color":
+                RIFT_COLOR
         }
     )
 
 
     # --------------------------------------------------------
-    # KOMMENDE SHUGOS
+    # NUR DAS NÄCHSTE SHUGO
     # --------------------------------------------------------
 
     upcoming_events.append(
         {
-            "icon": "🐹",
+            "key": "shugo",
             "name":
                 DISPLAY_NAMES["shugo"],
             "time":
-                shugo_times["next_start"]
-        }
-    )
-
-    upcoming_events.append(
-        {
-            "icon": "🐹",
-            "name":
-                DISPLAY_NAMES["shugo"],
-            "time":
-                shugo_times["following_start"]
+                shugo_times["next_start"],
+            "color":
+                SHUGO_COLOR
         }
     )
 
 
     # --------------------------------------------------------
-    # RESET
+    # TÄGLICHER RESET
     # --------------------------------------------------------
 
     upcoming_events.append(
         {
-            "icon": "🔄",
+            "key": "daily_reset",
             "name":
                 DISPLAY_NAMES[
                     "daily_reset"
                 ],
             "time":
-                daily_reset
+                daily_reset,
+            "color":
+                RESET_COLOR
         }
     )
 
+
+    # --------------------------------------------------------
+    # WÖCHENTLICHER RESET
+    # --------------------------------------------------------
+
     upcoming_events.append(
         {
-            "icon": "🔄",
+            "key": "weekly_reset",
             "name":
                 DISPLAY_NAMES[
                     "weekly_reset"
                 ],
             "time":
-                weekly_reset
+                weekly_reset,
+            "color":
+                RESET_COLOR
         }
     )
 
-
-    # --------------------------------------------------------
-    # ZEITLICH SORTIEREN
-    # --------------------------------------------------------
 
     upcoming_events.sort(
         key=lambda item:
@@ -560,8 +587,9 @@ def build_event_overview(
     )
 
 
-    # Nur die zwei nächsten Ereignisse oben anzeigen.
-    next_events = upcoming_events[:2]
+    next_events = (
+        upcoming_events[:2]
+    )
 
 
     return {
@@ -596,6 +624,12 @@ def load_image_from_url(url):
     return Image.open(
         BytesIO(image_data)
     ).convert("RGBA")
+
+
+def load_overview_background():
+    return load_image_from_url(
+        OVERVIEW_BACKGROUND_URL
+    )
 
 
 def load_rift_background():
@@ -788,6 +822,334 @@ def draw_text_with_shadow(
         text,
         font=font,
         fill=fill
+    )
+
+
+# ============================================================
+# KLEINER FARBMARKER
+# ============================================================
+
+def draw_event_marker(
+    draw,
+    x,
+    y,
+    color
+):
+    draw.ellipse(
+        (
+            x,
+            y,
+            x + 16,
+            y + 16
+        ),
+        fill=color
+    )
+
+
+# ============================================================
+# EVENT-ÜBERSICHT-KARTE
+#
+# Bewusst nur 300 px hoch.
+# Kein riesiger vierter Event-Block.
+# ============================================================
+
+def create_overview_card(
+    event_overview
+):
+    image = load_overview_background()
+
+    target_width = 1200
+    target_height = 300
+
+    image = crop_and_resize(
+        image,
+        target_width,
+        target_height
+    )
+
+    # Nur leichter zusätzlicher Verlauf.
+    # Der Hintergrund selbst ist bereits sehr ruhig.
+    image = add_strong_left_gradient(
+        image,
+        solid_ratio=0.20,
+        fade_ratio=0.55,
+        max_alpha=175,
+        tone=(2, 3, 7)
+    )
+
+    draw = ImageDraw.Draw(
+        image,
+        "RGBA"
+    )
+
+
+    # --------------------------------------------------------
+    # SCHRIFTEN
+    # --------------------------------------------------------
+
+    title_font = load_font(
+        42,
+        bold=True
+    )
+
+    section_font = load_font(
+        25,
+        bold=True
+    )
+
+    event_font = load_font(
+        28,
+        bold=True
+    )
+
+    time_font = load_font(
+        24,
+        bold=False
+    )
+
+
+    # --------------------------------------------------------
+    # FARBEN
+    # --------------------------------------------------------
+
+    white = (
+        250,
+        249,
+        252,
+        255
+    )
+
+    soft_white = (
+        220,
+        220,
+        226,
+        255
+    )
+
+    overview_accent = (
+        180,
+        160,
+        240,
+        255
+    )
+
+
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
+
+    draw_text_with_shadow(
+        draw,
+        (66, 38),
+        DISPLAY_NAMES[
+            "overview_card"
+        ],
+        title_font,
+        white
+    )
+
+
+    active_events = (
+        event_overview["active"]
+    )
+
+    next_events = (
+        event_overview["next"]
+    )
+
+
+    # ========================================================
+    # WENN ETWAS AKTIV IST:
+    #
+    # JETZT AKTIV       ALS NÄCHSTES
+    # Event              Event
+    # Event              Event
+    # ========================================================
+
+    if active_events:
+
+        active_x = 68
+        next_x = 420
+
+        section_y = 108
+
+
+        # ----------------------------------------------------
+        # JETZT AKTIV
+        # ----------------------------------------------------
+
+        draw_text_with_shadow(
+            draw,
+            (
+                active_x,
+                section_y
+            ),
+            "JETZT AKTIV",
+            section_font,
+            overview_accent
+        )
+
+        event_y = 154
+
+        for event in active_events:
+
+            draw_event_marker(
+                draw,
+                active_x,
+                event_y + 9,
+                event["color"]
+            )
+
+            draw_text_with_shadow(
+                draw,
+                (
+                    active_x + 28,
+                    event_y
+                ),
+                event["name"],
+                event_font,
+                white
+            )
+
+            draw_text_with_shadow(
+                draw,
+                (
+                    active_x + 28,
+                    event_y + 34
+                ),
+                (
+                    f"bis "
+                    f"{event['end'].strftime('%H:%M')} Uhr"
+                ),
+                time_font,
+                soft_white
+            )
+
+            event_y += 78
+
+
+        # ----------------------------------------------------
+        # ALS NÄCHSTES
+        # ----------------------------------------------------
+
+        draw_text_with_shadow(
+            draw,
+            (
+                next_x,
+                section_y
+            ),
+            "ALS NÄCHSTES",
+            section_font,
+            overview_accent
+        )
+
+        next_y = 154
+
+        for event in next_events:
+
+            draw_event_marker(
+                draw,
+                next_x,
+                next_y + 9,
+                event["color"]
+            )
+
+            draw_text_with_shadow(
+                draw,
+                (
+                    next_x + 28,
+                    next_y
+                ),
+                event["name"],
+                event_font,
+                white
+            )
+
+            draw_text_with_shadow(
+                draw,
+                (
+                    next_x + 28,
+                    next_y + 34
+                ),
+                (
+                    f"{event['time'].strftime('%H:%M')} Uhr"
+                ),
+                time_font,
+                soft_white
+            )
+
+            next_y += 78
+
+
+    # ========================================================
+    # WENN NICHTS AKTIV IST:
+    #
+    # Nur ALS NÄCHSTES.
+    # Kein leerer Aktiv-Bereich.
+    # ========================================================
+
+    else:
+
+        next_x = 68
+        section_y = 116
+
+        draw_text_with_shadow(
+            draw,
+            (
+                next_x,
+                section_y
+            ),
+            "ALS NÄCHSTES",
+            section_font,
+            overview_accent
+        )
+
+        next_y = 162
+
+        for event in next_events:
+
+            draw_event_marker(
+                draw,
+                next_x,
+                next_y + 9,
+                event["color"]
+            )
+
+            draw_text_with_shadow(
+                draw,
+                (
+                    next_x + 28,
+                    next_y
+                ),
+                event["name"],
+                event_font,
+                white
+            )
+
+            draw_text_with_shadow(
+                draw,
+                (
+                    next_x + 28,
+                    next_y + 34
+                ),
+                (
+                    f"{event['time'].strftime('%H:%M')} Uhr"
+                ),
+                time_font,
+                soft_white
+            )
+
+            next_x += 335
+
+
+    image = image.convert(
+        "RGB"
+    )
+
+    image.save(
+        OVERVIEW_CARD_FILE,
+        "PNG",
+        optimize=True
     )
 
 
@@ -1388,84 +1750,6 @@ def create_reset_card():
 
 
 # ============================================================
-# EVENT-ÜBERSICHT ALS DISCORD-EMBED
-#
-# Das ist vorerst noch das normale Discord-Element.
-# Sobald die Logik gefällt, ersetzen wir es durch
-# unsere eigene schöne Grafik.
-# ============================================================
-
-def create_overview_embed(
-    event_overview
-):
-    description_lines = []
-
-    active_events = (
-        event_overview["active"]
-    )
-
-    next_events = (
-        event_overview["next"]
-    )
-
-
-    # --------------------------------------------------------
-    # AKTIVE EVENTS
-    # --------------------------------------------------------
-
-    if active_events:
-
-        description_lines.append(
-            "**JETZT AKTIV**"
-        )
-
-        for event in active_events:
-
-            description_lines.append(
-                (
-                    f"{event['icon']} "
-                    f"**{event['name']}** "
-                    f"· bis "
-                    f"{event['end'].strftime('%H:%M')} Uhr"
-                )
-            )
-
-        description_lines.append(
-            ""
-        )
-
-
-    # --------------------------------------------------------
-    # NÄCHSTE EVENTS
-    # --------------------------------------------------------
-
-    description_lines.append(
-        "**ALS NÄCHSTES**"
-    )
-
-    for event in next_events:
-
-        description_lines.append(
-            (
-                f"{event['icon']} "
-                f"**{event['name']}** "
-                f"· "
-                f"{discord_time(
-                    event['time']
-                )}"
-            )
-        )
-
-
-    return {
-        "description":
-            "\n".join(
-                description_lines
-            )
-    }
-
-
-# ============================================================
 # EMBEDS ERSTELLEN
 # ============================================================
 
@@ -1529,7 +1813,7 @@ def build_embeds(data):
 
 
     # --------------------------------------------------------
-    # EVENT-ZENTRALE
+    # EVENT-ÜBERSICHT
     # --------------------------------------------------------
 
     event_overview = build_event_overview(
@@ -1539,15 +1823,28 @@ def build_embeds(data):
         weekly_reset
     )
 
-    overview_embed = (
-        create_overview_embed(
-            event_overview
-        )
+    create_overview_card(
+        event_overview
     )
 
 
     # --------------------------------------------------------
-    # DETAIL-KARTEN
+    # EVENT-ÜBERSICHT-EMBED
+    # --------------------------------------------------------
+
+    overview_embed = {
+        "color":
+            9203420,
+
+        "image": {
+            "url":
+                "attachment://event_overview_card.png"
+        }
+    }
+
+
+    # --------------------------------------------------------
+    # RIFT
     # --------------------------------------------------------
 
     rift_embed = {
@@ -1561,6 +1858,10 @@ def build_embeds(data):
     }
 
 
+    # --------------------------------------------------------
+    # SHUGO
+    # --------------------------------------------------------
+
     shugo_embed = {
         "color":
             14525510,
@@ -1572,8 +1873,11 @@ def build_embeds(data):
     }
 
 
+    # --------------------------------------------------------
+    # RESET
+    # --------------------------------------------------------
+
     reset_embed = {
-        # Exakt dasselbe Blau wie WÖCHENTLICH:
         # RGB 64,145,255 = #4091FF
         "color":
             4231679,
@@ -1722,17 +2026,23 @@ def main():
             {
                 "id": 0,
                 "filename":
-                    RIFT_CARD_FILE
+                    OVERVIEW_CARD_FILE
             },
 
             {
                 "id": 1,
                 "filename":
-                    SHUGO_CARD_FILE
+                    RIFT_CARD_FILE
             },
 
             {
                 "id": 2,
+                "filename":
+                    SHUGO_CARD_FILE
+            },
+
+            {
+                "id": 3,
                 "filename":
                     RESET_CARD_FILE
             }
@@ -1744,6 +2054,7 @@ def main():
     )
 
     files = [
+        OVERVIEW_CARD_FILE,
         RIFT_CARD_FILE,
         SHUGO_CARD_FILE,
         RESET_CARD_FILE
