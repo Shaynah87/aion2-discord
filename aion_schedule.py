@@ -75,11 +75,15 @@ RESET_CARD_FILE = "resets_card.png"
 # ============================================================
 # GEMEINSAMES DESIGNRASTER
 #
-# Dieses Raster gilt jetzt für ALLE vier Karten.
+# PRIMARY_VISUAL_GAP:
+# Abstand zwischen direkt zusammengehörigen Zeilen.
+#
+# SECTION_VISUAL_GAP:
+# Abstand zwischen zwei inhaltlichen Abschnitten.
 # ============================================================
 
-PRIMARY_VISUAL_GAP = 20
-SECTION_VISUAL_GAP = 47
+PRIMARY_VISUAL_GAP = 28
+SECTION_VISUAL_GAP = 58
 
 ACTIVE_EVENT_GAP = 34
 NEXT_ENTRY_GAP = 18
@@ -914,8 +918,6 @@ def create_overview_card(
     title_x = 74
     title_y = 58
 
-    overview_status_y = None
-
     if active_events:
 
         next_title_text = (
@@ -963,13 +965,21 @@ def create_overview_card(
     )
 
     title_bbox = measure_draw.textbbox(
-        (title_x, title_y),
-        DISPLAY_NAMES["overview_card"],
+        (
+            title_x,
+            title_y
+        ),
+        DISPLAY_NAMES[
+            "overview_card"
+        ],
         font=title_font
     )
 
     status_probe = measure_draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "JETZT AKTIV",
         font=status_font
     )
@@ -987,13 +997,19 @@ def create_overview_card(
         )
 
         status_bbox = measure_draw.textbbox(
-            (76, status_y),
+            (
+                76,
+                status_y
+            ),
             "JETZT AKTIV",
             font=status_font
         )
 
         active_probe = measure_draw.textbbox(
-            (0, 0),
+            (
+                0,
+                0
+            ),
             "SPACETIME RIFT",
             font=active_name_font
         )
@@ -1049,7 +1065,10 @@ def create_overview_card(
             )
 
         next_probe = measure_draw.textbbox(
-            (0, 0),
+            (
+                0,
+                0
+            ),
             next_title_text,
             font=next_title_font
         )
@@ -1076,7 +1095,10 @@ def create_overview_card(
     )
 
     next_entry_probe = measure_draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "Spacetime Rift · 00:00 Uhr",
         font=secondary_font
     )
@@ -1179,13 +1201,19 @@ def create_overview_card(
         )
 
         status_bbox = draw.textbbox(
-            (76, status_y),
+            (
+                76,
+                status_y
+            ),
             "JETZT AKTIV",
             font=status_font
         )
 
         active_probe = draw.textbbox(
-            (0, 0),
+            (
+                0,
+                0
+            ),
             "SPACETIME RIFT",
             font=active_name_font
         )
@@ -1271,7 +1299,10 @@ def create_overview_card(
             )
 
         next_probe = draw.textbbox(
-            (0, 0),
+            (
+                0,
+                0
+            ),
             next_title_text,
             font=next_title_font
         )
@@ -1309,7 +1340,10 @@ def create_overview_card(
     )
 
     next_entry_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "Spacetime Rift · 00:00 Uhr",
         font=secondary_font
     )
@@ -1458,46 +1492,81 @@ def create_rift_card(
 
     title_y = 58
 
-    title_probe = draw.textbbox(
-        (78, title_y),
-        DISPLAY_NAMES["rift_card"],
+    title_bbox = draw.textbbox(
+        (
+            78,
+            title_y
+        ),
+        DISPLAY_NAMES[
+            "rift_card"
+        ],
         font=title_font
     )
 
+    subtitle_text = (
+        f"Alle "
+        f"{rift_data['interval_hours']} Stunden"
+    )
+
     subtitle_probe = draw.textbbox(
-        (0, 0),
-        f"Alle {rift_data['interval_hours']} Stunden",
+        (
+            0,
+            0
+        ),
+        subtitle_text,
         font=subtitle_font
     )
 
     subtitle_y = (
-        title_probe[3]
+        title_bbox[3]
         + PRIMARY_VISUAL_GAP
         - subtitle_probe[1]
     )
 
     status_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "NÄCHSTER",
         font=status_font
     )
 
+    subtitle_bbox = draw.textbbox(
+        (
+            80,
+            subtitle_y
+        ),
+        subtitle_text,
+        font=subtitle_font
+    )
+
     status_y = (
-        subtitle_y
-        + subtitle_probe[3]
+        subtitle_bbox[3]
         + SECTION_VISUAL_GAP
         - status_probe[1]
     )
 
     main_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "00:00 – 00:00 Uhr",
         font=time_font
     )
 
+    status_bbox = draw.textbbox(
+        (
+            80,
+            status_y
+        ),
+        "NÄCHSTER",
+        font=status_font
+    )
+
     main_y = (
-        status_y
-        + status_probe[3]
+        status_bbox[3]
         + PRIMARY_VISUAL_GAP
         - main_probe[1]
     )
@@ -1521,10 +1590,7 @@ def create_rift_card(
             80,
             subtitle_y
         ),
-        (
-            f"Alle "
-            f"{rift_data['interval_hours']} Stunden"
-        ),
+        subtitle_text,
         subtitle_font,
         light_red
     )
@@ -1638,7 +1704,10 @@ def create_rift_card(
     )
 
     secondary_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "→ Danach: 00:00 – 00:00 Uhr",
         font=secondary_font
     )
@@ -1771,46 +1840,80 @@ def create_shugo_card(
 
     title_y = 58
 
-    title_probe = draw.textbbox(
-        (72, title_y),
-        DISPLAY_NAMES["shugo_card"],
+    title_bbox = draw.textbbox(
+        (
+            72,
+            title_y
+        ),
+        DISPLAY_NAMES[
+            "shugo_card"
+        ],
         font=title_font
     )
 
+    subtitle_text = (
+        "Alle 30 Minuten"
+    )
+
     subtitle_probe = draw.textbbox(
-        (0, 0),
-        "Alle 30 Minuten",
+        (
+            0,
+            0
+        ),
+        subtitle_text,
         font=subtitle_font
     )
 
     subtitle_y = (
-        title_probe[3]
+        title_bbox[3]
         + PRIMARY_VISUAL_GAP
         - subtitle_probe[1]
     )
 
+    subtitle_bbox = draw.textbbox(
+        (
+            74,
+            subtitle_y
+        ),
+        subtitle_text,
+        font=subtitle_font
+    )
+
     status_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "NÄCHSTES",
         font=status_font
     )
 
     status_y = (
-        subtitle_y
-        + subtitle_probe[3]
+        subtitle_bbox[3]
         + SECTION_VISUAL_GAP
         - status_probe[1]
     )
 
+    status_bbox = draw.textbbox(
+        (
+            74,
+            status_y
+        ),
+        "NÄCHSTES",
+        font=status_font
+    )
+
     main_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "00:00 Uhr",
         font=time_font
     )
 
     main_y = (
-        status_y
-        + status_probe[3]
+        status_bbox[3]
         + PRIMARY_VISUAL_GAP
         - main_probe[1]
     )
@@ -1834,7 +1937,7 @@ def create_shugo_card(
             74,
             subtitle_y
         ),
-        "Alle 30 Minuten",
+        subtitle_text,
         subtitle_font,
         light_gold
     )
@@ -1961,7 +2064,10 @@ def create_shugo_card(
     )
 
     secondary_probe = draw.textbbox(
-        (0, 0),
+        (
+            0,
+            0
+        ),
         "→ Danach: 00:00 Uhr",
         font=secondary_font
     )
@@ -2066,35 +2172,64 @@ def create_reset_card():
 
     title_y = 58
 
-    title_probe = draw.textbbox(
-        (74, title_y),
-        DISPLAY_NAMES["reset_card"],
+    title_bbox = draw.textbbox(
+        (
+            74,
+            title_y
+        ),
+        DISPLAY_NAMES[
+            "reset_card"
+        ],
         font=title_font
     )
 
+    daily_label_text = (
+        DISPLAY_NAMES[
+            "daily_card"
+        ]
+    )
+
     daily_label_probe = draw.textbbox(
-        (0, 0),
-        DISPLAY_NAMES["daily_card"],
+        (
+            0,
+            0
+        ),
+        daily_label_text,
         font=label_font
     )
 
     daily_label_y = (
-        title_probe[3]
+        title_bbox[3]
         + PRIMARY_VISUAL_GAP
         - daily_label_probe[1]
     )
 
-    time_probe = draw.textbbox(
-        (0, 0),
-        "23:00 Uhr",
+    daily_label_bbox = draw.textbbox(
+        (
+            76,
+            daily_label_y
+        ),
+        daily_label_text,
+        font=label_font
+    )
+
+    daily_time_text = (
+        "23:00 Uhr"
+    )
+
+    daily_time_probe = draw.textbbox(
+        (
+            0,
+            0
+        ),
+        daily_time_text,
         font=time_font
     )
 
     daily_time_y = (
-        daily_label_y
-        + daily_label_probe[3]
+        daily_label_bbox[3]
         + PRIMARY_VISUAL_GAP
-        - time_probe[1]
+        - daily_time_probe[1]
     )
 
     draw_text_with_shadow(
@@ -2116,9 +2251,7 @@ def create_reset_card():
             76,
             daily_label_y
         ),
-        DISPLAY_NAMES[
-            "daily_card"
-        ],
+        daily_label_text,
         label_font,
         light_blue
     )
@@ -2129,7 +2262,7 @@ def create_reset_card():
             74,
             daily_time_y
         ),
-        "23:00 Uhr",
+        daily_time_text,
         time_font,
         white
     )
@@ -2139,13 +2272,22 @@ def create_reset_card():
             74,
             daily_time_y
         ),
-        "23:00 Uhr",
+        daily_time_text,
         font=time_font
     )
 
+    weekly_label_text = (
+        DISPLAY_NAMES[
+            "weekly_card"
+        ]
+    )
+
     weekly_label_probe = draw.textbbox(
-        (0, 0),
-        DISPLAY_NAMES["weekly_card"],
+        (
+            0,
+            0
+        ),
+        weekly_label_text,
         font=label_font
     )
 
@@ -2155,15 +2297,30 @@ def create_reset_card():
         - weekly_label_probe[1]
     )
 
+    weekly_label_bbox = draw.textbbox(
+        (
+            76,
+            weekly_label_y
+        ),
+        weekly_label_text,
+        font=label_font
+    )
+
+    weekly_time_text = (
+        "Dienstag · 23:00 Uhr"
+    )
+
     weekly_time_probe = draw.textbbox(
-        (0, 0),
-        "Dienstag · 23:00 Uhr",
+        (
+            0,
+            0
+        ),
+        weekly_time_text,
         font=time_font
     )
 
     weekly_time_y = (
-        weekly_label_y
-        + weekly_label_probe[3]
+        weekly_label_bbox[3]
         + PRIMARY_VISUAL_GAP
         - weekly_time_probe[1]
     )
@@ -2174,9 +2331,7 @@ def create_reset_card():
             76,
             weekly_label_y
         ),
-        DISPLAY_NAMES[
-            "weekly_card"
-        ],
+        weekly_label_text,
         label_font,
         blue
     )
@@ -2187,7 +2342,7 @@ def create_reset_card():
             74,
             weekly_time_y
         ),
-        "Dienstag · 23:00 Uhr",
+        weekly_time_text,
         time_font,
         white
     )
