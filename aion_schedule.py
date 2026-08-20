@@ -14,6 +14,34 @@ WEBHOOK_URL = os.environ.get("AION_SCHEDULE_WEBHOOK")
 DATA_FILE = "schedule_data.json"
 STATE_FILE = "schedule_message.json"
 
+
+# ============================================================
+# ANZEIGENAMEN
+#
+# Später müssen wir nur noch HIER die offiziellen
+# deutschen Global-Namen eintragen.
+# ============================================================
+
+DISPLAY_NAMES = {
+    "rift": "Spacetime Rift",
+    "rift_card": "SPACETIME RIFT",
+
+    "shugo": "Shugo Festival",
+    "shugo_card": "SHUGO FESTIVAL",
+
+    "daily_reset": "Täglicher Reset",
+    "weekly_reset": "Wöchentlicher Reset",
+
+    "reset_card": "RESETS",
+    "daily_card": "TÄGLICH",
+    "weekly_card": "WÖCHENTLICH"
+}
+
+
+# ============================================================
+# HINTERGRUNDBILDER
+# ============================================================
+
 RIFT_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
     "Shaynah87/aion2-discord/main/spacetime_rift.png"
@@ -28,6 +56,11 @@ RESET_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
     "Shaynah87/aion2-discord/main/resets.png"
 )
+
+
+# ============================================================
+# AUSGABEDATEIEN
+# ============================================================
 
 RIFT_CARD_FILE = "spacetime_rift_card.png"
 SHUGO_CARD_FILE = "shugo_games_card.png"
@@ -130,22 +163,6 @@ def discord_time(dt):
     )
 
     return f"<t:{unix}:t>"
-
-
-def german_weekday(dt):
-    weekdays = {
-        0: "Montag",
-        1: "Dienstag",
-        2: "Mittwoch",
-        3: "Donnerstag",
-        4: "Freitag",
-        5: "Samstag",
-        6: "Sonntag"
-    }
-
-    return weekdays[
-        dt.weekday()
-    ]
 
 
 def format_time_range(
@@ -252,6 +269,7 @@ def build_rift_times(
     active_end = None
 
     for start_time in starts:
+
         end_time = (
             start_time +
             duration
@@ -293,6 +311,12 @@ def build_rift_times(
 
 # ============================================================
 # SHUGO FESTIVAL
+#
+# Aktiv:
+# :15 bis :24:59
+# :45 bis :54:59
+#
+# Also immer genau 10 Minuten.
 # ============================================================
 
 def build_shugo_times(
@@ -388,50 +412,165 @@ def shugo_rotation_for_time(
 
 
 # ============================================================
-# ALS NÄCHSTES
+# EVENT-ZENTRALE
+#
+# Sammelt:
+# - alle aktuell aktiven Events
+# - die nächsten kommenden Events
+#
+# Später können wir hier Abyss, Bosse usw.
+# einfach ergänzen.
 # ============================================================
 
-def find_next_event(
-    rift_next,
-    shugo_next,
+def build_event_overview(
+    rift_times,
+    shugo_times,
     daily_reset,
     weekly_reset
 ):
-    events = [
+    active_events = []
+
+    upcoming_events = []
+
+
+    # --------------------------------------------------------
+    # RIFT AKTIV
+    # --------------------------------------------------------
+
+    if rift_times[
+        "active_start"
+    ]:
+
+        active_events.append(
+            {
+                "icon": "🌀",
+                "name":
+                    DISPLAY_NAMES["rift"],
+                "end":
+                    rift_times["active_end"]
+            }
+        )
+
+
+    # --------------------------------------------------------
+    # SHUGO AKTIV
+    # --------------------------------------------------------
+
+    if shugo_times[
+        "active_start"
+    ]:
+
+        active_events.append(
+            {
+                "icon": "🐹",
+                "name":
+                    DISPLAY_NAMES["shugo"],
+                "end":
+                    shugo_times["active_end"]
+            }
+        )
+
+
+    # --------------------------------------------------------
+    # KOMMENDE RIFTS
+    # --------------------------------------------------------
+
+    upcoming_events.append(
         {
-            "time": rift_next,
             "icon": "🌀",
-            "name": "Spacetime Rift",
-            "color": 14555706
-        },
-
-        {
-            "time": shugo_next,
-            "icon": "🐹",
-            "name": "Shugo Festival",
-            "color": 14525510
-        },
-
-        {
-            "time": daily_reset,
-            "icon": "🔄",
-            "name": "Täglicher Reset",
-            "color": 4231679
-        },
-
-        {
-            "time": weekly_reset,
-            "icon": "🔄",
-            "name": "Wöchentlicher Reset",
-            "color": 4231679
+            "name":
+                DISPLAY_NAMES["rift"],
+            "time":
+                rift_times["next_start"]
         }
-    ]
-
-    events.sort(
-        key=lambda item: item["time"]
     )
 
-    return events[0]
+    upcoming_events.append(
+        {
+            "icon": "🌀",
+            "name":
+                DISPLAY_NAMES["rift"],
+            "time":
+                rift_times["following_start"]
+        }
+    )
+
+
+    # --------------------------------------------------------
+    # KOMMENDE SHUGOS
+    # --------------------------------------------------------
+
+    upcoming_events.append(
+        {
+            "icon": "🐹",
+            "name":
+                DISPLAY_NAMES["shugo"],
+            "time":
+                shugo_times["next_start"]
+        }
+    )
+
+    upcoming_events.append(
+        {
+            "icon": "🐹",
+            "name":
+                DISPLAY_NAMES["shugo"],
+            "time":
+                shugo_times["following_start"]
+        }
+    )
+
+
+    # --------------------------------------------------------
+    # RESET
+    # --------------------------------------------------------
+
+    upcoming_events.append(
+        {
+            "icon": "🔄",
+            "name":
+                DISPLAY_NAMES[
+                    "daily_reset"
+                ],
+            "time":
+                daily_reset
+        }
+    )
+
+    upcoming_events.append(
+        {
+            "icon": "🔄",
+            "name":
+                DISPLAY_NAMES[
+                    "weekly_reset"
+                ],
+            "time":
+                weekly_reset
+        }
+    )
+
+
+    # --------------------------------------------------------
+    # ZEITLICH SORTIEREN
+    # --------------------------------------------------------
+
+    upcoming_events.sort(
+        key=lambda item:
+            item["time"]
+    )
+
+
+    # Nur die zwei nächsten Ereignisse oben anzeigen.
+    next_events = upcoming_events[:2]
+
+
+    return {
+        "active":
+            active_events,
+
+        "next":
+            next_events
+    }
 
 
 # ============================================================
@@ -451,6 +590,7 @@ def load_image_from_url(url):
         request,
         timeout=30
     ) as response:
+
         image_data = response.read()
 
     return Image.open(
@@ -739,7 +879,9 @@ def create_rift_card(
     draw_text_with_shadow(
         draw,
         (78, 62),
-        "SPACETIME RIFT",
+        DISPLAY_NAMES[
+            "rift_card"
+        ],
         title_font,
         white
     )
@@ -974,7 +1116,9 @@ def create_shugo_card(
     draw_text_with_shadow(
         draw,
         (72, 48),
-        "SHUGO FESTIVAL",
+        DISPLAY_NAMES[
+            "shugo_card"
+        ],
         title_font,
         white
     )
@@ -1189,7 +1333,9 @@ def create_reset_card():
     draw_text_with_shadow(
         draw,
         (74, 58),
-        "RESETS",
+        DISPLAY_NAMES[
+            "reset_card"
+        ],
         title_font,
         white
     )
@@ -1197,7 +1343,9 @@ def create_reset_card():
     draw_text_with_shadow(
         draw,
         (76, 170),
-        "TÄGLICH",
+        DISPLAY_NAMES[
+            "daily_card"
+        ],
         label_font,
         light_blue
     )
@@ -1213,7 +1361,9 @@ def create_reset_card():
     draw_text_with_shadow(
         draw,
         (76, 330),
-        "WÖCHENTLICH",
+        DISPLAY_NAMES[
+            "weekly_card"
+        ],
         label_font,
         blue
     )
@@ -1238,6 +1388,84 @@ def create_reset_card():
 
 
 # ============================================================
+# EVENT-ÜBERSICHT ALS DISCORD-EMBED
+#
+# Das ist vorerst noch das normale Discord-Element.
+# Sobald die Logik gefällt, ersetzen wir es durch
+# unsere eigene schöne Grafik.
+# ============================================================
+
+def create_overview_embed(
+    event_overview
+):
+    description_lines = []
+
+    active_events = (
+        event_overview["active"]
+    )
+
+    next_events = (
+        event_overview["next"]
+    )
+
+
+    # --------------------------------------------------------
+    # AKTIVE EVENTS
+    # --------------------------------------------------------
+
+    if active_events:
+
+        description_lines.append(
+            "**JETZT AKTIV**"
+        )
+
+        for event in active_events:
+
+            description_lines.append(
+                (
+                    f"{event['icon']} "
+                    f"**{event['name']}** "
+                    f"· bis "
+                    f"{event['end'].strftime('%H:%M')} Uhr"
+                )
+            )
+
+        description_lines.append(
+            ""
+        )
+
+
+    # --------------------------------------------------------
+    # NÄCHSTE EVENTS
+    # --------------------------------------------------------
+
+    description_lines.append(
+        "**ALS NÄCHSTES**"
+    )
+
+    for event in next_events:
+
+        description_lines.append(
+            (
+                f"{event['icon']} "
+                f"**{event['name']}** "
+                f"· "
+                f"{discord_time(
+                    event['time']
+                )}"
+            )
+        )
+
+
+    return {
+        "description":
+            "\n".join(
+                description_lines
+            )
+    }
+
+
+# ============================================================
 # EMBEDS ERSTELLEN
 # ============================================================
 
@@ -1254,16 +1482,14 @@ def build_embeds(data):
         "shugo_games"
     ]
 
+
+    # --------------------------------------------------------
     # RIFT
+    # --------------------------------------------------------
+
     rift_times = build_rift_times(
         rift_data,
         timezone
-    )
-
-    rift_next = (
-        rift_times[
-            "next_start"
-        ]
     )
 
     create_rift_card(
@@ -1271,16 +1497,14 @@ def build_embeds(data):
         rift_times
     )
 
+
+    # --------------------------------------------------------
     # SHUGO
+    # --------------------------------------------------------
+
     shugo_times = build_shugo_times(
         shugo_data,
         timezone
-    )
-
-    shugo_next = (
-        shugo_times[
-            "next_start"
-        ]
     )
 
     create_shugo_card(
@@ -1288,44 +1512,43 @@ def build_embeds(data):
         shugo_times
     )
 
+
+    # --------------------------------------------------------
     # RESET
-    daily_reset = (
-        next_daily_reset(
-            timezone
-        )
+    # --------------------------------------------------------
+
+    daily_reset = next_daily_reset(
+        timezone
     )
 
-    weekly_reset = (
-        next_weekly_reset(
-            timezone
-        )
+    weekly_reset = next_weekly_reset(
+        timezone
     )
 
     create_reset_card()
 
-    # ALS NÄCHSTES
-    next_event = find_next_event(
-        rift_next,
-        shugo_next,
+
+    # --------------------------------------------------------
+    # EVENT-ZENTRALE
+    # --------------------------------------------------------
+
+    event_overview = build_event_overview(
+        rift_times,
+        shugo_times,
         daily_reset,
         weekly_reset
     )
 
-    next_embed = {
-        "title":
-            "⚡ ALS NÄCHSTES",
+    overview_embed = (
+        create_overview_embed(
+            event_overview
+        )
+    )
 
-        "description": (
-            f"{next_event['icon']} "
-            f"**{next_event['name']}** · "
-            f"{discord_time(
-                next_event['time']
-            )}"
-        ),
 
-        "color":
-            next_event["color"]
-    }
+    # --------------------------------------------------------
+    # DETAIL-KARTEN
+    # --------------------------------------------------------
 
     rift_embed = {
         "color":
@@ -1337,6 +1560,7 @@ def build_embeds(data):
         }
     }
 
+
     shugo_embed = {
         "color":
             14525510,
@@ -1347,7 +1571,10 @@ def build_embeds(data):
         }
     }
 
+
     reset_embed = {
+        # Exakt dasselbe Blau wie WÖCHENTLICH:
+        # RGB 64,145,255 = #4091FF
         "color":
             4231679,
 
@@ -1357,8 +1584,9 @@ def build_embeds(data):
         }
     }
 
+
     return [
-        next_embed,
+        overview_embed,
         rift_embed,
         shugo_embed,
         reset_embed
@@ -1404,10 +1632,12 @@ def webhook_request_with_files(
     for index, file_path in enumerate(
         file_paths
     ):
+
         with open(
             file_path,
             "rb"
         ) as f:
+
             file_data = f.read()
 
         body.extend(
@@ -1519,6 +1749,11 @@ def main():
         RESET_CARD_FILE
     ]
 
+
+    # --------------------------------------------------------
+    # BESTEHENDE NACHRICHT AKTUALISIEREN
+    # --------------------------------------------------------
+
     if message_id:
 
         edit_url = (
@@ -1537,6 +1772,11 @@ def main():
             "Bestehende Veranstaltungs-"
             "Nachricht aktualisiert."
         )
+
+
+    # --------------------------------------------------------
+    # NEUE NACHRICHT ERSTELLEN
+    # --------------------------------------------------------
 
     else:
 
