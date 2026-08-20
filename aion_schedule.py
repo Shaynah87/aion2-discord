@@ -620,12 +620,11 @@ def create_rift_card(
         target_height
     )
 
-    # Gleiche Verlaufstärke wie Shugo
     image = add_left_gradient(
         image,
-        fade_ratio=0.74,
-        max_alpha=242,
-        tone=(3, 2, 7)
+        fade_ratio=0.80,
+        max_alpha=250,
+        tone=(2, 1, 3)
     )
 
     draw = ImageDraw.Draw(
@@ -851,7 +850,6 @@ def create_shugo_card(
         target_height
     )
 
-    # Referenz-Verlauf
     image = add_left_gradient(
         image,
         fade_ratio=0.74,
@@ -1050,13 +1048,11 @@ def create_reset_card():
         target_height
     )
 
-    # Gleiche Verlaufstärke wie Shugo,
-    # aber mit sehr dunklem Blaustich
     image = add_left_gradient(
         image,
-        fade_ratio=0.74,
-        max_alpha=242,
-        tone=(2, 7, 18)
+        fade_ratio=0.82,
+        max_alpha=252,
+        tone=(1, 4, 10)
     )
 
     draw = ImageDraw.Draw(
@@ -1112,7 +1108,7 @@ def create_reset_card():
     draw_text_with_shadow(
         draw,
         (76, 170),
-        "TÄGLICHER RESET",
+        "TÄGLICH",
         label_font,
         light_blue
     )
@@ -1129,7 +1125,7 @@ def create_reset_card():
     draw_text_with_shadow(
         draw,
         (76, 330),
-        "WÖCHENTLICHER RESET",
+        "WÖCHENTLICH",
         label_font,
         blue
     )
