@@ -296,7 +296,6 @@ def build_rift_times(
     active_end = None
 
     for start_time in starts:
-
         end_time = (
             start_time +
             duration
@@ -338,10 +337,6 @@ def build_rift_times(
 
 # ============================================================
 # SHUGO FESTIVAL
-#
-# Aktiv:
-# :15 bis :24:59
-# :45 bis :54:59
 # ============================================================
 
 def build_shugo_times(
@@ -382,7 +377,6 @@ def build_shugo_times(
     active_end = None
 
     for start_time in candidates:
-
         end_time = (
             start_time +
             timedelta(minutes=10)
@@ -566,8 +560,6 @@ def build_event_overview(
     )
 
 
-    # Nur ein Termin je Kategorie,
-    # danach die zwei zeitlich nächsten.
     next_events = (
         upcoming_events[:2]
     )
@@ -707,9 +699,6 @@ def crop_and_resize(
 
 # ============================================================
 # ÜBERSICHT-HINTERGRUND
-#
-# Schwarzen Außenrahmen des generierten Hintergrunds
-# entfernen und anschließend dynamisch skalieren.
 # ============================================================
 
 def prepare_overview_background(
@@ -789,7 +778,6 @@ def add_strong_left_gradient(
     for x in range(fade_end):
 
         if x <= solid_end:
-
             alpha = max_alpha
 
         else:
@@ -885,7 +873,7 @@ def draw_event_marker(
 #
 # ÜBERSICHT
 #
-# → ALS NÄCHSTES      = 31 px bold
+# → Als Nächstes       = 31 px bold
 # ● Shugo ...
 # ● Rift ...
 #
@@ -894,11 +882,11 @@ def draw_event_marker(
 #
 # ÜBERSICHT
 #
-# JETZT AKTIV         = 31 px bold
-# ● SHUGO FESTIVAL    = 31 px bold
-#   bis 10:55 Uhr     = 30 px normal
+# JETZT AKTIV          = 31 px bold
+# ● SHUGO FESTIVAL     = 48 px bold
+#   bis 10:55 Uhr      = 30 px normal
 #
-# → ALS NÄCHSTES      = 30 px normal
+# → Als Nächstes       = 30 px normal
 # ● Shugo ...
 # ● Rift ...
 # ============================================================
@@ -929,16 +917,21 @@ def create_overview_card(
         bold=True
     )
 
+
+    # Aktiver Eventname jetzt gleiche große
+    # Hauptschrift wie die großen Zeiten unten.
     active_name_font = load_font(
-        31,
+        48,
         bold=True
     )
 
-    # Endzeit aktiver Events jetzt bewusst klein
+
+    # "bis XX:XX Uhr" bewusst klein.
     active_until_font = load_font(
         30,
         bold=False
     )
+
 
     secondary_font = load_font(
         30,
@@ -947,12 +940,12 @@ def create_overview_card(
 
 
     # --------------------------------------------------------
-    # ALS-NÄCHSTES-SCHRIFT
+    # "Als Nächstes" je nach Zustand
     # --------------------------------------------------------
 
     if active_events:
 
-        # Sekundärstatus wie "Danach"
+        # Sekundär wie "Danach"
         next_title_font = load_font(
             30,
             bold=False
@@ -1034,10 +1027,7 @@ def create_overview_card(
 
     if active_events:
 
-        # ----------------------------------------------------
-        # Mehr Luft zwischen ÜBERSICHT und JETZT AKTIV.
-        # ----------------------------------------------------
-
+        # Mehr Luft zwischen ÜBERSICHT und JETZT AKTIV
         status_y = (
             title_bbox[3] + 52
         )
@@ -1052,10 +1042,8 @@ def create_overview_card(
         )
 
 
-        # ----------------------------------------------------
-        # Danach bewusst kompakt zum ersten Event.
-        # ----------------------------------------------------
-
+        # JETZT AKTIV -> aktiver Event
+        # bewusst relativ nah beieinander
         current_y = (
             status_bbox[3] + 10
         )
@@ -1064,7 +1052,7 @@ def create_overview_card(
 
 
         # ----------------------------------------------------
-        # AKTIVE EVENTS UNTEREINANDER
+        # AKTIVE EVENTS
         # ----------------------------------------------------
 
         for event in active_events:
@@ -1083,7 +1071,7 @@ def create_overview_card(
             )
 
 
-            # Kleine Endzeit direkt darunter
+            # Kleine Endzeit darunter
             until_y = (
                 name_bbox[3] + 4
             )
@@ -1107,17 +1095,14 @@ def create_overview_card(
             )
 
 
-            # Abstand zum nächsten AKTIVEN Event
+            # Abstand zwischen mehreren aktiven Events
             current_y = (
-                last_active_bottom + 30
+                last_active_bottom + 34
             )
 
 
-        # ----------------------------------------------------
-        # Danach wieder derselbe große Abstand wie
-        # bei Rift/Shugo vor dem Sekundärbereich.
-        # ----------------------------------------------------
-
+        # Nach aktivem Hauptblock:
+        # gleicher Sekundärabstand wie Rift/Shugo
         next_section_y = (
             last_active_bottom +
             SECONDARY_GAP
@@ -1136,15 +1121,19 @@ def create_overview_card(
 
 
     # ========================================================
-    # ALS NÄCHSTES
+    # → Als Nächstes
     # ========================================================
+
+    next_title_text = (
+        "→ Als Nächstes"
+    )
 
     next_title_bbox = measure_draw.textbbox(
         (
             76,
             next_section_y
         ),
-        "→ ALS NÄCHSTES",
+        next_title_text,
         font=next_title_font
     )
 
@@ -1217,9 +1206,6 @@ def create_overview_card(
 
     # --------------------------------------------------------
     # SCHWARZER VERLAUF LINKS
-    #
-    # Etwas kräftiger als vorher.
-    # Sehr nah an Rift.
     # --------------------------------------------------------
 
     image = add_strong_left_gradient(
@@ -1268,9 +1254,6 @@ def create_overview_card(
 
         # ----------------------------------------------------
         # JETZT AKTIV
-        #
-        # Jetzt weiß, damit es wie die anderen
-        # Statusinformationen sauber lesbar bleibt.
         # ----------------------------------------------------
 
         draw_text_with_shadow(
@@ -1311,17 +1294,17 @@ def create_overview_card(
             )
 
 
-            # Punkt
+            # Farbpunkt
             draw_event_marker(
                 draw,
                 78,
-                current_y + 9,
+                current_y + 18,
                 event["color"],
                 size=18
             )
 
 
-            # Eventname groß/fett
+            # Eventname groß
             draw_text_with_shadow(
                 draw,
                 (
@@ -1344,9 +1327,7 @@ def create_overview_card(
 
 
             # ------------------------------------------------
-            # "bis XX:XX Uhr"
-            #
-            # Jetzt bewusst klein.
+            # Kleine Endzeit
             # ------------------------------------------------
 
             until_y = (
@@ -1383,12 +1364,12 @@ def create_overview_card(
             )
 
             current_y = (
-                last_active_bottom + 30
+                last_active_bottom + 34
             )
 
 
         # ----------------------------------------------------
-        # Sekundärbereich nach bestehender Logik
+        # Sekundärbereich
         # ----------------------------------------------------
 
         next_section_y = (
@@ -1409,10 +1390,7 @@ def create_overview_card(
 
 
     # ========================================================
-    # → ALS NÄCHSTES
-    #
-    # Jetzt IMMER weiß.
-    # Nur Größe/Gewicht wechseln je nach Zustand.
+    # → Als Nächstes
     # ========================================================
 
     draw_text_with_shadow(
@@ -1421,7 +1399,7 @@ def create_overview_card(
             76,
             next_section_y
         ),
-        "→ ALS NÄCHSTES",
+        "→ Als Nächstes",
         next_title_font,
         white
     )
@@ -1431,7 +1409,7 @@ def create_overview_card(
             76,
             next_section_y
         ),
-        "→ ALS NÄCHSTES",
+        "→ Als Nächstes",
         font=next_title_font
     )
 
@@ -2172,7 +2150,6 @@ def build_embeds(data):
 
     # --------------------------------------------------------
     # ÜBERSICHT
-    # neutraler grauer Balken
     # --------------------------------------------------------
 
     overview_embed = {
