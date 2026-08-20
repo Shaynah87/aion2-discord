@@ -333,6 +333,7 @@ def build_shugo_times(
     active_end = None
 
     for start_time in candidates:
+
         end_time = (
             start_time +
             timedelta(minutes=10)
@@ -415,14 +416,14 @@ def find_next_event(
             "time": daily_reset,
             "icon": "🔄",
             "name": "Täglicher Reset",
-            "color": 4239871
+            "color": 4231679
         },
 
         {
             "time": weekly_reset,
             "icon": "🔄",
             "name": "Wöchentlicher Reset",
-            "color": 4239871
+            "color": 4231679
         }
     ]
 
@@ -550,58 +551,7 @@ def crop_and_resize(
 
 
 # ============================================================
-# WEICHER VERLAUF
-# ============================================================
-
-def add_left_gradient(
-    image,
-    fade_ratio=0.76,
-    max_alpha=235,
-    tone=(3, 2, 7)
-):
-    width, height = image.size
-
-    overlay = Image.new(
-        "RGBA",
-        (width, height),
-        (0, 0, 0, 0)
-    )
-
-    pixels = overlay.load()
-
-    fade_end = int(
-        width *
-        fade_ratio
-    )
-
-    for x in range(fade_end):
-
-        progress = (
-            x /
-            fade_end
-        )
-
-        alpha = int(
-            max_alpha *
-            ((1.0 - progress) ** 1.55)
-        )
-
-        for y in range(height):
-            pixels[x, y] = (
-                tone[0],
-                tone[1],
-                tone[2],
-                alpha
-            )
-
-    return Image.alpha_composite(
-        image,
-        overlay
-    )
-
-
-# ============================================================
-# STARKER VERLAUF MIT DUNKLER GRUNDZONE
+# EINHEITLICHER DUNKLER VERLAUF
 # ============================================================
 
 def add_strong_left_gradient(
@@ -634,9 +584,11 @@ def add_strong_left_gradient(
     for x in range(fade_end):
 
         if x <= solid_end:
+
             alpha = max_alpha
 
         else:
+
             progress = (
                 (x - solid_end) /
                 (fade_end - solid_end)
@@ -648,6 +600,7 @@ def add_strong_left_gradient(
             )
 
         for y in range(height):
+
             pixels[x, y] = (
                 tone[0],
                 tone[1],
@@ -699,7 +652,7 @@ def draw_text_with_shadow(
 
 
 # ============================================================
-# RIFT-KARTE
+# SPACETIME-RIFT-KARTE
 # ============================================================
 
 def create_rift_card(
@@ -947,12 +900,12 @@ def create_shugo_card(
         target_height
     )
 
-    # Shugo bleibt optisch exakt wie bisher.
-    image = add_left_gradient(
+    image = add_strong_left_gradient(
         image,
-        fade_ratio=0.74,
-        max_alpha=242,
-        tone=(5, 4, 3)
+        solid_ratio=0.28,
+        fade_ratio=0.78,
+        max_alpha=225,
+        tone=(3, 3, 2)
     )
 
     draw = ImageDraw.Draw(
@@ -1396,7 +1349,7 @@ def build_embeds(data):
 
     reset_embed = {
         "color":
-            4239871,
+            4231679,
 
         "image": {
             "url":
