@@ -17,9 +17,6 @@ STATE_FILE = "schedule_message.json"
 
 # ============================================================
 # ANZEIGENAMEN
-#
-# Später können hier die offiziellen deutschen
-# Global-Namen zentral geändert werden.
 # ============================================================
 
 DISPLAY_NAMES = {
@@ -438,14 +435,6 @@ def shugo_rotation_for_time(
 # ÜBERSICHT
 #
 # Pro Kategorie wird nur EIN kommender Termin berücksichtigt.
-#
-# Also nicht:
-# Shugo 09:45
-# Shugo 10:15
-#
-# sondern z. B.:
-# Shugo 09:45
-# Rift 12:00
 # ============================================================
 
 def build_event_overview(
@@ -832,29 +821,17 @@ def draw_event_marker(
 # ============================================================
 # ÜBERSICHT
 #
-# VORERST KOMPLETT OHNE HINTERGRUNDBILD.
+# Kein Hintergrundbild.
 #
-# Nur dunkles Anthrazit.
-#
-# Schrifthierarchie:
-#
-# ÜBERSICHT        56 px
-# JETZT AKTIV      31 px
-# Eventname        31 px
-# aktive Zeit      48 px
-# ALS NÄCHSTES     30 px
-# kommende Events  30 px
+# Pfeil gehört VOR "ALS NÄCHSTES",
+# NICHT vor die einzelnen Events.
 # ============================================================
 
 def create_overview_card(
     event_overview
 ):
     target_width = 1200
-    target_height = 470
-
-    # --------------------------------------------------------
-    # VORERST NUR NEUTRALER HINTERGRUND
-    # --------------------------------------------------------
+    target_height = 500
 
     image = Image.new(
         "RGBA",
@@ -945,7 +922,7 @@ def create_overview_card(
         draw,
         (
             74,
-            30
+            34
         ),
         DISPLAY_NAMES[
             "overview_card"
@@ -972,13 +949,15 @@ def create_overview_card(
 
         # ----------------------------------------------------
         # JETZT AKTIV
+        #
+        # Deutlicher Abstand unter ÜBERSICHT
         # ----------------------------------------------------
 
         draw_text_with_shadow(
             draw,
             (
                 76,
-                104
+                120
             ),
             "JETZT AKTIV",
             status_font,
@@ -987,16 +966,13 @@ def create_overview_card(
 
 
         # ----------------------------------------------------
-        # AKTIVE EVENTS
-        #
-        # Bewusst UNTEREINANDER.
+        # AKTIVE EVENTS UNTEREINANDER
         # ----------------------------------------------------
 
-        active_y = 150
+        active_y = 170
 
         for event in active_events[:2]:
 
-            # Punkt
             draw_event_marker(
                 draw,
                 78,
@@ -1005,7 +981,6 @@ def create_overview_card(
                 size=18
             )
 
-            # Eventname
             draw_text_with_shadow(
                 draw,
                 (
@@ -1019,7 +994,6 @@ def create_overview_card(
                 white
             )
 
-            # Große Zeit
             draw_text_with_shadow(
                 draw,
                 (
@@ -1034,19 +1008,17 @@ def create_overview_card(
                 white
             )
 
-            # Fester Abstand zum nächsten aktiven Event
-            active_y += 104
+            active_y += 108
 
 
         # ----------------------------------------------------
         # ALS NÄCHSTES
         #
-        # Der Abstand richtet sich danach,
-        # wie viele aktive Events angezeigt wurden.
+        # Pfeil gehört HIERHER.
         # ----------------------------------------------------
 
         next_section_y = (
-            active_y + 12
+            active_y + 14
         )
 
         draw_text_with_shadow(
@@ -1055,7 +1027,7 @@ def create_overview_card(
                 76,
                 next_section_y
             ),
-            "ALS NÄCHSTES",
+            "→ ALS NÄCHSTES",
             secondary_title_font,
             grey
         )
@@ -1064,11 +1036,11 @@ def create_overview_card(
         # ----------------------------------------------------
         # NÄCHSTE EVENTS
         #
-        # Klein + Pfeil wie bei den Detailkarten.
+        # KEINE Pfeile mehr vor den Events.
         # ----------------------------------------------------
 
         next_y = (
-            next_section_y + 44
+            next_section_y + 48
         )
 
         for event in next_events[:2]:
@@ -1082,7 +1054,7 @@ def create_overview_card(
             )
 
             next_text = (
-                f"→ {event['name']} · "
+                f"{event['name']} · "
                 f"{event['time'].strftime('%H:%M')} Uhr"
             )
 
@@ -1097,7 +1069,7 @@ def create_overview_card(
                 soft_white
             )
 
-            next_y += 42
+            next_y += 44
 
 
     # ========================================================
@@ -1107,31 +1079,49 @@ def create_overview_card(
     else:
 
         # ----------------------------------------------------
-        # ALS NÄCHSTES
-        # rutscht nach oben.
+        # Wichtig:
+        #
+        # ALS NÄCHSTES klebt NICHT direkt unter ÜBERSICHT.
+        #
+        # Wir lassen bewusst denselben großzügigen
+        # vertikalen Abstand wie bei den Hauptkarten.
         # ----------------------------------------------------
+
+        next_section_y = 150
 
         draw_text_with_shadow(
             draw,
             (
                 76,
-                112
+                next_section_y
             ),
-            "ALS NÄCHSTES",
+            "→ ALS NÄCHSTES",
             status_font,
             grey
         )
 
-        next_y = 164
+
+        # ----------------------------------------------------
+        # NÄCHSTE EVENTS
+        # ----------------------------------------------------
+
+        next_y = (
+            next_section_y + 58
+        )
 
         for event in next_events[:2]:
 
             draw_event_marker(
                 draw,
                 78,
-                next_y + 8,
+                next_y + 9,
                 event["color"],
                 size=18
+            )
+
+            next_text = (
+                f"{event['name']} · "
+                f"{event['time'].strftime('%H:%M')} Uhr"
             )
 
             draw_text_with_shadow(
@@ -1140,11 +1130,7 @@ def create_overview_card(
                     108,
                     next_y
                 ),
-                (
-                    f"→ "
-                    f"{event['name']} · "
-                    f"{event['time'].strftime('%H:%M')} Uhr"
-                ),
+                next_text,
                 secondary_font,
                 soft_white
             )
@@ -1636,6 +1622,10 @@ def create_shugo_card(
 
     secondary_text = (
         f"→ {secondary_label}: "
+        f"{shugo_times['following_start'].strftime('%H:%M')} Uhr"
+        if not shugo_times["active_start"]
+        else
+        f"→ {secondary_label}: "
         f"{secondary_start.strftime('%H:%M')} Uhr"
     )
 
@@ -1879,7 +1869,7 @@ def build_embeds(data):
 
     # --------------------------------------------------------
     # ÜBERSICHT
-    # Neutraler grauer Discord-Balken
+    # neutraler grauer Balken
     # --------------------------------------------------------
 
     overview_embed = {
