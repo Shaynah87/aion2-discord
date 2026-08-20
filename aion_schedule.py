@@ -295,7 +295,7 @@ def build_rift_times(
 # SHUGO FESTIVAL
 # ============================================================
 
-def next_shugo_starts(
+def build_shugo_times(
     shugo_data,
     timezone
 ):
@@ -303,7 +303,7 @@ def next_shugo_starts(
 
     candidates = []
 
-    for day_offset in range(0, 2):
+    for day_offset in range(-1, 2):
 
         day = (
             now +
@@ -323,17 +323,53 @@ def next_shugo_starts(
                     microsecond=0
                 )
 
-                if candidate > now:
-                    candidates.append(
-                        candidate
-                    )
+                candidates.append(
+                    candidate
+                )
 
     candidates.sort()
 
-    return (
-        candidates[0],
-        candidates[1]
-    )
+    active_start = None
+    active_end = None
+
+    for start_time in candidates:
+        end_time = (
+            start_time +
+            timedelta(minutes=10)
+        )
+
+        if (
+            start_time <= now <
+            end_time
+        ):
+            active_start = start_time
+            active_end = end_time
+            break
+
+    future_starts = [
+        start_time
+        for start_time in candidates
+        if start_time > now
+    ]
+
+    future_starts.sort()
+
+    next_start = future_starts[0]
+    following_start = future_starts[1]
+
+    return {
+        "active_start":
+            active_start,
+
+        "active_end":
+            active_end,
+
+        "next_start":
+            next_start,
+
+        "following_start":
+            following_start
+    }
 
 
 def shugo_rotation_for_time(
@@ -565,6 +601,67 @@ def add_left_gradient(
 
 
 # ============================================================
+# STARKER VERLAUF MIT DUNKLER GRUNDZONE
+# ============================================================
+
+def add_strong_left_gradient(
+    image,
+    solid_ratio,
+    fade_ratio,
+    max_alpha,
+    tone
+):
+    width, height = image.size
+
+    overlay = Image.new(
+        "RGBA",
+        (width, height),
+        (0, 0, 0, 0)
+    )
+
+    pixels = overlay.load()
+
+    solid_end = int(
+        width *
+        solid_ratio
+    )
+
+    fade_end = int(
+        width *
+        fade_ratio
+    )
+
+    for x in range(fade_end):
+
+        if x <= solid_end:
+            alpha = max_alpha
+
+        else:
+            progress = (
+                (x - solid_end) /
+                (fade_end - solid_end)
+            )
+
+            alpha = int(
+                max_alpha *
+                ((1.0 - progress) ** 1.65)
+            )
+
+        for y in range(height):
+            pixels[x, y] = (
+                tone[0],
+                tone[1],
+                tone[2],
+                alpha
+            )
+
+    return Image.alpha_composite(
+        image,
+        overlay
+    )
+
+
+# ============================================================
 # TEXT MIT SCHATTEN
 # ============================================================
 
@@ -620,10 +717,11 @@ def create_rift_card(
         target_height
     )
 
-    image = add_left_gradient(
+    image = add_strong_left_gradient(
         image,
-        fade_ratio=0.80,
-        max_alpha=250,
+        solid_ratio=0.28,
+        fade_ratio=0.78,
+        max_alpha=238,
         tone=(2, 1, 3)
     )
 
@@ -836,8 +934,7 @@ def create_rift_card(
 
 def create_shugo_card(
     shugo_data,
-    shugo_next,
-    shugo_following
+    shugo_times
 ):
     image = load_shugo_background()
 
@@ -850,6 +947,7 @@ def create_shugo_card(
         target_height
     )
 
+    # Shugo bleibt optisch exakt wie bisher.
     image = add_left_gradient(
         image,
         fade_ratio=0.74,
@@ -936,9 +1034,47 @@ def create_shugo_card(
         light_gold
     )
 
-    next_rotation = (
+    if shugo_times[
+        "active_start"
+    ]:
+
+        main_label = "JETZT AKTIV"
+
+        main_start = (
+            shugo_times[
+                "active_start"
+            ]
+        )
+
+        secondary_label = "Nächstes"
+
+        secondary_start = (
+            shugo_times[
+                "next_start"
+            ]
+        )
+
+    else:
+
+        main_label = "NÄCHSTES"
+
+        main_start = (
+            shugo_times[
+                "next_start"
+            ]
+        )
+
+        secondary_label = "Danach"
+
+        secondary_start = (
+            shugo_times[
+                "following_start"
+            ]
+        )
+
+    current_rotation = (
         shugo_rotation_for_time(
-            shugo_next,
+            main_start,
             shugo_data
         )
     )
@@ -946,13 +1082,13 @@ def create_shugo_card(
     draw_text_with_shadow(
         draw,
         (74, 190),
-        "NÄCHSTES",
+        main_label,
         status_font,
         gold
     )
 
     main_time_text = (
-        f"{shugo_next.strftime('%H:%M')} Uhr"
+        f"{main_start.strftime('%H:%M')} Uhr"
     )
 
     main_time_position = (
@@ -973,7 +1109,7 @@ def create_shugo_card(
     last_game_text = None
     last_game_position = None
 
-    for game in next_rotation:
+    for game in current_rotation:
 
         game_text = (
             f"• {game}"
@@ -1009,8 +1145,8 @@ def create_shugo_card(
     )
 
     secondary_text = (
-        f"→ Danach: "
-        f"{shugo_following.strftime('%H:%M')} Uhr"
+        f"→ {secondary_label}: "
+        f"{secondary_start.strftime('%H:%M')} Uhr"
     )
 
     draw_text_with_shadow(
@@ -1048,11 +1184,12 @@ def create_reset_card():
         target_height
     )
 
-    image = add_left_gradient(
+    image = add_strong_left_gradient(
         image,
+        solid_ratio=0.32,
         fade_ratio=0.82,
-        max_alpha=252,
-        tone=(1, 4, 10)
+        max_alpha=245,
+        tone=(1, 3, 7)
     )
 
     draw = ImageDraw.Draw(
@@ -1104,7 +1241,6 @@ def create_reset_card():
         white
     )
 
-    # TÄGLICH
     draw_text_with_shadow(
         draw,
         (76, 170),
@@ -1121,7 +1257,6 @@ def create_reset_card():
         white
     )
 
-    # WÖCHENTLICH
     draw_text_with_shadow(
         draw,
         (76, 330),
@@ -1184,18 +1319,20 @@ def build_embeds(data):
     )
 
     # SHUGO
-    (
-        shugo_next,
-        shugo_following
-    ) = next_shugo_starts(
+    shugo_times = build_shugo_times(
         shugo_data,
         timezone
     )
 
+    shugo_next = (
+        shugo_times[
+            "next_start"
+        ]
+    )
+
     create_shugo_card(
         shugo_data,
-        shugo_next,
-        shugo_following
+        shugo_times
     )
 
     # RESET
