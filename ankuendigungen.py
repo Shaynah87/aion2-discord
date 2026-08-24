@@ -24,7 +24,7 @@ LIST_API = (
     "&previousArticleId=0"
 )
 
-STATE_FILE = "last_article.json"
+STATE_FILE = "ankuendigungen_status.json"
 
 
 # ------------------------------------------------------------
