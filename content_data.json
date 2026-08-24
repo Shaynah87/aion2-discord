@@ -1,0 +1,20 @@
+{
+  "timezone": "Europe/Berlin",
+  "milestones": [
+    {
+      "key": "early_access",
+      "title": "EARLY ACCESS",
+      "date": "2026-09-30",
+      "date_display": "30. September 2026",
+      "background": "early_access.png"
+    },
+    {
+      "key": "global_launch",
+      "title": "GLOBAL LAUNCH",
+      "date": "2026-10-05",
+      "date_display": "5. Oktober 2026",
+      "background": "global_launch.png"
+    }
+  ],
+  "content_phases": []
+}
