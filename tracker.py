@@ -399,12 +399,20 @@ def build_event_overview(
         }
     )
 
-    # Reset erscheint in der Übersicht erst ab 21:00 Uhr.
+        # Reset erscheint in der Übersicht erst ab 21:00 Uhr.
+    #
+    # Wichtig:
+    # Nach 23:00 Uhr zeigt next_daily_reset() bereits auf morgen.
+    # Deshalb darf der Reset nur aufgenommen werden, wenn der
+    # nächste Daily Reset noch am heutigen Kalendertag liegt.
     #
     # Wenn Daily und Weekly exakt auf denselben Termin fallen,
     # wird ausschließlich der Weekly Reset angezeigt.
 
-    if now.hour >= RESET_OVERVIEW_START_HOUR:
+    if (
+        now.hour >= RESET_OVERVIEW_START_HOUR
+        and daily_reset.date() == now.date()
+    ):
 
         if daily_reset == weekly_reset:
 
