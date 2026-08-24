@@ -28,7 +28,7 @@ jobs:
       - name: AION Ankündigungen prüfen
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python aion_announcements.py
+        run: python ankuendigungen.py
 
       - name: Letzten Stand speichern
         run: |
