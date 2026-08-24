@@ -369,9 +369,7 @@ def save_posted_ids(posted_ids):
 
 def main():
     if not DISCORD_WEBHOOK:
-        raise RuntimeError(
-            "DISCORD_WEBHOOK fehlt."
-        )
+        raise RuntimeError("ANKUENDIGUNGEN_WEBHOOK fehlt.")
 
     # Board kurz prüfen
     api_get(BOARD_API)
