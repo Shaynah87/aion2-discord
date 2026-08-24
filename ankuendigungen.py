@@ -8,7 +8,7 @@ import urllib.error
 from datetime import datetime
 
 
-DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
+DISCORD_WEBHOOK = os.environ.get("ANKUENDIGUNGEN_WEBHOOK")
 
 BOARD_API = (
     "https://api-global-community.plaync.com/"
