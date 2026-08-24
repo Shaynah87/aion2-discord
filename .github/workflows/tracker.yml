@@ -1,4 +1,4 @@
-name: AION 2 Schedule
+name: AION 2 Tracker
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
       - name: AION Fahrplan aktualisieren
         env:
           AION_SCHEDULE_WEBHOOK: ${{ secrets.AION_SCHEDULE_WEBHOOK }}
-        run: python aion_schedule.py
+        run: python tracker.py
 
       - name: Nachrichten-ID speichern
         run: |
