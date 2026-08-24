@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont
 
 
-WEBHOOK_URL = os.environ.get("AION_SCHEDULE_WEBHOOK")
+WEBHOOK_URL = os.environ.get("TRACKER_WEBHOOK")
 
 DATA_FILE = "tracker_data.json"
 STATE_FILE = "tracker_message.json"
