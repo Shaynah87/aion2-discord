@@ -16,6 +16,7 @@ MESSAGE_FILE = "content_message.json"
 WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
 
 EARLY_ACCESS_OUTPUT = "early_access_card.png"
+GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 
 
 # ============================================================
@@ -24,9 +25,57 @@ EARLY_ACCESS_OUTPUT = "early_access_card.png"
 
 CARD_WIDTH = 1200
 
-# Für den großen Countdown erstmal dieselbe Höhe wie unser
-# endgültiger Early-Access-Master.
-CARD_HEIGHT = 535
+# Vor dem Start:
+# großer Vierzeiler
+FULL_HEIGHT = 535
+
+# Nach dem Start:
+# komplette Karte inklusive Hintergrund klappt ein
+COMPACT_HEIGHT = 270
+
+
+# ============================================================
+# GEMEINSAME TYPOGRAFIE
+# Early Access und Global Launch sind 1:1 identisch
+# ============================================================
+
+TITLE_SIZE = 82
+DATE_SIZE = 38
+NOCH_SIZE = 19
+COUNTDOWN_SIZE = 54
+
+TITLE_SPACING = 10
+
+GAP_TITLE_DATE = 21
+GAP_DATE_NOCH = 42
+GAP_NOCH_DAYS = 8
+
+
+# ============================================================
+# ZWEIZEILER
+# ============================================================
+
+COMPACT_TITLE_SIZE = 44
+COMPACT_STATUS_SIZE = 34
+
+COMPACT_GAP = 22
+
+
+# ============================================================
+# CROP FÜR DEN EINGEKLAPPTEN HINTERGRUND
+#
+# 0.50 = exakt aus der Mitte des 535px-Masters.
+#
+# Falls wir später feststellen:
+# Early Access Kugel 5px höher,
+# Global Launch Gesichter 10px tiefer,
+# ändern wir NUR diese beiden Werte.
+# ============================================================
+
+COMPACT_CROP_CENTER = {
+    "early_access": 0.50,
+    "global_launch": 0.50,
+}
 
 
 # ============================================================
@@ -54,27 +103,6 @@ GRAY = (
     255,
 )
 
-DARK_GOLD = (
-    194,
-    139,
-    55,
-    255,
-)
-
-MID_GOLD = (
-    225,
-    178,
-    89,
-    255,
-)
-
-LIGHT_GOLD = (
-    255,
-    229,
-    168,
-    255,
-)
-
 
 # ============================================================
 # DATEN LADEN
@@ -85,19 +113,16 @@ def load_json(
     default=None,
 ):
     try:
-
         with open(
             filename,
             "r",
             encoding="utf-8",
         ) as file:
-
             return json.load(
                 file
             )
 
     except FileNotFoundError:
-
         return (
             default
             if default is not None
@@ -114,7 +139,6 @@ def save_json(
         "w",
         encoding="utf-8",
     ) as file:
-
         json.dump(
             data,
             file,
@@ -170,58 +194,33 @@ def get_milestone_status(
         - now.date()
     )
 
-    days = (
-        difference.days
-    )
+    days = difference.days
 
     if days > 1:
-
         return {
-            "state":
-                "countdown",
-
-            "days":
-                days,
-
-            "text":
-                f"Noch {days} Tage",
+            "state": "countdown",
+            "days": days,
+            "text": f"Noch {days} Tage",
         }
 
     if days == 1:
-
         return {
-            "state":
-                "countdown",
-
-            "days":
-                1,
-
-            "text":
-                "Noch 1 Tag",
+            "state": "countdown",
+            "days": 1,
+            "text": "Noch 1 Tag",
         }
 
     if days == 0:
-
         return {
-            "state":
-                "today",
-
-            "days":
-                0,
-
-            "text":
-                "HEUTE",
+            "state": "today",
+            "days": 0,
+            "text": "HEUTE",
         }
 
     return {
-        "state":
-            "started",
-
-        "days":
-            None,
-
-        "text":
-            "GESTARTET",
+        "state": "started",
+        "days": None,
+        "text": "GESTARTET",
     }
 
 
@@ -242,52 +241,34 @@ def build_content_state(
     )
 
     result = {
-        "updated_at":
-            now.isoformat(),
-
-        "milestones":
-            [],
-
-        "active_content":
-            None,
+        "updated_at": now.isoformat(),
+        "milestones": [],
+        "active_content": None,
     }
 
     for milestone in data.get(
         "milestones",
         [],
     ):
-
-        status = (
-            get_milestone_status(
-                milestone,
-                now,
-                timezone_name,
-            )
+        status = get_milestone_status(
+            milestone,
+            now,
+            timezone_name,
         )
 
-        result[
-            "milestones"
-        ].append(
+        result["milestones"].append(
             {
                 "key":
-                    milestone[
-                        "key"
-                    ],
+                    milestone["key"],
 
                 "title":
-                    milestone[
-                        "title"
-                    ],
+                    milestone["title"],
 
                 "date":
-                    milestone[
-                        "date"
-                    ],
+                    milestone["date"],
 
                 "date_display":
-                    milestone[
-                        "date_display"
-                    ],
+                    milestone["date_display"],
 
                 "background":
                     milestone.get(
@@ -295,9 +276,7 @@ def build_content_state(
                     ),
 
                 "state":
-                    status[
-                        "state"
-                    ],
+                    status["state"],
 
                 "days":
                     status.get(
@@ -305,9 +284,7 @@ def build_content_state(
                     ),
 
                 "status_text":
-                    status[
-                        "text"
-                    ],
+                    status["text"],
             }
         )
 
@@ -317,7 +294,6 @@ def build_content_state(
         "content_phases",
         [],
     ):
-
         if not phase.get(
             "enabled",
             False,
@@ -325,17 +301,11 @@ def build_content_state(
             continue
 
         start = parse_date(
-            phase[
-                "start_date"
-            ],
+            phase["start_date"],
             timezone_name,
         )
 
-        if (
-            start.date()
-            <= now.date()
-        ):
-
+        if start.date() <= now.date():
             active_phases.append(
                 (
                     start,
@@ -344,18 +314,13 @@ def build_content_state(
             )
 
     if active_phases:
-
         active_phases.sort(
             key=lambda item:
                 item[0]
         )
 
-        result[
-            "active_content"
-        ] = (
-            active_phases[
-                -1
-            ][1]
+        result["active_content"] = (
+            active_phases[-1][1]
         )
 
     return result
@@ -370,7 +335,6 @@ def load_font(
     bold=False,
 ):
     if bold:
-
         paths = [
             (
                 "/usr/share/fonts/"
@@ -385,7 +349,6 @@ def load_font(
         ]
 
     else:
-
         paths = [
             (
                 "/usr/share/fonts/"
@@ -400,30 +363,25 @@ def load_font(
         ]
 
     for path in paths:
-
         if os.path.exists(
             path
         ):
-
             return ImageFont.truetype(
                 path,
                 size=size,
             )
 
-    return (
-        ImageFont.load_default()
-    )
+    return ImageFont.load_default()
 
 
 # ============================================================
-# HINTERGRUND
+# HINTERGRUND LADEN
 # ============================================================
 
 def load_background(
     filename,
 ):
     if not filename:
-
         raise RuntimeError(
             "Kein Hintergrundbild "
             "für Content gesetzt."
@@ -432,7 +390,6 @@ def load_background(
     if not os.path.exists(
         filename
     ):
-
         raise RuntimeError(
             f"Hintergrund fehlt: "
             f"{filename}"
@@ -444,15 +401,19 @@ def load_background(
         "RGBA"
     )
 
+    # Master immer exakt auf 1200 x 535.
+    #
+    # Wichtig:
+    # kein Stretching auf andere Proportionen.
+    # Das Repo-Bild sollte bereits 1200x535 sein.
     if image.size != (
         CARD_WIDTH,
-        CARD_HEIGHT,
+        FULL_HEIGHT,
     ):
-
         image = image.resize(
             (
                 CARD_WIDTH,
-                CARD_HEIGHT,
+                FULL_HEIGHT,
             ),
             Image.Resampling.LANCZOS,
         )
@@ -461,80 +422,58 @@ def load_background(
 
 
 # ============================================================
-# SYMMETRISCHER SCHWARZVERLAUF
+# KOMPAKTER HINTERGRUND
+#
+# Der Zweizeiler wird NICHT auf 270px gestaucht.
+# Wir schneiden aus dem 535px-Master einen 270px-Bereich.
 # ============================================================
 
-def add_center_gradient(
+def crop_compact_background(
     image,
+    milestone_key,
 ):
-    width, height = (
-        image.size
+    width, height = image.size
+
+    target_height = COMPACT_HEIGHT
+
+    center_factor = (
+        COMPACT_CROP_CENTER.get(
+            milestone_key,
+            0.50,
+        )
     )
 
-    overlay = Image.new(
-        "RGBA",
+    center_y = (
+        height
+        * center_factor
+    )
+
+    top = int(
+        round(
+            center_y
+            - target_height / 2
+        )
+    )
+
+    top = max(
+        0,
+        min(
+            height - target_height,
+            top,
+        ),
+    )
+
+    bottom = (
+        top
+        + target_height
+    )
+
+    return image.crop(
         (
+            0,
+            top,
             width,
-            height,
-        ),
-        (
-            0,
-            0,
-            0,
-            0,
-        ),
-    )
-
-    pixels = (
-        overlay.load()
-    )
-
-    center_x = (
-        width - 1
-    ) / 2
-
-    for x in range(
-        width
-    ):
-
-        distance = (
-            abs(
-                x
-                - center_x
-            )
-            / center_x
-        )
-
-        # Mitte bleibt deutlich offener,
-        # beide Außenkanten werden exakt
-        # spiegelgleich dunkler.
-        alpha = int(
-            32
-            + 190
-            * (
-                distance
-                ** 1.72
-            )
-        )
-
-        for y in range(
-            height
-        ):
-
-            pixels[
-                x,
-                y
-            ] = (
-                0,
-                0,
-                0,
-                alpha,
-            )
-
-    return (
-        Image.alpha_composite(
-            image,
-            overlay,
+            bottom,
         )
     )
 
@@ -554,22 +493,13 @@ def spaced_text_width(
     for index, char in enumerate(
         text
     ):
-
-        width += (
-            draw.textlength(
-                char,
-                font=font,
-            )
+        width += draw.textlength(
+            char,
+            font=font,
         )
 
-        if (
-            index
-            < len(text) - 1
-        ):
-
-            width += (
-                spacing
-            )
+        if index < len(text) - 1:
+            width += spacing
 
     return width
 
@@ -586,7 +516,6 @@ def draw_spaced_text(
     for index, char in enumerate(
         text
     ):
-
         draw.text(
             (
                 x,
@@ -597,23 +526,63 @@ def draw_spaced_text(
             fill=fill,
         )
 
-        x += (
-            draw.textlength(
-                char,
-                font=font,
-            )
+        x += draw.textlength(
+            char,
+            font=font,
         )
 
-        if (
-            index
-            < len(text) - 1
-        ):
-
+        if index < len(text) - 1:
             x += spacing
 
 
 # ============================================================
-# GOLD-TITEL
+# ZENTRIERTER TEXT
+# ============================================================
+
+def draw_centered_text(
+    draw,
+    text,
+    y,
+    font,
+    fill,
+    width=CARD_WIDTH,
+):
+    bbox = draw.textbbox(
+        (
+            0,
+            0,
+        ),
+        text,
+        font=font,
+    )
+
+    text_width = (
+        bbox[2]
+        - bbox[0]
+    )
+
+    x = (
+        (
+            width
+            - text_width
+        )
+        / 2
+        - bbox[0]
+    )
+
+    draw.text(
+        (
+            x,
+            y,
+        ),
+        text,
+        font=font,
+        fill=fill,
+    )
+
+
+# ============================================================
+# EARLY ACCESS – GOLD
 # ============================================================
 
 def draw_gold_title(
@@ -624,21 +593,17 @@ def draw_gold_title(
     y,
     spacing,
 ):
-    width, height = (
-        image.size
-    )
+    width, height = image.size
 
     probe = ImageDraw.Draw(
         image
     )
 
-    text_width = (
-        spaced_text_width(
-            probe,
-            text,
-            font,
-            spacing,
-        )
+    text_width = spaced_text_width(
+        probe,
+        text,
+        font,
+        spacing,
     )
 
     x = (
@@ -646,9 +611,9 @@ def draw_gold_title(
         - text_width / 2
     )
 
-    # ----------------------------------------
+    # --------------------------------------------------------
     # Tiefenkante
-    # ----------------------------------------
+    # --------------------------------------------------------
 
     depth = Image.new(
         "RGBA",
@@ -664,10 +629,8 @@ def draw_gold_title(
         ),
     )
 
-    depth_draw = (
-        ImageDraw.Draw(
-            depth
-        )
+    depth_draw = ImageDraw.Draw(
+        depth
     )
 
     draw_spaced_text(
@@ -691,16 +654,14 @@ def draw_gold_title(
         )
     )
 
-    image = (
-        Image.alpha_composite(
-            image,
-            depth,
-        )
+    image = Image.alpha_composite(
+        image,
+        depth,
     )
 
-    # ----------------------------------------
+    # --------------------------------------------------------
     # Gold-Glow
-    # ----------------------------------------
+    # --------------------------------------------------------
 
     for (
         blur_radius,
@@ -719,7 +680,6 @@ def draw_gold_title(
             105,
         ),
     ]:
-
         glow = Image.new(
             "RGBA",
             (
@@ -734,10 +694,8 @@ def draw_gold_title(
             ),
         )
 
-        glow_draw = (
-            ImageDraw.Draw(
-                glow
-            )
+        glow_draw = ImageDraw.Draw(
+            glow
         )
 
         draw_spaced_text(
@@ -755,24 +713,20 @@ def draw_gold_title(
             spacing,
         )
 
-        glow = (
-            glow.filter(
-                ImageFilter.GaussianBlur(
-                    blur_radius
-                )
+        glow = glow.filter(
+            ImageFilter.GaussianBlur(
+                blur_radius
             )
         )
 
-        image = (
-            Image.alpha_composite(
-                image,
-                glow,
-            )
+        image = Image.alpha_composite(
+            image,
+            glow,
         )
 
-    # ----------------------------------------
-    # Schriftmaske
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # Maske
+    # --------------------------------------------------------
 
     mask = Image.new(
         "L",
@@ -783,10 +737,8 @@ def draw_gold_title(
         0,
     )
 
-    mask_draw = (
-        ImageDraw.Draw(
-            mask
-        )
+    mask_draw = ImageDraw.Draw(
+        mask
     )
 
     draw_spaced_text(
@@ -812,9 +764,9 @@ def draw_gold_title(
         - top
     )
 
-    # ----------------------------------------
+    # --------------------------------------------------------
     # Metallischer Goldverlauf
-    # ----------------------------------------
+    # --------------------------------------------------------
 
     gold = Image.new(
         "RGBA",
@@ -830,15 +782,12 @@ def draw_gold_title(
         ),
     )
 
-    gold_pixels = (
-        gold.load()
-    )
+    gold_pixels = gold.load()
 
     for yy in range(
         top,
         bottom,
     ):
-
         progress = (
             (
                 yy - top
@@ -850,7 +799,6 @@ def draw_gold_title(
         )
 
         if progress < 0.22:
-
             local = (
                 progress
                 / 0.22
@@ -873,7 +821,6 @@ def draw_gold_title(
             )
 
         elif progress < 0.52:
-
             local = (
                 (
                     progress
@@ -899,7 +846,6 @@ def draw_gold_title(
             )
 
         elif progress < 0.72:
-
             local = (
                 (
                     progress
@@ -925,7 +871,6 @@ def draw_gold_title(
             )
 
         else:
-
             local = (
                 (
                     progress
@@ -954,7 +899,6 @@ def draw_gold_title(
             bbox[0],
             bbox[2],
         ):
-
             gold_pixels[
                 xx,
                 yy
@@ -964,124 +908,417 @@ def draw_gold_title(
         mask
     )
 
-    image = (
-        Image.alpha_composite(
-            image,
-            gold,
-        )
+    image = Image.alpha_composite(
+        image,
+        gold,
     )
 
     return image
 
 
 # ============================================================
-# ZENTRIERTER NORMALTEXT
+# GLOBAL LAUNCH – SILBER / PLATIN
+#
+# Gleiche Geometrie wie Gold.
+# Nur die Metallfarbe unterscheidet sich.
 # ============================================================
 
-def draw_centered_text(
-    draw,
+def draw_platinum_title(
+    image,
     text,
-    y,
     font,
-    fill,
+    center_x,
+    y,
+    spacing,
 ):
-    bbox = draw.textbbox(
-        (
-            0,
-            0,
-        ),
-        text,
-        font=font,
+    width, height = image.size
+
+    probe = ImageDraw.Draw(
+        image
     )
 
-    text_width = (
-        bbox[2]
-        - bbox[0]
+    text_width = spaced_text_width(
+        probe,
+        text,
+        font,
+        spacing,
     )
 
     x = (
-        (
-            CARD_WIDTH
-            - text_width
-        )
-        / 2
-        - bbox[0]
+        center_x
+        - text_width / 2
     )
 
-    draw.text(
+    # --------------------------------------------------------
+    # Tiefe
+    # --------------------------------------------------------
+
+    depth = Image.new(
+        "RGBA",
         (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    depth_draw = ImageDraw.Draw(
+        depth
+    )
+
+    draw_spaced_text(
+        depth_draw,
+        x + 4,
+        y + 4,
+        text,
+        font,
+        (
+            8,
+            10,
+            17,
+            145,
+        ),
+        spacing,
+    )
+
+    depth = depth.filter(
+        ImageFilter.GaussianBlur(
+            1.1
+        )
+    )
+
+    image = Image.alpha_composite(
+        image,
+        depth,
+    )
+
+    # --------------------------------------------------------
+    # sehr dezenter kalter Glow
+    # --------------------------------------------------------
+
+    for (
+        blur_radius,
+        alpha,
+    ) in [
+        (
+            12,
+            35,
+        ),
+        (
+            5,
+            55,
+        ),
+        (
+            2,
+            65,
+        ),
+    ]:
+        glow = Image.new(
+            "RGBA",
+            (
+                width,
+                height,
+            ),
+            (
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+
+        glow_draw = ImageDraw.Draw(
+            glow
+        )
+
+        draw_spaced_text(
+            glow_draw,
             x,
             y,
+            text,
+            font,
+            (
+                215,
+                226,
+                240,
+                alpha,
+            ),
+            spacing,
+        )
+
+        glow = glow.filter(
+            ImageFilter.GaussianBlur(
+                blur_radius
+            )
+        )
+
+        image = Image.alpha_composite(
+            image,
+            glow,
+        )
+
+    # --------------------------------------------------------
+    # Maske
+    # --------------------------------------------------------
+
+    mask = Image.new(
+        "L",
+        (
+            width,
+            height,
         ),
-        text,
-        font=font,
-        fill=fill,
+        0,
     )
 
+    mask_draw = ImageDraw.Draw(
+        mask
+    )
+
+    draw_spaced_text(
+        mask_draw,
+        x,
+        y,
+        text,
+        font,
+        255,
+        spacing,
+    )
+
+    bbox = mask.getbbox()
+
+    if not bbox:
+        return image
+
+    top = bbox[1]
+    bottom = bbox[3]
+
+    visible_height = (
+        bottom
+        - top
+    )
+
+    platinum = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    platinum_pixels = (
+        platinum.load()
+    )
+
+    for yy in range(
+        top,
+        bottom,
+    ):
+        progress = (
+            (
+                yy - top
+            )
+            / max(
+                1,
+                visible_height - 1,
+            )
+        )
+
+        if progress < 0.18:
+            local = (
+                progress
+                / 0.18
+            )
+
+            color = (
+                int(
+                    205
+                    + 45 * local
+                ),
+                int(
+                    213
+                    + 39 * local
+                ),
+                int(
+                    225
+                    + 30 * local
+                ),
+                255,
+            )
+
+        elif progress < 0.40:
+            local = (
+                (
+                    progress
+                    - 0.18
+                )
+                / 0.22
+            )
+
+            color = (
+                int(
+                    250
+                    - 73 * local
+                ),
+                int(
+                    252
+                    - 68 * local
+                ),
+                int(
+                    255
+                    - 61 * local
+                ),
+                255,
+            )
+
+        elif progress < 0.56:
+            local = (
+                (
+                    progress
+                    - 0.40
+                )
+                / 0.16
+            )
+
+            color = (
+                int(
+                    177
+                    + 74 * local
+                ),
+                int(
+                    184
+                    + 69 * local
+                ),
+                int(
+                    194
+                    + 61 * local
+                ),
+                255,
+            )
+
+        elif progress < 0.75:
+            local = (
+                (
+                    progress
+                    - 0.56
+                )
+                / 0.19
+            )
+
+            color = (
+                int(
+                    251
+                    - 102 * local
+                ),
+                int(
+                    253
+                    - 94 * local
+                ),
+                int(
+                    255
+                    - 84 * local
+                ),
+                255,
+            )
+
+        else:
+            local = (
+                (
+                    progress
+                    - 0.75
+                )
+                / 0.25
+            )
+
+            color = (
+                int(
+                    149
+                    + 73 * local
+                ),
+                int(
+                    159
+                    + 68 * local
+                ),
+                int(
+                    171
+                    + 61 * local
+                ),
+                255,
+            )
+
+        for xx in range(
+            bbox[0],
+            bbox[2],
+        ):
+            platinum_pixels[
+                xx,
+                yy
+            ] = color
+
+    platinum.putalpha(
+        mask
+    )
+
+    image = Image.alpha_composite(
+        image,
+        platinum,
+    )
+
+    return image
+
 
 # ============================================================
-# EARLY ACCESS – GROSSER COUNTDOWN
+# VIERZEILER
+#
+# EARLY ACCESS und GLOBAL LAUNCH:
+# exakt dieselbe Geometrie
 # ============================================================
 
-def create_early_access_card(
+def create_full_card(
     milestone,
 ):
-    background = (
-        load_background(
-            milestone[
-                "background"
-            ]
-        )
+    background = load_background(
+        milestone["background"]
     )
 
-    image = (
-        add_center_gradient(
-            background
-        )
+    image = background.copy()
+
+    title_font = load_font(
+        TITLE_SIZE,
+        bold=True,
     )
 
-    title_font = (
-        load_font(
-            82,
-            bold=True,
-        )
+    date_font = load_font(
+        DATE_SIZE,
+        bold=True,
     )
 
-    date_font = (
-        load_font(
-            38,
-            bold=True,
-        )
+    noch_font = load_font(
+        NOCH_SIZE,
+        bold=True,
     )
 
-    noch_font = (
-        load_font(
-            19,
-            bold=True,
-        )
+    days_font = load_font(
+        COUNTDOWN_SIZE,
+        bold=True,
     )
 
-    days_font = (
-        load_font(
-            54,
-            bold=True,
-        )
-    )
-
-    # ----------------------------------------
-    # sichtbare Höhen ausmessen
-    # ----------------------------------------
-
-    probe = (
-        ImageDraw.Draw(
-            image
-        )
+    probe = ImageDraw.Draw(
+        image
     )
 
     title_text = (
-        milestone[
-            "title"
-        ]
+        milestone["title"].upper()
     )
 
     date_text = (
@@ -1090,93 +1327,46 @@ def create_early_access_card(
         ].upper()
     )
 
-    if (
-        milestone[
-            "state"
-        ]
-        == "countdown"
-    ):
+    # --------------------------------------------------------
+    # COUNTDOWN / HEUTE
+    # --------------------------------------------------------
+
+    if milestone["state"] == "countdown":
+        days = milestone["days"]
 
         days_text = (
-            f"{milestone['days']} "
-            f"{'TAG' if milestone['days'] == 1 else 'TAGE'}"
+            f"{days} "
+            f"{'TAG' if days == 1 else 'TAGE'}"
         )
 
-        noch_text = (
-            "NOCH"
-        )
-
-    elif (
-        milestone[
-            "state"
-        ]
-        == "today"
-    ):
-
-        days_text = (
-            "HEUTE"
-        )
-
-        noch_text = (
-            ""
-        )
+        noch_text = "NOCH"
 
     else:
+        # Auf dem Starttag bleibt die große Karte noch stehen.
+        # Sie zeigt HEUTE.
+        days_text = "HEUTE"
+        noch_text = ""
 
-        days_text = (
-            "GESTARTET"
-        )
+    # --------------------------------------------------------
+    # sichtbare Textgrößen
+    # --------------------------------------------------------
 
-        noch_text = (
-            ""
-        )
-
-    title_bbox = (
-        probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            title_text,
-            font=title_font,
-        )
+    title_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        title_text,
+        font=title_font,
     )
 
-    date_bbox = (
-        probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            date_text,
-            font=date_font,
-        )
-    )
-
-    noch_bbox = (
-        probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            (
-                noch_text
-                if noch_text
-                else "NOCH"
-            ),
-            font=noch_font,
-        )
-    )
-
-    days_bbox = (
-        probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            days_text,
-            font=days_font,
-        )
+    date_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        date_text,
+        font=date_font,
     )
 
     title_height = (
@@ -1189,11 +1379,38 @@ def create_early_access_card(
         - date_bbox[1]
     )
 
-    noch_height = (
-        noch_bbox[3]
-        - noch_bbox[1]
-        if noch_text
-        else 0
+    if noch_text:
+        noch_bbox = probe.textbbox(
+            (
+                0,
+                0,
+            ),
+            noch_text,
+            font=noch_font,
+        )
+
+        noch_height = (
+            noch_bbox[3]
+            - noch_bbox[1]
+        )
+
+    else:
+        noch_bbox = (
+            0,
+            0,
+            0,
+            0,
+        )
+
+        noch_height = 0
+
+    days_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        days_text,
+        font=days_font,
     )
 
     days_height = (
@@ -1201,12 +1418,11 @@ def create_early_access_card(
         - days_bbox[1]
     )
 
-    GAP_TITLE_DATE = 21
-    GAP_DATE_NOCH = 42
-    GAP_NOCH_DAYS = 8
+    # --------------------------------------------------------
+    # Gesamten Textblock vertikal zentrieren
+    # --------------------------------------------------------
 
     if noch_text:
-
         group_height = (
             title_height
             + GAP_TITLE_DATE
@@ -1218,7 +1434,6 @@ def create_early_access_card(
         )
 
     else:
-
         group_height = (
             title_height
             + GAP_TITLE_DATE
@@ -1229,15 +1444,15 @@ def create_early_access_card(
 
     visible_top = (
         (
-            CARD_HEIGHT
+            FULL_HEIGHT
             - group_height
         )
         / 2
     )
 
-    # ----------------------------------------
+    # --------------------------------------------------------
     # Y-Positionen
-    # ----------------------------------------
+    # --------------------------------------------------------
 
     title_y = (
         visible_top
@@ -1256,7 +1471,6 @@ def create_early_access_card(
     )
 
     if noch_text:
-
         noch_visible_top = (
             date_visible_top
             + date_height
@@ -1275,7 +1489,6 @@ def create_early_access_card(
         )
 
     else:
-
         days_visible_top = (
             date_visible_top
             + date_height
@@ -1287,28 +1500,50 @@ def create_early_access_card(
         - days_bbox[1]
     )
 
-    # ----------------------------------------
-    # EARLY ACCESS GOLD
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
 
-    image = draw_gold_title(
-        image,
-        title_text,
-        title_font,
-        CARD_WIDTH / 2,
-        title_y,
-        spacing=10,
-    )
+    if milestone["key"] == "early_access":
+        image = draw_gold_title(
+            image,
+            title_text,
+            title_font,
+            CARD_WIDTH / 2,
+            title_y,
+            TITLE_SPACING,
+        )
 
-    draw = (
-        ImageDraw.Draw(
+    elif milestone["key"] == "global_launch":
+        image = draw_platinum_title(
+            image,
+            title_text,
+            title_font,
+            CARD_WIDTH / 2,
+            title_y,
+            TITLE_SPACING,
+        )
+
+    else:
+        draw = ImageDraw.Draw(
             image
         )
-    )
 
-    # ----------------------------------------
-    # Datum
-    # ----------------------------------------
+        draw_centered_text(
+            draw,
+            title_text,
+            title_y,
+            title_font,
+            WHITE,
+        )
+
+    # --------------------------------------------------------
+    # Restlicher Text
+    # --------------------------------------------------------
+
+    draw = ImageDraw.Draw(
+        image
+    )
 
     draw_centered_text(
         draw,
@@ -1318,12 +1553,7 @@ def create_early_access_card(
         WHITE,
     )
 
-    # ----------------------------------------
-    # NOCH
-    # ----------------------------------------
-
     if noch_text:
-
         draw_centered_text(
             draw,
             noch_text,
@@ -1331,10 +1561,6 @@ def create_early_access_card(
             noch_font,
             GRAY,
         )
-
-    # ----------------------------------------
-    # Countdown
-    # ----------------------------------------
 
     draw_centered_text(
         draw,
@@ -1344,22 +1570,219 @@ def create_early_access_card(
         WHITE,
     )
 
-    image = (
-        image.convert(
-            "RGB"
-        )
+    return image.convert(
+        "RGB"
     )
 
+
+# ============================================================
+# ZWEIZEILER / EINGEKLAPPTE KARTE
+#
+# Hintergrund klappt von 535 auf 270px ein.
+# ============================================================
+
+def create_compact_card(
+    milestone,
+):
+    master = load_background(
+        milestone["background"]
+    )
+
+    image = crop_compact_background(
+        master,
+        milestone["key"],
+    )
+
+    title_font = load_font(
+        COMPACT_TITLE_SIZE,
+        bold=True,
+    )
+
+    status_font = load_font(
+        COMPACT_STATUS_SIZE,
+        bold=True,
+    )
+
+    title_text = (
+        milestone["title"].upper()
+    )
+
+    date_text = (
+        milestone[
+            "date_display"
+        ].upper()
+    )
+
+    status_text = (
+        f"{date_text} · GESTARTET"
+    )
+
+    probe = ImageDraw.Draw(
+        image
+    )
+
+    title_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        title_text,
+        font=title_font,
+    )
+
+    status_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        status_text,
+        font=status_font,
+    )
+
+    title_height = (
+        title_bbox[3]
+        - title_bbox[1]
+    )
+
+    status_height = (
+        status_bbox[3]
+        - status_bbox[1]
+    )
+
+    group_height = (
+        title_height
+        + COMPACT_GAP
+        + status_height
+    )
+
+    visible_top = (
+        (
+            COMPACT_HEIGHT
+            - group_height
+        )
+        / 2
+    )
+
+    title_y = (
+        visible_top
+        - title_bbox[1]
+    )
+
+    status_visible_top = (
+        visible_top
+        + title_height
+        + COMPACT_GAP
+    )
+
+    status_y = (
+        status_visible_top
+        - status_bbox[1]
+    )
+
+    # --------------------------------------------------------
+    # Titel-Effekt bleibt auch im Zweizeiler erhalten
+    # --------------------------------------------------------
+
+    if milestone["key"] == "early_access":
+        image = draw_gold_title(
+            image,
+            title_text,
+            title_font,
+            CARD_WIDTH / 2,
+            title_y,
+            spacing=5,
+        )
+
+    elif milestone["key"] == "global_launch":
+        image = draw_platinum_title(
+            image,
+            title_text,
+            title_font,
+            CARD_WIDTH / 2,
+            title_y,
+            spacing=5,
+        )
+
+    draw = ImageDraw.Draw(
+        image
+    )
+
+    draw_centered_text(
+        draw,
+        status_text,
+        status_y,
+        status_font,
+        WHITE,
+    )
+
+    return image.convert(
+        "RGB"
+    )
+
+
+# ============================================================
+# MILESTONE RENDERN
+# ============================================================
+
+def render_milestone(
+    milestone,
+):
+    # Vor dem Start und am Starttag:
+    # große Karte
+    if milestone["state"] in (
+        "countdown",
+        "today",
+    ):
+        return create_full_card(
+            milestone
+        )
+
+    # Nach dem Start:
+    # komplette Karte klappt ein
+    return create_compact_card(
+        milestone
+    )
+
+
+# ============================================================
+# SPEICHERN
+# ============================================================
+
+def save_milestone_card(
+    milestone,
+):
+    image = render_milestone(
+        milestone
+    )
+
+    if milestone["key"] == "early_access":
+        filename = (
+            EARLY_ACCESS_OUTPUT
+        )
+
+    elif milestone["key"] == "global_launch":
+        filename = (
+            GLOBAL_LAUNCH_OUTPUT
+        )
+
+    else:
+        filename = (
+            f"{milestone['key']}_card.png"
+        )
+
     image.save(
-        EARLY_ACCESS_OUTPUT,
+        filename,
         "PNG",
         optimize=True,
     )
 
     print(
-        f"Early-Access-Karte erstellt: "
-        f"{EARLY_ACCESS_OUTPUT}"
+        f"{milestone['title']}: "
+        f"{filename} "
+        f"({image.width}x{image.height})"
     )
+
+    return filename
 
 
 # ============================================================
@@ -1381,26 +1804,17 @@ def print_status(
     )
 
     for milestone in (
-        content_state[
-            "milestones"
-        ]
+        content_state["milestones"]
     ):
-
         print("")
         print(
-            milestone[
-                "title"
-            ]
+            milestone["title"]
         )
         print(
-            milestone[
-                "date_display"
-            ]
+            milestone["date_display"]
         )
         print(
-            milestone[
-                "status_text"
-            ]
+            milestone["status_text"]
         )
 
     print("")
@@ -1420,53 +1834,55 @@ def main():
     )
 
     if not data:
-
         raise RuntimeError(
             "content_data.json "
             "ist leer oder fehlt."
         )
 
-    content_state = (
-        build_content_state(
-            data
-        )
+    content_state = build_content_state(
+        data
     )
 
     print_status(
         content_state
     )
 
-    early_access = None
+    wanted_keys = {
+        "early_access",
+        "global_launch",
+    }
+
+    found_keys = set()
 
     for milestone in (
-        content_state[
-            "milestones"
-        ]
+        content_state["milestones"]
     ):
+        if milestone["key"] not in wanted_keys:
+            continue
 
-        if (
-            milestone[
-                "key"
-            ]
-            == "early_access"
-        ):
-
-            early_access = (
-                milestone
-            )
-
-            break
-
-    if early_access is None:
-
-        raise RuntimeError(
-            "Early Access fehlt "
-            "in content_data.json."
+        save_milestone_card(
+            milestone
         )
 
-    create_early_access_card(
-        early_access
+        found_keys.add(
+            milestone["key"]
+        )
+
+    missing = (
+        wanted_keys
+        - found_keys
     )
+
+    if missing:
+        raise RuntimeError(
+            "Folgende Milestones fehlen "
+            "in content_data.json: "
+            + ", ".join(
+                sorted(
+                    missing
+                )
+            )
+        )
 
 
 if __name__ == "__main__":
