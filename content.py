@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import requests
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
@@ -11,9 +12,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # ============================================================
 
 DATA_FILE = "content_data.json"
-MESSAGE_FILE = "content_message.json"
 
 WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
+CONTENT_MESSAGE_ID = os.environ.get("CONTENT_MESSAGE_ID")
 
 EARLY_ACCESS_OUTPUT = "early_access_card.png"
 GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
@@ -25,18 +26,18 @@ GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 
 CARD_WIDTH = 1200
 
-# Vor dem Start:
-# großer Vierzeiler
+# Vierzeiler
 FULL_HEIGHT = 535
 
-# Nach dem Start:
-# komplette Karte inklusive Hintergrund klappt ein
+# Eingeklappter Zweizeiler
 COMPACT_HEIGHT = 270
 
 
 # ============================================================
 # GEMEINSAME TYPOGRAFIE
-# Early Access und Global Launch sind 1:1 identisch
+#
+# Early Access und Global Launch verwenden exakt
+# dieselbe Größen- und Abstandslogik.
 # ============================================================
 
 TITLE_SIZE = 82
@@ -58,18 +59,17 @@ GAP_NOCH_DAYS = 8
 COMPACT_TITLE_SIZE = 44
 COMPACT_STATUS_SIZE = 34
 
+COMPACT_TITLE_SPACING = 6
 COMPACT_GAP = 22
 
 
 # ============================================================
-# CROP FÜR DEN EINGEKLAPPTEN HINTERGRUND
+# KOMPAKTER HINTERGRUND
 #
-# 0.50 = exakt aus der Mitte des 535px-Masters.
+# 0.50 = vertikal exakt aus der Mitte des Masters croppen.
 #
-# Falls wir später feststellen:
-# Early Access Kugel 5px höher,
-# Global Launch Gesichter 10px tiefer,
-# ändern wir NUR diese beiden Werte.
+# Diese beiden Werte können wir später getrennt feinjustieren,
+# damit Kugel bzw. Figuren beim Einklappen perfekt sitzen.
 # ============================================================
 
 COMPACT_CROP_CENTER = {
@@ -108,21 +108,20 @@ GRAY = (
 # DATEN LADEN
 # ============================================================
 
-def load_json(
-    filename,
-    default=None,
-):
+def load_json(filename, default=None):
+
     try:
+
         with open(
             filename,
             "r",
             encoding="utf-8",
         ) as file:
-            return json.load(
-                file
-            )
+
+            return json.load(file)
 
     except FileNotFoundError:
+
         return (
             default
             if default is not None
@@ -130,30 +129,12 @@ def load_json(
         )
 
 
-def save_json(
-    filename,
-    data,
-):
-    with open(
-        filename,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            data,
-            file,
-            indent=2,
-            ensure_ascii=False,
-        )
-
-
 # ============================================================
 # ZEIT / COUNTDOWN
 # ============================================================
 
-def get_now(
-    timezone_name,
-):
+def get_now(timezone_name):
+
     timezone = ZoneInfo(
         timezone_name
     )
@@ -167,6 +148,7 @@ def parse_date(
     date_string,
     timezone_name,
 ):
+
     timezone = ZoneInfo(
         timezone_name
     )
@@ -184,19 +166,19 @@ def get_milestone_status(
     now,
     timezone_name,
 ):
+
     target = parse_date(
         milestone["date"],
         timezone_name,
     )
 
-    difference = (
+    days = (
         target.date()
         - now.date()
-    )
-
-    days = difference.days
+    ).days
 
     if days > 1:
+
         return {
             "state": "countdown",
             "days": days,
@@ -204,6 +186,7 @@ def get_milestone_status(
         }
 
     if days == 1:
+
         return {
             "state": "countdown",
             "days": 1,
@@ -211,6 +194,7 @@ def get_milestone_status(
         }
 
     if days == 0:
+
         return {
             "state": "today",
             "days": 0,
@@ -228,9 +212,8 @@ def get_milestone_status(
 # CONTENT AUFBEREITEN
 # ============================================================
 
-def build_content_state(
-    data,
-):
+def build_content_state(data):
+
     timezone_name = data.get(
         "timezone",
         "Europe/Berlin",
@@ -250,6 +233,7 @@ def build_content_state(
         "milestones",
         [],
     ):
+
         status = get_milestone_status(
             milestone,
             now,
@@ -294,6 +278,7 @@ def build_content_state(
         "content_phases",
         [],
     ):
+
         if not phase.get(
             "enabled",
             False,
@@ -306,6 +291,7 @@ def build_content_state(
         )
 
         if start.date() <= now.date():
+
             active_phases.append(
                 (
                     start,
@@ -314,6 +300,7 @@ def build_content_state(
             )
 
     if active_phases:
+
         active_phases.sort(
             key=lambda item:
                 item[0]
@@ -334,7 +321,9 @@ def load_font(
     size,
     bold=False,
 ):
+
     if bold:
+
         paths = [
             (
                 "/usr/share/fonts/"
@@ -349,6 +338,7 @@ def load_font(
         ]
 
     else:
+
         paths = [
             (
                 "/usr/share/fonts/"
@@ -363,9 +353,9 @@ def load_font(
         ]
 
     for path in paths:
-        if os.path.exists(
-            path
-        ):
+
+        if os.path.exists(path):
+
             return ImageFont.truetype(
                 path,
                 size=size,
@@ -375,24 +365,22 @@ def load_font(
 
 
 # ============================================================
-# HINTERGRUND LADEN
+# HINTERGRUND
 # ============================================================
 
-def load_background(
-    filename,
-):
+def load_background(filename):
+
     if not filename:
+
         raise RuntimeError(
             "Kein Hintergrundbild "
             "für Content gesetzt."
         )
 
-    if not os.path.exists(
-        filename
-    ):
+    if not os.path.exists(filename):
+
         raise RuntimeError(
-            f"Hintergrund fehlt: "
-            f"{filename}"
+            f"Hintergrund fehlt: {filename}"
         )
 
     image = Image.open(
@@ -401,15 +389,15 @@ def load_background(
         "RGBA"
     )
 
-    # Master immer exakt auf 1200 x 535.
+    # Unsere beiden Master sollen 1200x535 sein.
     #
-    # Wichtig:
-    # kein Stretching auf andere Proportionen.
-    # Das Repo-Bild sollte bereits 1200x535 sein.
+    # Falls einer davon noch abweicht,
+    # wird er zunächst auf das Arbeitsformat gebracht.
     if image.size != (
         CARD_WIDTH,
         FULL_HEIGHT,
     ):
+
         image = image.resize(
             (
                 CARD_WIDTH,
@@ -422,19 +410,20 @@ def load_background(
 
 
 # ============================================================
-# KOMPAKTER HINTERGRUND
+# ZWEIZEILER-HINTERGRUND
 #
-# Der Zweizeiler wird NICHT auf 270px gestaucht.
-# Wir schneiden aus dem 535px-Master einen 270px-Bereich.
+# WICHTIG:
+# Der 535px-Master wird NICHT auf 270px gestaucht.
+#
+# Python schneidet einen 270px hohen Ausschnitt heraus.
 # ============================================================
 
 def crop_compact_background(
     image,
     milestone_key,
 ):
-    width, height = image.size
 
-    target_height = COMPACT_HEIGHT
+    width, height = image.size
 
     center_factor = (
         COMPACT_CROP_CENTER.get(
@@ -451,21 +440,16 @@ def crop_compact_background(
     top = int(
         round(
             center_y
-            - target_height / 2
+            - COMPACT_HEIGHT / 2
         )
     )
 
     top = max(
         0,
         min(
-            height - target_height,
+            height - COMPACT_HEIGHT,
             top,
         ),
-    )
-
-    bottom = (
-        top
-        + target_height
     )
 
     return image.crop(
@@ -473,7 +457,7 @@ def crop_compact_background(
             0,
             top,
             width,
-            bottom,
+            top + COMPACT_HEIGHT,
         )
     )
 
@@ -488,17 +472,18 @@ def spaced_text_width(
     font,
     spacing,
 ):
+
     width = 0
 
-    for index, char in enumerate(
-        text
-    ):
+    for index, char in enumerate(text):
+
         width += draw.textlength(
             char,
             font=font,
         )
 
         if index < len(text) - 1:
+
             width += spacing
 
     return width
@@ -513,9 +498,9 @@ def draw_spaced_text(
     fill,
     spacing,
 ):
-    for index, char in enumerate(
-        text
-    ):
+
+    for index, char in enumerate(text):
+
         draw.text(
             (
                 x,
@@ -532,6 +517,7 @@ def draw_spaced_text(
         )
 
         if index < len(text) - 1:
+
             x += spacing
 
 
@@ -547,6 +533,7 @@ def draw_centered_text(
     fill,
     width=CARD_WIDTH,
 ):
+
     bbox = draw.textbbox(
         (
             0,
@@ -593,6 +580,7 @@ def draw_gold_title(
     y,
     spacing,
 ):
+
     width, height = image.size
 
     probe = ImageDraw.Draw(
@@ -660,13 +648,10 @@ def draw_gold_title(
     )
 
     # --------------------------------------------------------
-    # Gold-Glow
+    # Gold Glow
     # --------------------------------------------------------
 
-    for (
-        blur_radius,
-        alpha,
-    ) in [
+    for blur_radius, alpha in [
         (
             18,
             58,
@@ -680,6 +665,7 @@ def draw_gold_title(
             105,
         ),
     ]:
+
         glow = Image.new(
             "RGBA",
             (
@@ -725,7 +711,7 @@ def draw_gold_title(
         )
 
     # --------------------------------------------------------
-    # Maske
+    # Schriftmaske
     # --------------------------------------------------------
 
     mask = Image.new(
@@ -764,10 +750,6 @@ def draw_gold_title(
         - top
     )
 
-    # --------------------------------------------------------
-    # Metallischer Goldverlauf
-    # --------------------------------------------------------
-
     gold = Image.new(
         "RGBA",
         (
@@ -788,6 +770,7 @@ def draw_gold_title(
         top,
         bottom,
     ):
+
         progress = (
             (
                 yy - top
@@ -799,6 +782,7 @@ def draw_gold_title(
         )
 
         if progress < 0.22:
+
             local = (
                 progress
                 / 0.22
@@ -821,6 +805,7 @@ def draw_gold_title(
             )
 
         elif progress < 0.52:
+
             local = (
                 (
                     progress
@@ -846,6 +831,7 @@ def draw_gold_title(
             )
 
         elif progress < 0.72:
+
             local = (
                 (
                     progress
@@ -871,6 +857,7 @@ def draw_gold_title(
             )
 
         else:
+
             local = (
                 (
                     progress
@@ -899,6 +886,7 @@ def draw_gold_title(
             bbox[0],
             bbox[2],
         ):
+
             gold_pixels[
                 xx,
                 yy
@@ -908,18 +896,16 @@ def draw_gold_title(
         mask
     )
 
-    image = Image.alpha_composite(
+    return Image.alpha_composite(
         image,
         gold,
     )
 
-    return image
-
 
 # ============================================================
-# GLOBAL LAUNCH – SILBER / PLATIN
+# GLOBAL LAUNCH – PLATIN
 #
-# Gleiche Geometrie wie Gold.
+# Gleiche Textgeometrie wie Early Access.
 # Nur die Metallfarbe unterscheidet sich.
 # ============================================================
 
@@ -931,6 +917,7 @@ def draw_platinum_title(
     y,
     spacing,
 ):
+
     width, height = image.size
 
     probe = ImageDraw.Draw(
@@ -950,7 +937,7 @@ def draw_platinum_title(
     )
 
     # --------------------------------------------------------
-    # Tiefe
+    # Tiefenkante
     # --------------------------------------------------------
 
     depth = Image.new(
@@ -978,9 +965,9 @@ def draw_platinum_title(
         text,
         font,
         (
-            8,
-            10,
-            17,
+            7,
+            9,
+            15,
             145,
         ),
         spacing,
@@ -998,13 +985,10 @@ def draw_platinum_title(
     )
 
     # --------------------------------------------------------
-    # sehr dezenter kalter Glow
+    # Kalter, dezenter Glow
     # --------------------------------------------------------
 
-    for (
-        blur_radius,
-        alpha,
-    ) in [
+    for blur_radius, alpha in [
         (
             12,
             35,
@@ -1018,6 +1002,7 @@ def draw_platinum_title(
             65,
         ),
     ]:
+
         glow = Image.new(
             "RGBA",
             (
@@ -1124,6 +1109,7 @@ def draw_platinum_title(
         top,
         bottom,
     ):
+
         progress = (
             (
                 yy - top
@@ -1135,6 +1121,7 @@ def draw_platinum_title(
         )
 
         if progress < 0.18:
+
             local = (
                 progress
                 / 0.18
@@ -1157,6 +1144,7 @@ def draw_platinum_title(
             )
 
         elif progress < 0.40:
+
             local = (
                 (
                     progress
@@ -1182,6 +1170,7 @@ def draw_platinum_title(
             )
 
         elif progress < 0.56:
+
             local = (
                 (
                     progress
@@ -1207,6 +1196,7 @@ def draw_platinum_title(
             )
 
         elif progress < 0.75:
+
             local = (
                 (
                     progress
@@ -1232,6 +1222,7 @@ def draw_platinum_title(
             )
 
         else:
+
             local = (
                 (
                     progress
@@ -1260,6 +1251,7 @@ def draw_platinum_title(
             bbox[0],
             bbox[2],
         ):
+
             platinum_pixels[
                 xx,
                 yy
@@ -1269,29 +1261,21 @@ def draw_platinum_title(
         mask
     )
 
-    image = Image.alpha_composite(
+    return Image.alpha_composite(
         image,
         platinum,
     )
 
-    return image
-
 
 # ============================================================
 # VIERZEILER
-#
-# EARLY ACCESS und GLOBAL LAUNCH:
-# exakt dieselbe Geometrie
 # ============================================================
 
-def create_full_card(
-    milestone,
-):
-    background = load_background(
+def create_full_card(milestone):
+
+    image = load_background(
         milestone["background"]
     )
-
-    image = background.copy()
 
     title_font = load_font(
         TITLE_SIZE,
@@ -1327,11 +1311,8 @@ def create_full_card(
         ].upper()
     )
 
-    # --------------------------------------------------------
-    # COUNTDOWN / HEUTE
-    # --------------------------------------------------------
-
     if milestone["state"] == "countdown":
+
         days = milestone["days"]
 
         days_text = (
@@ -1342,13 +1323,14 @@ def create_full_card(
         noch_text = "NOCH"
 
     else:
-        # Auf dem Starttag bleibt die große Karte noch stehen.
-        # Sie zeigt HEUTE.
+
+        # Am Starttag bleibt die große Karte
+        # noch bestehen und zeigt HEUTE.
         days_text = "HEUTE"
         noch_text = ""
 
     # --------------------------------------------------------
-    # sichtbare Textgrößen
+    # Sichtbare Textgrößen
     # --------------------------------------------------------
 
     title_bbox = probe.textbbox(
@@ -1369,6 +1351,15 @@ def create_full_card(
         font=date_font,
     )
 
+    days_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        days_text,
+        font=days_font,
+    )
+
     title_height = (
         title_bbox[3]
         - title_bbox[1]
@@ -1379,7 +1370,13 @@ def create_full_card(
         - date_bbox[1]
     )
 
+    days_height = (
+        days_bbox[3]
+        - days_bbox[1]
+    )
+
     if noch_text:
+
         noch_bbox = probe.textbbox(
             (
                 0,
@@ -1394,35 +1391,6 @@ def create_full_card(
             - noch_bbox[1]
         )
 
-    else:
-        noch_bbox = (
-            0,
-            0,
-            0,
-            0,
-        )
-
-        noch_height = 0
-
-    days_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        days_text,
-        font=days_font,
-    )
-
-    days_height = (
-        days_bbox[3]
-        - days_bbox[1]
-    )
-
-    # --------------------------------------------------------
-    # Gesamten Textblock vertikal zentrieren
-    # --------------------------------------------------------
-
-    if noch_text:
         group_height = (
             title_height
             + GAP_TITLE_DATE
@@ -1434,6 +1402,16 @@ def create_full_card(
         )
 
     else:
+
+        noch_bbox = (
+            0,
+            0,
+            0,
+            0,
+        )
+
+        noch_height = 0
+
         group_height = (
             title_height
             + GAP_TITLE_DATE
@@ -1442,6 +1420,10 @@ def create_full_card(
             + days_height
         )
 
+    # --------------------------------------------------------
+    # Gesamte Textgruppe vertikal zentrieren
+    # --------------------------------------------------------
+
     visible_top = (
         (
             FULL_HEIGHT
@@ -1449,10 +1431,6 @@ def create_full_card(
         )
         / 2
     )
-
-    # --------------------------------------------------------
-    # Y-Positionen
-    # --------------------------------------------------------
 
     title_y = (
         visible_top
@@ -1471,6 +1449,7 @@ def create_full_card(
     )
 
     if noch_text:
+
         noch_visible_top = (
             date_visible_top
             + date_height
@@ -1489,6 +1468,7 @@ def create_full_card(
         )
 
     else:
+
         days_visible_top = (
             date_visible_top
             + date_height
@@ -1501,10 +1481,11 @@ def create_full_card(
     )
 
     # --------------------------------------------------------
-    # TITEL
+    # Titel
     # --------------------------------------------------------
 
     if milestone["key"] == "early_access":
+
         image = draw_gold_title(
             image,
             title_text,
@@ -1515,6 +1496,7 @@ def create_full_card(
         )
 
     elif milestone["key"] == "global_launch":
+
         image = draw_platinum_title(
             image,
             title_text,
@@ -1524,21 +1506,8 @@ def create_full_card(
             TITLE_SPACING,
         )
 
-    else:
-        draw = ImageDraw.Draw(
-            image
-        )
-
-        draw_centered_text(
-            draw,
-            title_text,
-            title_y,
-            title_font,
-            WHITE,
-        )
-
     # --------------------------------------------------------
-    # Restlicher Text
+    # Datum / Countdown
     # --------------------------------------------------------
 
     draw = ImageDraw.Draw(
@@ -1554,6 +1523,7 @@ def create_full_card(
     )
 
     if noch_text:
+
         draw_centered_text(
             draw,
             noch_text,
@@ -1576,14 +1546,11 @@ def create_full_card(
 
 
 # ============================================================
-# ZWEIZEILER / EINGEKLAPPTE KARTE
-#
-# Hintergrund klappt von 535 auf 270px ein.
+# ZWEIZEILER
 # ============================================================
 
-def create_compact_card(
-    milestone,
-):
+def create_compact_card(milestone):
+
     master = load_background(
         milestone["background"]
     )
@@ -1607,14 +1574,9 @@ def create_compact_card(
         milestone["title"].upper()
     )
 
-    date_text = (
-        milestone[
-            "date_display"
-        ].upper()
-    )
-
     status_text = (
-        f"{date_text} · GESTARTET"
+        f"{milestone['date_display'].upper()} "
+        f"· GESTARTET"
     )
 
     probe = ImageDraw.Draw(
@@ -1680,27 +1642,29 @@ def create_compact_card(
     )
 
     # --------------------------------------------------------
-    # Titel-Effekt bleibt auch im Zweizeiler erhalten
+    # Titel
     # --------------------------------------------------------
 
     if milestone["key"] == "early_access":
+
         image = draw_gold_title(
             image,
             title_text,
             title_font,
             CARD_WIDTH / 2,
             title_y,
-            spacing=5,
+            COMPACT_TITLE_SPACING,
         )
 
     elif milestone["key"] == "global_launch":
+
         image = draw_platinum_title(
             image,
             title_text,
             title_font,
             CARD_WIDTH / 2,
             title_y,
-            spacing=5,
+            COMPACT_TITLE_SPACING,
         )
 
     draw = ImageDraw.Draw(
@@ -1724,21 +1688,21 @@ def create_compact_card(
 # MILESTONE RENDERN
 # ============================================================
 
-def render_milestone(
-    milestone,
-):
-    # Vor dem Start und am Starttag:
-    # große Karte
+def render_milestone(milestone):
+
+    # Vor Start + am Starttag:
+    # volle 535px-Karte
     if milestone["state"] in (
         "countdown",
         "today",
     ):
+
         return create_full_card(
             milestone
         )
 
-    # Nach dem Start:
-    # komplette Karte klappt ein
+    # Nach Start:
+    # komplette Karte klappt auf 270px ein
     return create_compact_card(
         milestone
     )
@@ -1748,24 +1712,26 @@ def render_milestone(
 # SPEICHERN
 # ============================================================
 
-def save_milestone_card(
-    milestone,
-):
+def save_milestone_card(milestone):
+
     image = render_milestone(
         milestone
     )
 
     if milestone["key"] == "early_access":
+
         filename = (
             EARLY_ACCESS_OUTPUT
         )
 
     elif milestone["key"] == "global_launch":
+
         filename = (
             GLOBAL_LAUNCH_OUTPUT
         )
 
     else:
+
         filename = (
             f"{milestone['key']}_card.png"
         )
@@ -1786,12 +1752,214 @@ def save_milestone_card(
 
 
 # ============================================================
-# TESTAUSGABE
+# DISCORD
 # ============================================================
 
-def print_status(
-    content_state,
+def send_content_to_discord(
+    early_access_file,
+    global_launch_file,
 ):
+
+    if not WEBHOOK_URL:
+
+        raise RuntimeError(
+            "GitHub Secret CONTENT_WEBHOOK fehlt."
+        )
+
+    attachments = [
+        {
+            "id": 0,
+            "filename": "early_access.png",
+        },
+        {
+            "id": 1,
+            "filename": "global_launch.png",
+        },
+    ]
+
+    payload = {
+        "content": "",
+        "allowed_mentions": {
+            "parse": []
+        },
+        "attachments": attachments,
+    }
+
+    # ========================================================
+    # BESTEHENDE NACHRICHT AKTUALISIEREN
+    # ========================================================
+
+    if CONTENT_MESSAGE_ID:
+
+        url = (
+            f"{WEBHOOK_URL}"
+            f"/messages/"
+            f"{CONTENT_MESSAGE_ID}"
+        )
+
+        with open(
+            early_access_file,
+            "rb",
+        ) as early_file, open(
+            global_launch_file,
+            "rb",
+        ) as global_file:
+
+            files = {
+                "files[0]": (
+                    "early_access.png",
+                    early_file,
+                    "image/png",
+                ),
+                "files[1]": (
+                    "global_launch.png",
+                    global_file,
+                    "image/png",
+                ),
+            }
+
+            response = requests.patch(
+                url,
+                data={
+                    "payload_json":
+                        json.dumps(payload)
+                },
+                files=files,
+                timeout=30,
+            )
+
+        if response.status_code not in (
+            200,
+            204,
+        ):
+
+            raise RuntimeError(
+                "Discord Content konnte "
+                "nicht aktualisiert werden.\n"
+                f"HTTP {response.status_code}\n"
+                f"{response.text}"
+            )
+
+        print("")
+        print(
+            "Discord Content aktualisiert."
+        )
+        print(
+            f"Message-ID: "
+            f"{CONTENT_MESSAGE_ID}"
+        )
+
+        return
+
+    # ========================================================
+    # ERSTER LAUF
+    # ========================================================
+
+    separator = (
+        "&"
+        if "?" in WEBHOOK_URL
+        else "?"
+    )
+
+    url = (
+        WEBHOOK_URL
+        + separator
+        + "wait=true"
+    )
+
+    with open(
+        early_access_file,
+        "rb",
+    ) as early_file, open(
+        global_launch_file,
+        "rb",
+    ) as global_file:
+
+        files = {
+            "files[0]": (
+                "early_access.png",
+                early_file,
+                "image/png",
+            ),
+            "files[1]": (
+                "global_launch.png",
+                global_file,
+                "image/png",
+            ),
+        }
+
+        response = requests.post(
+            url,
+            data={
+                "payload_json":
+                    json.dumps(payload)
+            },
+            files=files,
+            timeout=30,
+        )
+
+    if response.status_code not in (
+        200,
+        201,
+    ):
+
+        raise RuntimeError(
+            "Discord Content konnte "
+            "nicht erstellt werden.\n"
+            f"HTTP {response.status_code}\n"
+            f"{response.text}"
+        )
+
+    message = response.json()
+
+    message_id = message.get(
+        "id"
+    )
+
+    if not message_id:
+
+        raise RuntimeError(
+            "Discord hat keine "
+            "Message-ID zurückgegeben."
+        )
+
+    print("")
+    print(
+        "========================================"
+    )
+    print(
+        "CONTENT-NACHRICHT ERSTELLT"
+    )
+    print(
+        "========================================"
+    )
+    print("")
+    print(
+        "Diese ID jetzt als GitHub Secret"
+    )
+    print(
+        "CONTENT_MESSAGE_ID speichern:"
+    )
+    print("")
+    print(
+        message_id
+    )
+    print("")
+    print(
+        "Danach Workflow erneut starten."
+    )
+    print("")
+    print(
+        "========================================"
+    )
+
+
+# ============================================================
+# STATUSAUSGABE
+# ============================================================
+
+def print_status(content_state):
+
     print("")
     print(
         "========================================"
@@ -1806,6 +1974,7 @@ def print_status(
     for milestone in (
         content_state["milestones"]
     ):
+
         print("")
         print(
             milestone["title"]
@@ -1828,12 +1997,14 @@ def print_status(
 # ============================================================
 
 def main():
+
     data = load_json(
         DATA_FILE,
         {},
     )
 
     if not data:
+
         raise RuntimeError(
             "content_data.json "
             "ist leer oder fehlt."
@@ -1852,37 +2023,49 @@ def main():
         "global_launch",
     }
 
-    found_keys = set()
+    rendered_files = {}
 
     for milestone in (
         content_state["milestones"]
     ):
+
         if milestone["key"] not in wanted_keys:
+
             continue
 
-        save_milestone_card(
+        filename = save_milestone_card(
             milestone
         )
 
-        found_keys.add(
+        rendered_files[
             milestone["key"]
-        )
+        ] = filename
 
     missing = (
         wanted_keys
-        - found_keys
+        - set(
+            rendered_files.keys()
+        )
     )
 
     if missing:
+
         raise RuntimeError(
             "Folgende Milestones fehlen "
             "in content_data.json: "
             + ", ".join(
-                sorted(
-                    missing
-                )
+                sorted(missing)
             )
         )
+
+    send_content_to_discord(
+        rendered_files[
+            "early_access"
+        ],
+        rendered_files[
+            "global_launch"
+        ],
+    )
 
 
 if __name__ == "__main__":
