@@ -23,7 +23,7 @@ jobs:
           python-version: "3.12"
 
       - name: Pillow installieren
-        run: pip install Pillow
+        run: pip install pillow requests
 
       - name: Prüfen ob Content aktualisiert werden soll
         id: berlin_time
