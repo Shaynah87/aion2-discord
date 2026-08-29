@@ -59,17 +59,15 @@ EARLY_GAP_TITLE_DATE = 18
 # ============================================================
 # GLOBAL LAUNCH
 #
-# Keine automatische vertikale Gesamtberechnung mehr.
-# Alle sichtbaren Bereiche haben feste Y-Anker.
+# Feste Positionen.
+# Oberer Block gegenüber dem letzten Stand +17 px tiefer.
+# Countdown bleibt unverändert.
 # ============================================================
 
 GLOBAL_TITLE_SIZE = 96
-
-# Kräftige Serifenschrift statt dünner Regular Serif.
 GLOBAL_TITLE_BOLD = True
 
-# Nicht mehr extrem auseinanderziehen.
-# Beide Zeilen werden auf dieselbe Zielbreite gebracht.
+# GLOBAL und LAUNCH gleiche optische Breite
 GLOBAL_TITLE_TARGET_WIDTH = 470
 
 
@@ -77,22 +75,20 @@ GLOBAL_TITLE_TARGET_WIDTH = 470
 # FESTE VERTIKALE POSITIONEN
 # ------------------------------------------------------------
 
-# Sichtbare Oberkante GLOBAL
-GLOBAL_GLOBAL_TOP = 35
+# Vorher: 35
+GLOBAL_GLOBAL_TOP = 52
 
-# Sichtbare Oberkante LAUNCH
-GLOBAL_LAUNCH_TOP = 120
+# Vorher: 120
+GLOBAL_LAUNCH_TOP = 137
 
-# Haupttrenner
-GLOBAL_DIVIDER_Y = 218
+# Vorher: 218
+GLOBAL_DIVIDER_Y = 235
 
-# Sichtbare Oberkante Datum
-GLOBAL_DATE_TOP = 250
+# Vorher: 250
+GLOBAL_DATE_TOP = 267
 
-# Sichtbare Oberkante NOCH
+# Countdown bleibt exakt auf dem letzten Stand
 GLOBAL_NOCH_TOP = 382
-
-# Sichtbare Oberkante Countdown
 GLOBAL_DAYS_TOP = 408
 
 
@@ -113,6 +109,36 @@ GLOBAL_DIVIDER_WIDTH = 350
 GLOBAL_DIVIDER_CENTER_GAP = 15
 GLOBAL_DIVIDER_THICKNESS = 2
 GLOBAL_DIVIDER_DIAMOND = 5
+
+
+# ============================================================
+# GLOBAL – TITELTIEFE
+#
+# Sehr subtil:
+# - weicher dunkelblauer Schatten
+# - hauchdünnes helles Kantenlicht
+# - eigentliche dunkelblaue Schrift
+#
+# Kein Chrome / kein harter weißer Sticker-Rand.
+# ============================================================
+
+GLOBAL_TITLE_SHADOW_OFFSET_X = 2
+GLOBAL_TITLE_SHADOW_OFFSET_Y = 4
+GLOBAL_TITLE_SHADOW_BLUR = 3.2
+
+GLOBAL_TITLE_SHADOW = (
+    13,
+    28,
+    50,
+    125,
+)
+
+GLOBAL_TITLE_HIGHLIGHT = (
+    245,
+    249,
+    255,
+    150,
+)
 
 
 # ============================================================
@@ -1093,10 +1119,7 @@ def draw_gold_title(
 
 
 # ============================================================
-# GLOBAL – TITEL
-#
-# Kräftige Serifenschrift.
-# Kein künstlicher Doppelpass mehr nötig.
+# GLOBAL – TITEL MIT SUBTILER TIEFE
 # ============================================================
 
 def draw_global_title_line(
@@ -1126,10 +1149,15 @@ def draw_global_title_line(
         - text_width / 2
     )
 
-    # Nur ein sehr leichter heller Schatten,
-    # damit die dunkle Schrift auf der hellen Mitte
-    # sauber bleibt.
-    shadow = Image.new(
+
+    # --------------------------------------------------------
+    # 1. DUNKLER WEICHER SCHATTEN
+    #
+    # Etwas nach rechts/unten versetzt.
+    # Gibt dem Titel Tiefe, ohne ihn schweben zu lassen.
+    # --------------------------------------------------------
+
+    shadow_layer = Image.new(
         "RGBA",
         (
             width,
@@ -1144,34 +1172,83 @@ def draw_global_title_line(
     )
 
     shadow_draw = ImageDraw.Draw(
-        shadow
+        shadow_layer
     )
 
     draw_spaced_text(
         shadow_draw,
-        x,
-        y + 2,
+        x + GLOBAL_TITLE_SHADOW_OFFSET_X,
+        y + GLOBAL_TITLE_SHADOW_OFFSET_Y,
         text,
         font,
-        (
-            255,
-            255,
-            255,
-            105,
-        ),
+        GLOBAL_TITLE_SHADOW,
         spacing,
     )
 
-    shadow = shadow.filter(
+    shadow_layer = shadow_layer.filter(
         ImageFilter.GaussianBlur(
-            1.3
+            GLOBAL_TITLE_SHADOW_BLUR
         )
     )
 
     image = Image.alpha_composite(
         image,
-        shadow,
+        shadow_layer,
     )
+
+
+    # --------------------------------------------------------
+    # 2. SEHR FEINES HELLES KANTENLICHT
+    #
+    # Wir zeichnen die Schrift viermal jeweils 1 Pixel
+    # um die Hauptschrift herum.
+    # Dadurch entsteht nur ein hauchdünner Lichtsaum.
+    # --------------------------------------------------------
+
+    highlight_layer = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    highlight_draw = ImageDraw.Draw(
+        highlight_layer
+    )
+
+    for offset_x, offset_y in (
+        (-1, 0),
+        (1, 0),
+        (0, -1),
+        (0, 1),
+    ):
+
+        draw_spaced_text(
+            highlight_draw,
+            x + offset_x,
+            y + offset_y,
+            text,
+            font,
+            GLOBAL_TITLE_HIGHLIGHT,
+            spacing,
+        )
+
+    image = Image.alpha_composite(
+        image,
+        highlight_layer,
+    )
+
+
+    # --------------------------------------------------------
+    # 3. EIGENTLICHE DUNKELBLAUE SCHRIFT
+    # --------------------------------------------------------
 
     draw = ImageDraw.Draw(
         image
@@ -1542,20 +1619,6 @@ def create_early_access_full_card(
 
 # ============================================================
 # GLOBAL LAUNCH – VOLLE KARTE
-#
-# FESTE POSITIONEN:
-#
-# GLOBAL
-# LAUNCH
-#
-# ------- ◆ -------
-#
-# 5. OKTOBER 2026
-#
-#
-#
-# NOCH
-# 36 TAGE
 # ============================================================
 
 def create_global_launch_full_card(
@@ -1615,7 +1678,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # TITEL BOUNDING BOXES
+    # TITEL
     # ========================================================
 
     global_bbox = probe.textbbox(
@@ -1636,14 +1699,6 @@ def create_global_launch_full_card(
         font=title_font,
     )
 
-
-    # ========================================================
-    # TITELBREITEN
-    #
-    # GLOBAL und LAUNCH werden optisch gleich breit.
-    # Keine extremen Buchstabenabstände mehr.
-    # ========================================================
-
     global_spacing = spacing_for_target_width(
         probe,
         "GLOBAL",
@@ -1657,14 +1712,6 @@ def create_global_launch_full_card(
         title_font,
         GLOBAL_TITLE_TARGET_WIDTH,
     )
-
-
-    # ========================================================
-    # FESTE SICHTBARE Y-POSITIONEN
-    #
-    # PIL zeichnet Text nicht ab sichtbarer Oberkante,
-    # deshalb wird bbox[1] abgezogen.
-    # ========================================================
 
     global_y = (
         GLOBAL_GLOBAL_TOP
@@ -1970,12 +2017,31 @@ def create_compact_card(
 
     if milestone["key"] == "global_launch":
 
-        image = draw_global_title_line(
-            image,
+        # Compact bleibt bewusst sauber und flach.
+        # Der neue Tiefeneffekt gehört nur zur großen Final-Karte.
+        draw = ImageDraw.Draw(
+            image
+        )
+
+        title_width = spaced_text_width(
+            draw,
             title_text,
             title_font,
-            CARD_WIDTH / 2,
+            COMPACT_TITLE_SPACING,
+        )
+
+        title_x = (
+            CARD_WIDTH / 2
+            - title_width / 2
+        )
+
+        draw_spaced_text(
+            draw,
+            title_x,
             title_y,
+            title_text,
+            title_font,
+            GLOBAL_DARK,
             COMPACT_TITLE_SPACING,
         )
 
