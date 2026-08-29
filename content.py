@@ -47,8 +47,6 @@ GAP_NOCH_DAYS = 7
 
 # ============================================================
 # EARLY ACCESS
-#
-# Bleibt aktuell unverändert.
 # ============================================================
 
 EARLY_TITLE_SIZE = 68
@@ -58,16 +56,10 @@ EARLY_GAP_TITLE_DATE = 18
 
 # ============================================================
 # GLOBAL LAUNCH
-#
-# Feste Positionen.
-# Oberer Block gegenüber dem letzten Stand +17 px tiefer.
-# Countdown bleibt unverändert.
 # ============================================================
 
 GLOBAL_TITLE_SIZE = 96
 GLOBAL_TITLE_BOLD = True
-
-# GLOBAL und LAUNCH gleiche optische Breite
 GLOBAL_TITLE_TARGET_WIDTH = 470
 
 
@@ -75,19 +67,16 @@ GLOBAL_TITLE_TARGET_WIDTH = 470
 # FESTE VERTIKALE POSITIONEN
 # ------------------------------------------------------------
 
-# Vorher: 35
 GLOBAL_GLOBAL_TOP = 52
-
-# Vorher: 120
 GLOBAL_LAUNCH_TOP = 137
 
-# Vorher: 218
 GLOBAL_DIVIDER_Y = 235
 
-# Vorher: 250
-GLOBAL_DATE_TOP = 267
+# Datum näher an den Trenner.
+# Vorher 267.
+GLOBAL_DATE_TOP = 256
 
-# Countdown bleibt exakt auf dem letzten Stand
+# Countdown bleibt exakt stehen.
 GLOBAL_NOCH_TOP = 382
 GLOBAL_DAYS_TOP = 408
 
@@ -101,43 +90,58 @@ GLOBAL_NOCH_SIZE = 16
 GLOBAL_COUNTDOWN_SIZE = 46
 
 
-# ------------------------------------------------------------
-# GLOBAL – HAUPTTRENNER
-# ------------------------------------------------------------
+# ============================================================
+# GLOBAL – ORNAMENT-TRENNER
+# ============================================================
 
-GLOBAL_DIVIDER_WIDTH = 350
-GLOBAL_DIVIDER_CENTER_GAP = 15
+# Gesamtbreite etwas kompakter als die alte 350-px-Linie.
+GLOBAL_DIVIDER_WIDTH = 310
+
+# Abstand zum zentralen Ornament
+GLOBAL_DIVIDER_CENTER_GAP = 27
+
+# Hauptlinie
 GLOBAL_DIVIDER_THICKNESS = 2
-GLOBAL_DIVIDER_DIAMOND = 5
+
+# Zweite kurze innere Linie
+GLOBAL_DIVIDER_INNER_LENGTH = 46
+GLOBAL_DIVIDER_INNER_OFFSET = 6
+
+# Zentrales Kristall-Ornament
+GLOBAL_DIVIDER_DIAMOND_OUTER = 8
+GLOBAL_DIVIDER_DIAMOND_INNER = 4
 
 
 # ============================================================
 # GLOBAL – TITELTIEFE
-#
-# Sehr subtil:
-# - weicher dunkelblauer Schatten
-# - hauchdünnes helles Kantenlicht
-# - eigentliche dunkelblaue Schrift
-#
-# Kein Chrome / kein harter weißer Sticker-Rand.
 # ============================================================
 
+# Etwas stärker als beim letzten Test.
 GLOBAL_TITLE_SHADOW_OFFSET_X = 2
-GLOBAL_TITLE_SHADOW_OFFSET_Y = 4
-GLOBAL_TITLE_SHADOW_BLUR = 3.2
+GLOBAL_TITLE_SHADOW_OFFSET_Y = 5
+GLOBAL_TITLE_SHADOW_BLUR = 3.8
 
 GLOBAL_TITLE_SHADOW = (
-    13,
-    28,
-    50,
-    125,
+    10,
+    24,
+    46,
+    155,
 )
 
+# Feiner heller Saum
 GLOBAL_TITLE_HIGHLIGHT = (
-    245,
-    249,
+    248,
+    251,
     255,
-    150,
+    180,
+)
+
+# Zusätzliches sehr dezentes dunkles Kantenrelief
+GLOBAL_TITLE_EDGE = (
+    16,
+    34,
+    58,
+    125,
 )
 
 
@@ -205,7 +209,28 @@ GLOBAL_LINE = (
     45,
     66,
     98,
-    215,
+    205,
+)
+
+GLOBAL_LINE_SOFT = (
+    66,
+    88,
+    118,
+    125,
+)
+
+GLOBAL_ORNAMENT_LIGHT = (
+    220,
+    232,
+    245,
+    220,
+)
+
+GLOBAL_ORNAMENT_DARK = (
+    39,
+    61,
+    92,
+    235,
 )
 
 
@@ -718,33 +743,6 @@ def centered_text_x(
     )
 
 
-def draw_centered_text(
-    draw,
-    text,
-    y,
-    font,
-    fill,
-    width=CARD_WIDTH,
-):
-
-    x = centered_text_x(
-        draw,
-        text,
-        font,
-        width,
-    )
-
-    draw.text(
-        (
-            x,
-            y,
-        ),
-        text,
-        font=font,
-        fill=fill,
-    )
-
-
 # ============================================================
 # WEICHER TEXTSCHATTEN
 # ============================================================
@@ -1119,7 +1117,7 @@ def draw_gold_title(
 
 
 # ============================================================
-# GLOBAL – TITEL MIT SUBTILER TIEFE
+# GLOBAL – TITEL MIT MEHR TIEFE
 # ============================================================
 
 def draw_global_title_line(
@@ -1151,10 +1149,7 @@ def draw_global_title_line(
 
 
     # --------------------------------------------------------
-    # 1. DUNKLER WEICHER SCHATTEN
-    #
-    # Etwas nach rechts/unten versetzt.
-    # Gibt dem Titel Tiefe, ohne ihn schweben zu lassen.
+    # 1. WEICHER TIEFER SCHATTEN
     # --------------------------------------------------------
 
     shadow_layer = Image.new(
@@ -1198,11 +1193,48 @@ def draw_global_title_line(
 
 
     # --------------------------------------------------------
-    # 2. SEHR FEINES HELLES KANTENLICHT
+    # 2. DUNKLE UNTERE KANTE
     #
-    # Wir zeichnen die Schrift viermal jeweils 1 Pixel
-    # um die Hauptschrift herum.
-    # Dadurch entsteht nur ein hauchdünner Lichtsaum.
+    # Nur 1 Pixel nach unten.
+    # Gibt dem Buchstaben ein kleines Relief.
+    # --------------------------------------------------------
+
+    edge_layer = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    edge_draw = ImageDraw.Draw(
+        edge_layer
+    )
+
+    draw_spaced_text(
+        edge_draw,
+        x,
+        y + 1,
+        text,
+        font,
+        GLOBAL_TITLE_EDGE,
+        spacing,
+    )
+
+    image = Image.alpha_composite(
+        image,
+        edge_layer,
+    )
+
+
+    # --------------------------------------------------------
+    # 3. HELLES KANTENLICHT
     # --------------------------------------------------------
 
     highlight_layer = Image.new(
@@ -1247,7 +1279,7 @@ def draw_global_title_line(
 
 
     # --------------------------------------------------------
-    # 3. EIGENTLICHE DUNKELBLAUE SCHRIFT
+    # 4. HAUPTSCHRIFT
     # --------------------------------------------------------
 
     draw = ImageDraw.Draw(
@@ -1268,7 +1300,7 @@ def draw_global_title_line(
 
 
 # ============================================================
-# GLOBAL – HAUPTTRENNER
+# GLOBAL – NEUER FANTASY-ORNAMENT-TRENNER
 # ============================================================
 
 def draw_global_divider(
@@ -1297,57 +1329,224 @@ def draw_global_divider(
     )
 
     center_x = width / 2
-    half = GLOBAL_DIVIDER_WIDTH / 2
-    gap = GLOBAL_DIVIDER_CENTER_GAP
+
+    half_width = (
+        GLOBAL_DIVIDER_WIDTH / 2
+    )
+
+    gap = (
+        GLOBAL_DIVIDER_CENTER_GAP
+    )
+
+
+    # --------------------------------------------------------
+    # ÄUSSERE HAUPTLINIEN
+    # --------------------------------------------------------
+
+    left_start = (
+        center_x
+        - half_width
+    )
+
+    left_end = (
+        center_x
+        - gap
+    )
+
+    right_start = (
+        center_x
+        + gap
+    )
+
+    right_end = (
+        center_x
+        + half_width
+    )
 
     draw.line(
         (
-            center_x - half,
+            left_start,
             center_y,
-            center_x - gap,
+            left_end,
             center_y,
         ),
         fill=GLOBAL_LINE,
         width=GLOBAL_DIVIDER_THICKNESS,
+    )
+
+    draw.line(
+        (
+            right_start,
+            center_y,
+            right_end,
+            center_y,
+        ),
+        fill=GLOBAL_LINE,
+        width=GLOBAL_DIVIDER_THICKNESS,
+    )
+
+
+    # --------------------------------------------------------
+    # FEINE ZWEITE INNERE LINIEN
+    #
+    # Kleine versetzte Haarlinien geben dem Trenner
+    # mehr Fantasy-/UI-Charakter.
+    # --------------------------------------------------------
+
+    inner = (
+        GLOBAL_DIVIDER_INNER_LENGTH
+    )
+
+    offset = (
+        GLOBAL_DIVIDER_INNER_OFFSET
+    )
+
+    draw.line(
+        (
+            center_x
+            - gap
+            - inner,
+
+            center_y
+            + offset,
+
+            center_x
+            - gap,
+
+            center_y
+            + offset,
+        ),
+        fill=GLOBAL_LINE_SOFT,
+        width=1,
+    )
+
+    draw.line(
+        (
+            center_x
+            + gap,
+
+            center_y
+            + offset,
+
+            center_x
+            + gap
+            + inner,
+
+            center_y
+            + offset,
+        ),
+        fill=GLOBAL_LINE_SOFT,
+        width=1,
+    )
+
+
+    # --------------------------------------------------------
+    # KLEINE ENDKAPPEN INNEN
+    # --------------------------------------------------------
+
+    cap_height = 4
+
+    draw.line(
+        (
+            center_x - gap,
+            center_y - cap_height,
+            center_x - gap,
+            center_y + cap_height,
+        ),
+        fill=GLOBAL_LINE,
+        width=1,
     )
 
     draw.line(
         (
             center_x + gap,
-            center_y,
-            center_x + half,
-            center_y,
+            center_y - cap_height,
+            center_x + gap,
+            center_y + cap_height,
         ),
         fill=GLOBAL_LINE,
-        width=GLOBAL_DIVIDER_THICKNESS,
+        width=1,
     )
 
-    diamond = GLOBAL_DIVIDER_DIAMOND
+
+    # --------------------------------------------------------
+    # ÄUSSERE RAUTE
+    # --------------------------------------------------------
+
+    outer = (
+        GLOBAL_DIVIDER_DIAMOND_OUTER
+    )
 
     draw.polygon(
         [
             (
                 center_x,
-                center_y - diamond,
+                center_y - outer,
             ),
             (
-                center_x + diamond,
+                center_x + outer,
                 center_y,
             ),
             (
                 center_x,
-                center_y + diamond,
+                center_y + outer,
             ),
             (
-                center_x - diamond,
+                center_x - outer,
                 center_y,
             ),
         ],
+        fill=GLOBAL_ORNAMENT_DARK,
+    )
+
+
+    # --------------------------------------------------------
+    # INNERE HELLE RAUTE
+    # --------------------------------------------------------
+
+    inner_diamond = (
+        GLOBAL_DIVIDER_DIAMOND_INNER
+    )
+
+    draw.polygon(
+        [
+            (
+                center_x,
+                center_y - inner_diamond,
+            ),
+            (
+                center_x + inner_diamond,
+                center_y,
+            ),
+            (
+                center_x,
+                center_y + inner_diamond,
+            ),
+            (
+                center_x - inner_diamond,
+                center_y,
+            ),
+        ],
+        fill=GLOBAL_ORNAMENT_LIGHT,
+    )
+
+
+    # --------------------------------------------------------
+    # WINZIGER LICHTPUNKT
+    # --------------------------------------------------------
+
+    draw.ellipse(
+        (
+            center_x - 1,
+            center_y - 2,
+            center_x + 1,
+            center_y,
+        ),
         fill=(
-            40,
-            61,
-            92,
-            235,
+            255,
+            255,
+            255,
+            225,
         ),
     )
 
@@ -1678,7 +1877,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # TITEL
+    # GLOBAL / LAUNCH
     # ========================================================
 
     global_bbox = probe.textbbox(
@@ -1769,7 +1968,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # TAGE / HEUTE
+    # COUNTDOWN
     # ========================================================
 
     days_bbox = probe.textbbox(
@@ -1816,7 +2015,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # HAUPTTRENNER
+    # NEUER ORNAMENT-TRENNER
     # ========================================================
 
     image = draw_global_divider(
@@ -2017,8 +2216,6 @@ def create_compact_card(
 
     if milestone["key"] == "global_launch":
 
-        # Compact bleibt bewusst sauber und flach.
-        # Der neue Tiefeneffekt gehört nur zur großen Final-Karte.
         draw = ImageDraw.Draw(
             image
         )
@@ -2160,9 +2357,6 @@ def save_milestone_card(
 
 # ============================================================
 # DISCORD
-#
-# TESTPHASE:
-# Beide Karten als getrennte Nachrichten.
 # ============================================================
 
 def webhook_wait_url():
