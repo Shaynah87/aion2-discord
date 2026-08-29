@@ -45,12 +45,12 @@ COMPACT_HEIGHT = 270
 # grundsätzlich gleich groß.
 # ============================================================
 
-DATE_SIZE = 30
+DATE_SIZE = 32
 NOCH_SIZE = 17
 COUNTDOWN_SIZE = 50
 
-GAP_DATE_NOCH = 36
-GAP_NOCH_DAYS = 7
+GAP_DATE_NOCH = 42
+GAP_NOCH_DAYS = 10
 
 
 # ============================================================
@@ -70,24 +70,25 @@ EARLY_TITLE_SPACING = 3
 # Zweizeilig, damit die Köpfe frei bleiben.
 # ============================================================
 
-GLOBAL_TITLE_SIZE = 72
+GLOBAL_TITLE_SIZE = 82
 GLOBAL_TITLE_SPACING = 8
 
-GLOBAL_TITLE_LINE_GAP = 3
+# Mehr Luft zwischen GLOBAL und LAUNCH
+GLOBAL_TITLE_LINE_GAP = 8
 
 # Abstand vom unteren Rand der zweiten Titelzeile
 # bis zur Zierlinie
-GLOBAL_GAP_TITLE_DIVIDER = 13
+GLOBAL_GAP_TITLE_DIVIDER = 22
 
 # Zierlinie
 GLOBAL_DIVIDER_WIDTH = 300
 GLOBAL_DIVIDER_CENTER_GAP = 14
 
 # Abstand Zierlinie -> Datum
-GLOBAL_GAP_DIVIDER_DATE = 23
+GLOBAL_GAP_DIVIDER_DATE = 30
 
-# Gesamte Global-Gruppe etwas nach oben
-GLOBAL_GROUP_Y_OFFSET = -22
+# Gesamte Global-Gruppe weiter nach oben
+GLOBAL_GROUP_Y_OFFSET = -40
 
 
 # ============================================================
@@ -1051,8 +1052,6 @@ def draw_gold_title(
 # ============================================================
 # GLOBAL – TITEL
 #
-# Bewusst KEIN Chrom / Glow / WordArt.
-#
 # Dunkles, klares Blau.
 # Serif.
 # Sehr kleiner Schatten.
@@ -1085,7 +1084,6 @@ def draw_global_title_line(
         - text_width / 2
     )
 
-    # Kleiner Schatten
     shadow = Image.new(
         "RGBA",
         (
@@ -1450,10 +1448,6 @@ def create_early_access_full_card(
         - days_bbox[1]
     )
 
-    # --------------------------------------------------------
-    # TITLE
-    # --------------------------------------------------------
-
     image = draw_gold_title(
         image,
         title_text,
@@ -1462,10 +1456,6 @@ def create_early_access_full_card(
         title_y,
         EARLY_TITLE_SPACING,
     )
-
-    # --------------------------------------------------------
-    # DATE
-    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -1482,10 +1472,6 @@ def create_early_access_full_card(
         shadow_blur=3.0,
     )
 
-    # --------------------------------------------------------
-    # NOCH
-    # --------------------------------------------------------
-
     if noch_text:
 
         image = draw_centered_spaced_text(
@@ -1496,10 +1482,6 @@ def create_early_access_full_card(
             EARLY_MUTED,
             4,
         )
-
-    # --------------------------------------------------------
-    # COUNTDOWN
-    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -1524,15 +1506,17 @@ def create_early_access_full_card(
 # ============================================================
 # GLOBAL LAUNCH – VOLLE KARTE
 #
-# NEUE STRUKTUR:
-#
 #       GLOBAL
+#
 #       LAUNCH
+#
 #    -----◆-----
+#
 #   5. OKTOBER 2026
 #
 #       NOCH
-#      37 TAGE
+#
+#      36 TAGE
 # ============================================================
 
 def create_global_launch_full_card(
@@ -1714,19 +1698,13 @@ def create_global_launch_full_card(
         + GLOBAL_GROUP_Y_OFFSET
     )
 
-    # --------------------------------------------------------
     # GLOBAL
-    # --------------------------------------------------------
-
     global_y = (
         visible_top
         - global_bbox[1]
     )
 
-    # --------------------------------------------------------
     # LAUNCH
-    # --------------------------------------------------------
-
     launch_visible_top = (
         visible_top
         + global_height
@@ -1738,10 +1716,7 @@ def create_global_launch_full_card(
         - launch_bbox[1]
     )
 
-    # --------------------------------------------------------
-    # DIVIDER
-    # --------------------------------------------------------
-
+    # ZIERLINIE
     divider_y = (
         launch_visible_top
         + launch_height
@@ -1749,10 +1724,7 @@ def create_global_launch_full_card(
         + divider_height / 2
     )
 
-    # --------------------------------------------------------
-    # DATE
-    # --------------------------------------------------------
-
+    # DATUM
     date_visible_top = (
         divider_y
         + divider_height / 2
@@ -1764,10 +1736,7 @@ def create_global_launch_full_card(
         - date_bbox[1]
     )
 
-    # --------------------------------------------------------
     # NOCH / TAGE
-    # --------------------------------------------------------
-
     if noch_text:
 
         noch_visible_top = (
@@ -1800,10 +1769,7 @@ def create_global_launch_full_card(
         - days_bbox[1]
     )
 
-    # --------------------------------------------------------
-    # TITEL ZEICHNEN
-    # --------------------------------------------------------
-
+    # GLOBAL
     image = draw_global_title_line(
         image,
         "GLOBAL",
@@ -1813,6 +1779,7 @@ def create_global_launch_full_card(
         GLOBAL_TITLE_SPACING,
     )
 
+    # LAUNCH
     image = draw_global_title_line(
         image,
         "LAUNCH",
@@ -1822,19 +1789,13 @@ def create_global_launch_full_card(
         GLOBAL_TITLE_SPACING,
     )
 
-    # --------------------------------------------------------
     # ZIERLINIE
-    # --------------------------------------------------------
-
     image = draw_global_divider(
         image,
         divider_y,
     )
 
-    # --------------------------------------------------------
     # DATUM
-    # --------------------------------------------------------
-
     image = draw_soft_centered_text(
         image,
         date_text,
@@ -1851,10 +1812,7 @@ def create_global_launch_full_card(
         shadow_offset=1,
     )
 
-    # --------------------------------------------------------
     # NOCH
-    # --------------------------------------------------------
-
     if noch_text:
 
         image = draw_centered_spaced_text(
@@ -1866,10 +1824,7 @@ def create_global_launch_full_card(
             5,
         )
 
-    # --------------------------------------------------------
     # COUNTDOWN
-    # --------------------------------------------------------
-
     image = draw_soft_centered_text(
         image,
         days_text,
@@ -2028,10 +1983,6 @@ def create_compact_card(
         - status_bbox[1]
     )
 
-    # --------------------------------------------------------
-    # GLOBAL COMPACT
-    # --------------------------------------------------------
-
     if milestone["key"] == "global_launch":
 
         image = draw_global_title_line(
@@ -2057,10 +2008,6 @@ def create_compact_card(
             ),
             shadow_blur=1.6,
         )
-
-    # --------------------------------------------------------
-    # EARLY COMPACT
-    # --------------------------------------------------------
 
     else:
 
@@ -2101,8 +2048,6 @@ def render_milestone(
     milestone
 ):
 
-    # Vor Start + am Starttag:
-    # große Karte
     if milestone["state"] in (
         "countdown",
         "today",
@@ -2112,8 +2057,6 @@ def render_milestone(
             milestone
         )
 
-    # Nach Start:
-    # kompakte Karte
     return create_compact_card(
         milestone
     )
@@ -2171,8 +2114,6 @@ def save_milestone_card(
 #
 # Beide Karten werden jeweils als eigene Nachricht gepostet.
 # So stehen sie sauber untereinander.
-#
-# Alte Testnachrichten löschen wir derzeit manuell.
 # ============================================================
 
 def webhook_wait_url():
