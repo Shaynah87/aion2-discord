@@ -9,6 +9,7 @@ from PIL import (
     ImageDraw,
     ImageFont,
     ImageFilter,
+    ImageChops,
 )
 
 
@@ -72,14 +73,9 @@ GLOBAL_TITLE_TARGET_WIDTH = 470
 GLOBAL_GLOBAL_TOP = 52
 GLOBAL_LAUNCH_TOP = 137
 
-# Etwas mehr Luft nach dem Titel
 GLOBAL_DIVIDER_Y = 243
-
-# Datum ebenfalls etwas tiefer.
-# Das Datum selbst gestalten wir anschließend noch neu.
 GLOBAL_DATE_TOP = 272
 
-# Countdown bleibt exakt auf dem bisherigen Stand
 GLOBAL_NOCH_TOP = 382
 GLOBAL_DAYS_TOP = 408
 
@@ -94,76 +90,100 @@ GLOBAL_COUNTDOWN_SIZE = 46
 
 
 # ============================================================
-# GLOBAL – ORNAMENT-TRENNER
+# GLOBAL – NEUER RUHIGER TRENNER
 # ============================================================
 
-GLOBAL_DIVIDER_WIDTH = 290
-GLOBAL_DIVIDER_CENTER_GAP = 25
+GLOBAL_DIVIDER_WIDTH = 300
+GLOBAL_DIVIDER_CENTER_GAP = 24
 
 GLOBAL_DIVIDER_THICKNESS = 1
-
-GLOBAL_DIVIDER_INNER_LENGTH = 42
-GLOBAL_DIVIDER_INNER_OFFSET = 5
 
 GLOBAL_DIVIDER_DIAMOND_OUTER = 7
 GLOBAL_DIVIDER_DIAMOND_INNER = 3
 
 
 # ============================================================
-# GLOBAL – TITELTIEFE
+# GLOBAL – TITELTIEFE / SCHIMMER
 #
-# Neuer Aufbau:
-#
-# 1. ruhiger tiefer Schatten
-# 2. dunkler unterer Buchstabenbereich
-# 3. hellerer oberer Buchstabenbereich
-# 4. feines Licht-Highlight
-#
-# Dadurch entsteht Tiefe IM Buchstaben,
-# nicht nur außen herum.
+# Ziel:
+# - sichtbarer Navy-Verlauf
+# - etwas mehr Tiefe
+# - leichter bläulich-weißer Schimmer
+# - kein harter weißer Rand
 # ============================================================
 
-GLOBAL_TITLE_SHADOW_OFFSET_X = 2
-GLOBAL_TITLE_SHADOW_OFFSET_Y = 4
-GLOBAL_TITLE_SHADOW_BLUR = 3.2
+GLOBAL_TITLE_SHADOW_OFFSET_X = 3
+GLOBAL_TITLE_SHADOW_OFFSET_Y = 5
+GLOBAL_TITLE_SHADOW_BLUR = 4.2
 
 GLOBAL_TITLE_SHADOW = (
-    10,
-    24,
-    46,
-    135,
+    8,
+    21,
+    40,
+    175,
 )
 
-# obere Schriftfarbe
+# Leichter Glow direkt um die Schrift
+GLOBAL_TITLE_GLOW_BLUR = 4.5
+
+GLOBAL_TITLE_GLOW = (
+    207,
+    226,
+    247,
+    85,
+)
+
+# Farbverlauf IM Buchstaben
 GLOBAL_TITLE_TOP_COLOR = (
-    50,
-    74,
-    105,
+    82,
+    108,
+    143,
     255,
 )
 
-# mittlere Schriftfarbe
+GLOBAL_TITLE_UPPER_COLOR = (
+    54,
+    80,
+    115,
+    255,
+)
+
 GLOBAL_TITLE_MID_COLOR = (
     31,
-    51,
-    79,
+    53,
+    83,
     255,
 )
 
-# untere Schriftfarbe
 GLOBAL_TITLE_BOTTOM_COLOR = (
+    12,
+    28,
+    50,
+    255,
+)
+
+# Feiner oberer Lichtreflex
+GLOBAL_TITLE_SHINE = (
+    224,
+    237,
+    250,
+    105,
+)
+
+# Hauchdünne helle Oberkante
+GLOBAL_TITLE_EDGE_LIGHT = (
+    235,
+    244,
+    253,
+    120,
+)
+
+# Dunkle Unterkante
+GLOBAL_TITLE_EDGE_DARK = (
+    5,
     18,
     34,
-    57,
-    255,
-)
-
-# sehr feines Kantenlicht
-GLOBAL_TITLE_HIGHLIGHT = (
-    244,
-    249,
-    255,
-    135,
+    145,
 )
 
 
@@ -234,25 +254,18 @@ GLOBAL_LINE = (
     190,
 )
 
-GLOBAL_LINE_SOFT = (
-    74,
-    95,
-    124,
-    100,
-)
-
 GLOBAL_ORNAMENT_LIGHT = (
     224,
-    235,
-    247,
-    210,
+    237,
+    250,
+    220,
 )
 
 GLOBAL_ORNAMENT_DARK = (
-    39,
-    61,
-    92,
-    225,
+    34,
+    57,
+    90,
+    230,
 )
 
 
@@ -1192,7 +1205,30 @@ def create_global_title_mask(
 
 
 # ============================================================
-# GLOBAL – TITEL MIT INNERER TIEFE
+# FARBE MISCHEN
+# ============================================================
+
+def mix_rgba(
+    color_a,
+    color_b,
+    amount,
+):
+
+    return tuple(
+        int(
+            color_a[channel]
+            + (
+                color_b[channel]
+                - color_a[channel]
+            )
+            * amount
+        )
+        for channel in range(4)
+    )
+
+
+# ============================================================
+# GLOBAL – TITEL MIT MEHR FARBTIEFE UND SCHIMMER
 # ============================================================
 
 def draw_global_title_line(
@@ -1221,12 +1257,20 @@ def draw_global_title_line(
 
         return image
 
+    top = bbox[1]
+    bottom = bbox[3]
 
-    # --------------------------------------------------------
-    # 1. RUHIGER DUNKLER SCHATTEN
-    # --------------------------------------------------------
+    visible_height = max(
+        1,
+        bottom - top,
+    )
 
-    shadow_mask = Image.new(
+
+    # ========================================================
+    # 1. TIEFER DUNKLER SCHATTEN
+    # ========================================================
+
+    shifted_shadow_mask = Image.new(
         "L",
         (
             width,
@@ -1235,7 +1279,7 @@ def draw_global_title_line(
         0,
     )
 
-    shadow_mask.paste(
+    shifted_shadow_mask.paste(
         mask,
         (
             GLOBAL_TITLE_SHADOW_OFFSET_X,
@@ -1243,7 +1287,7 @@ def draw_global_title_line(
         ),
     )
 
-    shadow_mask = shadow_mask.filter(
+    shifted_shadow_mask = shifted_shadow_mask.filter(
         ImageFilter.GaussianBlur(
             GLOBAL_TITLE_SHADOW_BLUR
         )
@@ -1255,11 +1299,16 @@ def draw_global_title_line(
             width,
             height,
         ),
-        GLOBAL_TITLE_SHADOW,
+        (
+            GLOBAL_TITLE_SHADOW[0],
+            GLOBAL_TITLE_SHADOW[1],
+            GLOBAL_TITLE_SHADOW[2],
+            0,
+        ),
     )
 
     shadow_layer.putalpha(
-        shadow_mask.point(
+        shifted_shadow_mask.point(
             lambda value:
                 int(
                     value
@@ -1277,11 +1326,57 @@ def draw_global_title_line(
     )
 
 
-    # --------------------------------------------------------
-    # 2. INNERER BLAUER VERLAUF
+    # ========================================================
+    # 2. SEHR DEZENTER HELLER GLOW
     #
-    # Oben heller, unten tiefer/dunkler.
-    # --------------------------------------------------------
+    # Nur ein kleiner Schimmer direkt um die Buchstaben.
+    # ========================================================
+
+    glow_mask = mask.filter(
+        ImageFilter.GaussianBlur(
+            GLOBAL_TITLE_GLOW_BLUR
+        )
+    )
+
+    glow_layer = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            GLOBAL_TITLE_GLOW[0],
+            GLOBAL_TITLE_GLOW[1],
+            GLOBAL_TITLE_GLOW[2],
+            0,
+        ),
+    )
+
+    glow_layer.putalpha(
+        glow_mask.point(
+            lambda value:
+                int(
+                    value
+                    * (
+                        GLOBAL_TITLE_GLOW[3]
+                        / 255
+                    )
+                )
+        )
+    )
+
+    image = Image.alpha_composite(
+        image,
+        glow_layer,
+    )
+
+
+    # ========================================================
+    # 3. FARBGESTEUERTER NAVY-VERLAUF
+    #
+    # Oben blaugrau schimmernd,
+    # unten deutlich tiefer/dunkler.
+    # ========================================================
 
     gradient = Image.new(
         "RGBA",
@@ -1297,14 +1392,8 @@ def draw_global_title_line(
         ),
     )
 
-    gradient_pixels = gradient.load()
-
-    top = bbox[1]
-    bottom = bbox[3]
-
-    visible_height = max(
-        1,
-        bottom - top,
+    gradient_draw = ImageDraw.Draw(
+        gradient
     )
 
     for yy in range(
@@ -1322,19 +1411,33 @@ def draw_global_title_line(
             )
         )
 
-        if progress < 0.48:
+        if progress <= 0.25:
 
             local = (
                 progress
-                / 0.48
+                / 0.25
             )
 
-            start = (
-                GLOBAL_TITLE_TOP_COLOR
+            color = mix_rgba(
+                GLOBAL_TITLE_TOP_COLOR,
+                GLOBAL_TITLE_UPPER_COLOR,
+                local,
             )
 
-            end = (
-                GLOBAL_TITLE_MID_COLOR
+        elif progress <= 0.58:
+
+            local = (
+                (
+                    progress
+                    - 0.25
+                )
+                / 0.33
+            )
+
+            color = mix_rgba(
+                GLOBAL_TITLE_UPPER_COLOR,
+                GLOBAL_TITLE_MID_COLOR,
+                local,
             )
 
         else:
@@ -1342,40 +1445,27 @@ def draw_global_title_line(
             local = (
                 (
                     progress
-                    - 0.48
+                    - 0.58
                 )
-                / 0.52
+                / 0.42
             )
 
-            start = (
-                GLOBAL_TITLE_MID_COLOR
+            color = mix_rgba(
+                GLOBAL_TITLE_MID_COLOR,
+                GLOBAL_TITLE_BOTTOM_COLOR,
+                local,
             )
 
-            end = (
-                GLOBAL_TITLE_BOTTOM_COLOR
-            )
-
-        color = tuple(
-            int(
-                start[channel]
-                + (
-                    end[channel]
-                    - start[channel]
-                )
-                * local
-            )
-            for channel in range(4)
+        gradient_draw.line(
+            (
+                bbox[0],
+                yy,
+                bbox[2],
+                yy,
+            ),
+            fill=color,
+            width=1,
         )
-
-        for xx in range(
-            bbox[0],
-            bbox[2],
-        ):
-
-            gradient_pixels[
-                xx,
-                yy
-            ] = color
 
     gradient.putalpha(
         mask
@@ -1387,14 +1477,15 @@ def draw_global_title_line(
     )
 
 
-    # --------------------------------------------------------
-    # 3. FEINES OBERES KANTENLICHT
+    # ========================================================
+    # 4. HELLE OBERKANTE
     #
-    # Nur 1 Pixel oberhalb der Buchstaben.
-    # Kein vollständiger weißer Rand.
-    # --------------------------------------------------------
+    # Differenz zwischen nach oben verschobener Maske
+    # und Hauptmaske.
+    # Dadurch nur ein sehr dünner heller Rand oben.
+    # ========================================================
 
-    highlight_mask = Image.new(
+    upper_shift = Image.new(
         "L",
         (
             width,
@@ -1403,7 +1494,7 @@ def draw_global_title_line(
         0,
     )
 
-    highlight_mask.paste(
+    upper_shift.paste(
         mask,
         (
             0,
@@ -1411,58 +1502,32 @@ def draw_global_title_line(
         ),
     )
 
-    # Bereiche entfernen, die von der Hauptmaske bedeckt werden.
-    highlight_pixels = highlight_mask.load()
-    main_pixels = mask.load()
+    upper_edge = ImageChops.subtract(
+        upper_shift,
+        mask,
+    )
 
-    for yy in range(
-        max(
-            0,
-            bbox[1] - 2,
-        ),
-        min(
-            height,
-            bbox[3] + 1,
-        ),
-    ):
-
-        for xx in range(
-            max(
-                0,
-                bbox[0] - 2,
-            ),
-            min(
-                width,
-                bbox[2] + 2,
-            ),
-        ):
-
-            if main_pixels[
-                xx,
-                yy
-            ] > 0:
-
-                highlight_pixels[
-                    xx,
-                    yy
-                ] = 0
-
-    highlight_layer = Image.new(
+    upper_edge_layer = Image.new(
         "RGBA",
         (
             width,
             height,
         ),
-        GLOBAL_TITLE_HIGHLIGHT,
+        (
+            GLOBAL_TITLE_EDGE_LIGHT[0],
+            GLOBAL_TITLE_EDGE_LIGHT[1],
+            GLOBAL_TITLE_EDGE_LIGHT[2],
+            0,
+        ),
     )
 
-    highlight_layer.putalpha(
-        highlight_mask.point(
+    upper_edge_layer.putalpha(
+        upper_edge.point(
             lambda value:
                 int(
                     value
                     * (
-                        GLOBAL_TITLE_HIGHLIGHT[3]
+                        GLOBAL_TITLE_EDGE_LIGHT[3]
                         / 255
                     )
                 )
@@ -1471,16 +1536,128 @@ def draw_global_title_line(
 
     image = Image.alpha_composite(
         image,
-        highlight_layer,
+        upper_edge_layer,
     )
 
 
-    # --------------------------------------------------------
-    # 4. SEHR DEZENTER LICHTREFLEX IM OBEREN DRITTEL
+    # ========================================================
+    # 5. DUNKLE UNTERKANTE
     #
-    # Kein harter Balken.
-    # Nur ein schmaler transparenter Reflex.
-    # --------------------------------------------------------
+    # Verstärkt das Relief.
+    # ========================================================
+
+    lower_shift = Image.new(
+        "L",
+        (
+            width,
+            height,
+        ),
+        0,
+    )
+
+    lower_shift.paste(
+        mask,
+        (
+            0,
+            1,
+        ),
+    )
+
+    lower_edge = ImageChops.subtract(
+        lower_shift,
+        mask,
+    )
+
+    lower_edge_layer = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            GLOBAL_TITLE_EDGE_DARK[0],
+            GLOBAL_TITLE_EDGE_DARK[1],
+            GLOBAL_TITLE_EDGE_DARK[2],
+            0,
+        ),
+    )
+
+    lower_edge_layer.putalpha(
+        lower_edge.point(
+            lambda value:
+                int(
+                    value
+                    * (
+                        GLOBAL_TITLE_EDGE_DARK[3]
+                        / 255
+                    )
+                )
+        )
+    )
+
+    image = Image.alpha_composite(
+        image,
+        lower_edge_layer,
+    )
+
+
+    # ========================================================
+    # 6. WEICHER LICHTREFLEX IM OBEREN BEREICH
+    #
+    # Kein gerader heller Balken.
+    # Ein leicht verschwommener Schimmer.
+    # ========================================================
+
+    shine_mask = Image.new(
+        "L",
+        (
+            width,
+            height,
+        ),
+        0,
+    )
+
+    shine_draw = ImageDraw.Draw(
+        shine_mask
+    )
+
+    shine_center = int(
+        top
+        + visible_height
+        * 0.27
+    )
+
+    shine_height = max(
+        3,
+        int(
+            visible_height
+            * 0.11
+        ),
+    )
+
+    shine_draw.rectangle(
+        (
+            bbox[0],
+            shine_center
+            - shine_height,
+
+            bbox[2],
+            shine_center
+            + shine_height,
+        ),
+        fill=120,
+    )
+
+    shine_mask = shine_mask.filter(
+        ImageFilter.GaussianBlur(
+            4.0
+        )
+    )
+
+    shine_mask = ImageChops.multiply(
+        shine_mask,
+        mask,
+    )
 
     shine_layer = Image.new(
         "RGBA",
@@ -1489,53 +1666,23 @@ def draw_global_title_line(
             height,
         ),
         (
-            0,
-            0,
-            0,
+            GLOBAL_TITLE_SHINE[0],
+            GLOBAL_TITLE_SHINE[1],
+            GLOBAL_TITLE_SHINE[2],
             0,
         ),
-    )
-
-    shine_draw = ImageDraw.Draw(
-        shine_layer
-    )
-
-    shine_y = int(
-        top
-        + visible_height
-        * 0.30
-    )
-
-    shine_draw.line(
-        (
-            bbox[0],
-            shine_y,
-            bbox[2],
-            shine_y,
-        ),
-        fill=(
-            230,
-            240,
-            251,
-            48,
-        ),
-        width=1,
     )
 
     shine_layer.putalpha(
-        Image.composite(
-            shine_layer.getchannel(
-                "A"
-            ),
-            Image.new(
-                "L",
-                (
-                    width,
-                    height,
-                ),
-                0,
-            ),
-            mask,
+        shine_mask.point(
+            lambda value:
+                int(
+                    value
+                    * (
+                        GLOBAL_TITLE_SHINE[3]
+                        / 255
+                    )
+                )
         )
     )
 
@@ -1548,7 +1695,10 @@ def draw_global_title_line(
 
 
 # ============================================================
-# GLOBAL – FANTASY-ORNAMENT-TRENNER
+# GLOBAL – RUHIGER FANTASY-TRENNER
+#
+# Zusatzlinien sind wieder raus.
+# Nur zwei feine Linien + kleiner Kristall.
 # ============================================================
 
 def draw_global_divider(
@@ -1579,7 +1729,8 @@ def draw_global_divider(
     center_x = width / 2
 
     half_width = (
-        GLOBAL_DIVIDER_WIDTH / 2
+        GLOBAL_DIVIDER_WIDTH
+        / 2
     )
 
     gap = (
@@ -1588,45 +1739,15 @@ def draw_global_divider(
 
 
     # --------------------------------------------------------
-    # HAUPTLINIEN
+    # LINKE LINIE
     # --------------------------------------------------------
 
-    left_start = (
-        center_x
-        - half_width
-    )
-
-    left_end = (
-        center_x
-        - gap
-    )
-
-    right_start = (
-        center_x
-        + gap
-    )
-
-    right_end = (
-        center_x
-        + half_width
-    )
-
     draw.line(
         (
-            left_start,
+            center_x - half_width,
             center_y,
-            left_end,
-            center_y,
-        ),
-        fill=GLOBAL_LINE,
-        width=GLOBAL_DIVIDER_THICKNESS,
-    )
 
-    draw.line(
-        (
-            right_start,
-            center_y,
-            right_end,
+            center_x - gap,
             center_y,
         ),
         fill=GLOBAL_LINE,
@@ -1635,82 +1756,19 @@ def draw_global_divider(
 
 
     # --------------------------------------------------------
-    # ZWEITE FEINE INNERE LINIEN
+    # RECHTE LINIE
     # --------------------------------------------------------
-
-    inner = (
-        GLOBAL_DIVIDER_INNER_LENGTH
-    )
-
-    offset = (
-        GLOBAL_DIVIDER_INNER_OFFSET
-    )
-
-    draw.line(
-        (
-            center_x
-            - gap
-            - inner,
-
-            center_y
-            + offset,
-
-            center_x
-            - gap,
-
-            center_y
-            + offset,
-        ),
-        fill=GLOBAL_LINE_SOFT,
-        width=1,
-    )
-
-    draw.line(
-        (
-            center_x
-            + gap,
-
-            center_y
-            + offset,
-
-            center_x
-            + gap
-            + inner,
-
-            center_y
-            + offset,
-        ),
-        fill=GLOBAL_LINE_SOFT,
-        width=1,
-    )
-
-
-    # --------------------------------------------------------
-    # KLEINE ENDKAPPEN
-    # --------------------------------------------------------
-
-    cap_height = 3
-
-    draw.line(
-        (
-            center_x - gap,
-            center_y - cap_height,
-            center_x - gap,
-            center_y + cap_height,
-        ),
-        fill=GLOBAL_LINE,
-        width=1,
-    )
 
     draw.line(
         (
             center_x + gap,
-            center_y - cap_height,
-            center_x + gap,
-            center_y + cap_height,
+            center_y,
+
+            center_x + half_width,
+            center_y,
         ),
         fill=GLOBAL_LINE,
-        width=1,
+        width=GLOBAL_DIVIDER_THICKNESS,
     )
 
 
@@ -1749,7 +1807,7 @@ def draw_global_divider(
     # INNERE RAUTE
     # --------------------------------------------------------
 
-    inner_diamond = (
+    inner = (
         GLOBAL_DIVIDER_DIAMOND_INNER
     )
 
@@ -1757,22 +1815,42 @@ def draw_global_divider(
         [
             (
                 center_x,
-                center_y - inner_diamond,
+                center_y - inner,
             ),
             (
-                center_x + inner_diamond,
+                center_x + inner,
                 center_y,
             ),
             (
                 center_x,
-                center_y + inner_diamond,
+                center_y + inner,
             ),
             (
-                center_x - inner_diamond,
+                center_x - inner,
                 center_y,
             ),
         ],
         fill=GLOBAL_ORNAMENT_LIGHT,
+    )
+
+
+    # --------------------------------------------------------
+    # WINZIGER LICHTPUNKT
+    # --------------------------------------------------------
+
+    draw.ellipse(
+        (
+            center_x - 1,
+            center_y - 2,
+            center_x + 1,
+            center_y,
+        ),
+        fill=(
+            255,
+            255,
+            255,
+            220,
+        ),
     )
 
     return Image.alpha_composite(
@@ -1986,6 +2064,11 @@ def create_early_access_full_card(
         - days_bbox[1]
     )
 
+
+    # --------------------------------------------------------
+    # TITEL
+    # --------------------------------------------------------
+
     image = draw_gold_title(
         image,
         title_text,
@@ -1994,6 +2077,11 @@ def create_early_access_full_card(
         title_y,
         EARLY_TITLE_SPACING,
     )
+
+
+    # --------------------------------------------------------
+    # DATUM
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -2010,6 +2098,11 @@ def create_early_access_full_card(
         shadow_blur=3.0,
     )
 
+
+    # --------------------------------------------------------
+    # NOCH
+    # --------------------------------------------------------
+
     if noch_text:
 
         image = draw_centered_spaced_text(
@@ -2020,6 +2113,11 @@ def create_early_access_full_card(
             EARLY_MUTED,
             4,
         )
+
+
+    # --------------------------------------------------------
+    # COUNTDOWN
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -2240,7 +2338,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # ORNAMENT-TRENNER
+    # TRENNER
     # ========================================================
 
     image = draw_global_divider(
@@ -2252,8 +2350,7 @@ def create_global_launch_full_card(
     # ========================================================
     # DATUM
     #
-    # Noch bewusst schlicht.
-    # Das gestalten wir im nächsten Schritt separat.
+    # Bleibt für diesen Test bewusst unverändert.
     # ========================================================
 
     image = draw_soft_centered_text(
