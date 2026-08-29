@@ -35,30 +35,169 @@ COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# GEMEINSAME TYPOGRAFIE
-# ============================================================
-
-DATE_SIZE = 30
-NOCH_SIZE = 17
-COUNTDOWN_SIZE = 50
-
-GAP_DATE_NOCH = 36
-GAP_NOCH_DAYS = 7
-
-
-# ============================================================
 # EARLY ACCESS
 #
-# Bleibt unverändert.
+# Gleiche Grundarchitektur wie Global:
+#
+# TITEL
+# TRENNER
+# DATUM
+#
+# NOCH
+# XX TAGE
+#
+# Early bleibt bewusst EINZEILIG und ruhiger als Global.
 # ============================================================
 
-EARLY_TITLE_SIZE = 68
-EARLY_TITLE_SPACING = 3
-EARLY_GAP_TITLE_DATE = 18
+EARLY_TITLE_SIZE = 76
+EARLY_TITLE_BOLD = True
+EARLY_TITLE_TARGET_WIDTH = 560
+
+EARLY_TITLE_TOP = 105
+
+EARLY_DIVIDER_Y = 205
+EARLY_DATE_TOP = 237
+
+EARLY_NOCH_TOP = 365
+EARLY_DAYS_TOP = 392
+
+EARLY_DATE_SIZE = 30
+EARLY_NOCH_SIZE = 16
+EARLY_COUNTDOWN_SIZE = 46
+
+
+# ============================================================
+# EARLY – TRENNER
+# ============================================================
+
+EARLY_DIVIDER_WIDTH = 305
+EARLY_DIVIDER_CENTER_GAP = 25
+EARLY_DIVIDER_THICKNESS = 2
+
+EARLY_DIVIDER_DIAMOND_OUTER = 8
+EARLY_DIVIDER_DIAMOND_INNER = 4
+
+
+# ============================================================
+# EARLY – CHAMPAGNER / PLATIN-GOLD
+#
+# Bewusst weniger satt und gelb als bisher.
+# ============================================================
+
+EARLY_TITLE_SHADOW_OFFSET_X = 2
+EARLY_TITLE_SHADOW_OFFSET_Y = 4
+EARLY_TITLE_SHADOW_BLUR = 3.0
+
+EARLY_TITLE_SHADOW = (
+    4,
+    8,
+    13,
+    185,
+)
+
+EARLY_TITLE_GLOW_BLUR = 3.0
+
+EARLY_TITLE_GLOW = (
+    244,
+    229,
+    194,
+    38,
+)
+
+EARLY_TITLE_OUTLINE = (
+    250,
+    242,
+    220,
+    145,
+)
+
+EARLY_TITLE_TOP_COLOR = (
+    239,
+    225,
+    190,
+    255,
+)
+
+EARLY_TITLE_UPPER_COLOR = (
+    218,
+    196,
+    151,
+    255,
+)
+
+EARLY_TITLE_MID_COLOR = (
+    188,
+    160,
+    108,
+    255,
+)
+
+EARLY_TITLE_BOTTOM_COLOR = (
+    137,
+    108,
+    68,
+    255,
+)
+
+EARLY_TITLE_SHINE = (
+    255,
+    248,
+    227,
+    90,
+)
+
+EARLY_TITLE_EDGE_DARK = (
+    70,
+    51,
+    30,
+    155,
+)
+
+
+# ============================================================
+# EARLY – TEXTFARBEN
+# ============================================================
+
+EARLY_TEXT = (
+    226,
+    229,
+    226,
+    255,
+)
+
+EARLY_MUTED = (
+    170,
+    178,
+    180,
+    255,
+)
+
+EARLY_LINE = (
+    175,
+    164,
+    139,
+    215,
+)
+
+EARLY_ORNAMENT_LIGHT = (
+    244,
+    232,
+    201,
+    235,
+)
+
+EARLY_ORNAMENT_DARK = (
+    112,
+    94,
+    66,
+    245,
+)
 
 
 # ============================================================
 # GLOBAL LAUNCH
+#
+# AKTUELLEN STAND NICHT VERÄNDERN.
 # ============================================================
 
 GLOBAL_TITLE_SIZE = 96
@@ -91,9 +230,6 @@ GLOBAL_COUNTDOWN_SIZE = 46
 
 # ============================================================
 # GLOBAL – TRENNER
-#
-# Wieder etwas kräftiger, damit er nach Discord-Skalierung
-# noch sichtbar bleibt.
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 305
@@ -107,13 +243,6 @@ GLOBAL_DIVIDER_DIAMOND_INNER = 4
 
 # ============================================================
 # GLOBAL – TITELTIEFE
-#
-# Kombination aus:
-# - Navy / Blaugrau Verlauf
-# - definierter dunkler Schatten
-# - sehr feinem Glow
-# - wieder sichtbarer heller 1px-Kontur
-# - dunkler Unterkante
 # ============================================================
 
 GLOBAL_TITLE_SHADOW_OFFSET_X = 2
@@ -127,7 +256,6 @@ GLOBAL_TITLE_SHADOW = (
     185,
 )
 
-# Glow bewusst schwächer als zuletzt
 GLOBAL_TITLE_GLOW_BLUR = 3.0
 
 GLOBAL_TITLE_GLOW = (
@@ -137,7 +265,6 @@ GLOBAL_TITLE_GLOW = (
     42,
 )
 
-# Farbverlauf im Buchstaben
 GLOBAL_TITLE_TOP_COLOR = (
     84,
     112,
@@ -166,7 +293,6 @@ GLOBAL_TITLE_BOTTOM_COLOR = (
     255,
 )
 
-# Helle Kontur
 GLOBAL_TITLE_OUTLINE = (
     236,
     246,
@@ -174,7 +300,6 @@ GLOBAL_TITLE_OUTLINE = (
     155,
 )
 
-# Lichtreflex
 GLOBAL_TITLE_SHINE = (
     226,
     239,
@@ -182,7 +307,6 @@ GLOBAL_TITLE_SHINE = (
     90,
 )
 
-# Dunkle Unterkante
 GLOBAL_TITLE_EDGE_DARK = (
     5,
     17,
@@ -192,43 +316,8 @@ GLOBAL_TITLE_EDGE_DARK = (
 
 
 # ============================================================
-# KOMPAKTE KARTE
+# GLOBAL – TEXTFARBEN
 # ============================================================
-
-COMPACT_TITLE_SIZE = 43
-COMPACT_STATUS_SIZE = 28
-
-COMPACT_TITLE_SPACING = 5
-COMPACT_GAP = 18
-
-
-# ============================================================
-# KOMPAKTER BILDAUSSCHNITT
-# ============================================================
-
-COMPACT_CROP_CENTER = {
-    "early_access": 0.50,
-    "global_launch": 0.50,
-}
-
-
-# ============================================================
-# FARBEN
-# ============================================================
-
-EARLY_TEXT = (
-    238,
-    235,
-    224,
-    255,
-)
-
-EARLY_MUTED = (
-    187,
-    186,
-    180,
-    255,
-)
 
 GLOBAL_DARK = (
     32,
@@ -271,6 +360,27 @@ GLOBAL_ORNAMENT_DARK = (
     84,
     245,
 )
+
+
+# ============================================================
+# KOMPAKTE KARTE
+# ============================================================
+
+COMPACT_TITLE_SIZE = 43
+COMPACT_STATUS_SIZE = 28
+
+COMPACT_TITLE_SPACING = 5
+COMPACT_GAP = 18
+
+
+# ============================================================
+# KOMPAKTER BILDAUSSCHNITT
+# ============================================================
+
+COMPACT_CROP_CENTER = {
+    "early_access": 0.50,
+    "global_launch": 0.50,
+}
 
 
 # ============================================================
@@ -913,253 +1023,10 @@ def draw_centered_spaced_text(
 
 
 # ============================================================
-# EARLY ACCESS – GOLD
+# ALLGEMEINE TITELMASKE
 # ============================================================
 
-def create_spaced_text_mask(
-    size,
-    text,
-    font,
-    center_x,
-    y,
-    spacing,
-):
-
-    width, height = size
-
-    mask = Image.new(
-        "L",
-        (
-            width,
-            height,
-        ),
-        0,
-    )
-
-    draw = ImageDraw.Draw(
-        mask
-    )
-
-    text_width = spaced_text_width(
-        draw,
-        text,
-        font,
-        spacing,
-    )
-
-    x = (
-        center_x
-        - text_width / 2
-    )
-
-    draw_spaced_text(
-        draw,
-        x,
-        y,
-        text,
-        font,
-        255,
-        spacing,
-    )
-
-    return mask
-
-
-def draw_gold_title(
-    image,
-    text,
-    font,
-    center_x,
-    y,
-    spacing,
-):
-
-    width, height = image.size
-
-    mask = create_spaced_text_mask(
-        image.size,
-        text,
-        font,
-        center_x,
-        y,
-        spacing,
-    )
-
-    bbox = mask.getbbox()
-
-    if not bbox:
-
-        return image
-
-    shifted_mask = Image.new(
-        "L",
-        (
-            width,
-            height,
-        ),
-        0,
-    )
-
-    shifted_mask.paste(
-        mask,
-        (
-            0,
-            2,
-        ),
-    )
-
-    shadow_mask = shifted_mask.filter(
-        ImageFilter.GaussianBlur(
-            3.5
-        )
-    )
-
-    shadow = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            5,
-            8,
-            13,
-            0,
-        ),
-    )
-
-    shadow.putalpha(
-        shadow_mask.point(
-            lambda value:
-                int(
-                    value
-                    * 0.55
-                )
-        )
-    )
-
-    image = Image.alpha_composite(
-        image,
-        shadow,
-    )
-
-    top = bbox[1]
-    bottom = bbox[3]
-
-    visible_height = max(
-        1,
-        bottom - top,
-    )
-
-    gold = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            0,
-            0,
-            0,
-            0,
-        ),
-    )
-
-    pixels = gold.load()
-
-    top_color = (
-        248,
-        224,
-        158,
-    )
-
-    middle_color = (
-        226,
-        183,
-        92,
-    )
-
-    bottom_color = (
-        182,
-        132,
-        55,
-    )
-
-    for yy in range(
-        top,
-        bottom,
-    ):
-
-        progress = (
-            (
-                yy - top
-            )
-            / max(
-                1,
-                visible_height - 1,
-            )
-        )
-
-        if progress < 0.48:
-
-            local = (
-                progress
-                / 0.48
-            )
-
-            start = top_color
-            end = middle_color
-
-        else:
-
-            local = (
-                (
-                    progress
-                    - 0.48
-                )
-                / 0.52
-            )
-
-            start = middle_color
-            end = bottom_color
-
-        color = tuple(
-            int(
-                start[channel]
-                + (
-                    end[channel]
-                    - start[channel]
-                )
-                * local
-            )
-            for channel in range(3)
-        ) + (255,)
-
-        for xx in range(
-            bbox[0],
-            bbox[2],
-        ):
-
-            pixels[
-                xx,
-                yy
-            ] = color
-
-    gold.putalpha(
-        mask
-    )
-
-    return Image.alpha_composite(
-        image,
-        gold,
-    )
-
-
-# ============================================================
-# GLOBAL – TITELMASKE
-# ============================================================
-
-def create_global_title_mask(
+def create_title_mask(
     image_size,
     text,
     font,
@@ -1232,21 +1099,34 @@ def mix_rgba(
 
 
 # ============================================================
-# GLOBAL – TITEL MIT VERLAUF / KONTUR / TIEFE
+# GENERISCHER TITEL-EFFEKT
 # ============================================================
 
-def draw_global_title_line(
+def draw_gradient_title(
     image,
     text,
     font,
     center_x,
     y,
     spacing,
+    shadow_offset_x,
+    shadow_offset_y,
+    shadow_blur,
+    shadow_color,
+    glow_blur,
+    glow_color,
+    outline_color,
+    top_color,
+    upper_color,
+    mid_color,
+    bottom_color,
+    shine_color,
+    edge_dark_color,
 ):
 
     width, height = image.size
 
-    mask = create_global_title_mask(
+    mask = create_title_mask(
         image.size,
         text,
         font,
@@ -1270,9 +1150,9 @@ def draw_global_title_line(
     )
 
 
-    # ========================================================
-    # 1. DEFINIERTER DUNKLER SCHATTEN
-    # ========================================================
+    # --------------------------------------------------------
+    # SCHATTEN
+    # --------------------------------------------------------
 
     shadow_mask = Image.new(
         "L",
@@ -1286,14 +1166,14 @@ def draw_global_title_line(
     shadow_mask.paste(
         mask,
         (
-            GLOBAL_TITLE_SHADOW_OFFSET_X,
-            GLOBAL_TITLE_SHADOW_OFFSET_Y,
+            shadow_offset_x,
+            shadow_offset_y,
         ),
     )
 
     shadow_mask = shadow_mask.filter(
         ImageFilter.GaussianBlur(
-            GLOBAL_TITLE_SHADOW_BLUR
+            shadow_blur
         )
     )
 
@@ -1304,9 +1184,9 @@ def draw_global_title_line(
             height,
         ),
         (
-            GLOBAL_TITLE_SHADOW[0],
-            GLOBAL_TITLE_SHADOW[1],
-            GLOBAL_TITLE_SHADOW[2],
+            shadow_color[0],
+            shadow_color[1],
+            shadow_color[2],
             0,
         ),
     )
@@ -1317,7 +1197,7 @@ def draw_global_title_line(
                 int(
                     value
                     * (
-                        GLOBAL_TITLE_SHADOW[3]
+                        shadow_color[3]
                         / 255
                     )
                 )
@@ -1330,13 +1210,13 @@ def draw_global_title_line(
     )
 
 
-    # ========================================================
-    # 2. SEHR LEICHTER GLOW
-    # ========================================================
+    # --------------------------------------------------------
+    # GLOW
+    # --------------------------------------------------------
 
     glow_mask = mask.filter(
         ImageFilter.GaussianBlur(
-            GLOBAL_TITLE_GLOW_BLUR
+            glow_blur
         )
     )
 
@@ -1347,9 +1227,9 @@ def draw_global_title_line(
             height,
         ),
         (
-            GLOBAL_TITLE_GLOW[0],
-            GLOBAL_TITLE_GLOW[1],
-            GLOBAL_TITLE_GLOW[2],
+            glow_color[0],
+            glow_color[1],
+            glow_color[2],
             0,
         ),
     )
@@ -1360,7 +1240,7 @@ def draw_global_title_line(
                 int(
                     value
                     * (
-                        GLOBAL_TITLE_GLOW[3]
+                        glow_color[3]
                         / 255
                     )
                 )
@@ -1373,12 +1253,9 @@ def draw_global_title_line(
     )
 
 
-    # ========================================================
-    # 3. HELLE 1PX-KONTUR
-    #
-    # Maske minimal vergrößern.
-    # Hauptmaske danach abziehen.
-    # ========================================================
+    # --------------------------------------------------------
+    # FEINE KONTUR
+    # --------------------------------------------------------
 
     expanded_mask = mask.filter(
         ImageFilter.MaxFilter(
@@ -1398,9 +1275,9 @@ def draw_global_title_line(
             height,
         ),
         (
-            GLOBAL_TITLE_OUTLINE[0],
-            GLOBAL_TITLE_OUTLINE[1],
-            GLOBAL_TITLE_OUTLINE[2],
+            outline_color[0],
+            outline_color[1],
+            outline_color[2],
             0,
         ),
     )
@@ -1411,7 +1288,7 @@ def draw_global_title_line(
                 int(
                     value
                     * (
-                        GLOBAL_TITLE_OUTLINE[3]
+                        outline_color[3]
                         / 255
                     )
                 )
@@ -1424,9 +1301,9 @@ def draw_global_title_line(
     )
 
 
-    # ========================================================
-    # 4. NAVY / BLAUGRAU VERLAUF
-    # ========================================================
+    # --------------------------------------------------------
+    # VERLAUF
+    # --------------------------------------------------------
 
     gradient = Image.new(
         "RGBA",
@@ -1469,8 +1346,8 @@ def draw_global_title_line(
             )
 
             color = mix_rgba(
-                GLOBAL_TITLE_TOP_COLOR,
-                GLOBAL_TITLE_UPPER_COLOR,
+                top_color,
+                upper_color,
                 local,
             )
 
@@ -1485,8 +1362,8 @@ def draw_global_title_line(
             )
 
             color = mix_rgba(
-                GLOBAL_TITLE_UPPER_COLOR,
-                GLOBAL_TITLE_MID_COLOR,
+                upper_color,
+                mid_color,
                 local,
             )
 
@@ -1501,8 +1378,8 @@ def draw_global_title_line(
             )
 
             color = mix_rgba(
-                GLOBAL_TITLE_MID_COLOR,
-                GLOBAL_TITLE_BOTTOM_COLOR,
+                mid_color,
+                bottom_color,
                 local,
             )
 
@@ -1527,9 +1404,9 @@ def draw_global_title_line(
     )
 
 
-    # ========================================================
-    # 5. DUNKLE UNTERKANTE
-    # ========================================================
+    # --------------------------------------------------------
+    # DUNKLE UNTERKANTE
+    # --------------------------------------------------------
 
     lower_shift = Image.new(
         "L",
@@ -1560,9 +1437,9 @@ def draw_global_title_line(
             height,
         ),
         (
-            GLOBAL_TITLE_EDGE_DARK[0],
-            GLOBAL_TITLE_EDGE_DARK[1],
-            GLOBAL_TITLE_EDGE_DARK[2],
+            edge_dark_color[0],
+            edge_dark_color[1],
+            edge_dark_color[2],
             0,
         ),
     )
@@ -1573,7 +1450,7 @@ def draw_global_title_line(
                 int(
                     value
                     * (
-                        GLOBAL_TITLE_EDGE_DARK[3]
+                        edge_dark_color[3]
                         / 255
                     )
                 )
@@ -1586,9 +1463,9 @@ def draw_global_title_line(
     )
 
 
-    # ========================================================
-    # 6. SANFTER LICHTREFLEX
-    # ========================================================
+    # --------------------------------------------------------
+    # LICHTREFLEX
+    # --------------------------------------------------------
 
     shine_mask = Image.new(
         "L",
@@ -1645,9 +1522,9 @@ def draw_global_title_line(
             height,
         ),
         (
-            GLOBAL_TITLE_SHINE[0],
-            GLOBAL_TITLE_SHINE[1],
-            GLOBAL_TITLE_SHINE[2],
+            shine_color[0],
+            shine_color[1],
+            shine_color[2],
             0,
         ),
     )
@@ -1658,7 +1535,7 @@ def draw_global_title_line(
                 int(
                     value
                     * (
-                        GLOBAL_TITLE_SHINE[3]
+                        shine_color[3]
                         / 255
                     )
                 )
@@ -1674,15 +1551,144 @@ def draw_global_title_line(
 
 
 # ============================================================
-# GLOBAL – TRENNER
-#
-# Keine Zusatzlinien.
-# Wieder etwas stärker für Discord.
+# EARLY – TITEL
 # ============================================================
 
-def draw_global_divider(
+def draw_early_title(
+    image,
+    text,
+    font,
+    center_x,
+    y,
+    spacing,
+):
+
+    return draw_gradient_title(
+        image=image,
+        text=text,
+        font=font,
+        center_x=center_x,
+        y=y,
+        spacing=spacing,
+
+        shadow_offset_x=
+            EARLY_TITLE_SHADOW_OFFSET_X,
+
+        shadow_offset_y=
+            EARLY_TITLE_SHADOW_OFFSET_Y,
+
+        shadow_blur=
+            EARLY_TITLE_SHADOW_BLUR,
+
+        shadow_color=
+            EARLY_TITLE_SHADOW,
+
+        glow_blur=
+            EARLY_TITLE_GLOW_BLUR,
+
+        glow_color=
+            EARLY_TITLE_GLOW,
+
+        outline_color=
+            EARLY_TITLE_OUTLINE,
+
+        top_color=
+            EARLY_TITLE_TOP_COLOR,
+
+        upper_color=
+            EARLY_TITLE_UPPER_COLOR,
+
+        mid_color=
+            EARLY_TITLE_MID_COLOR,
+
+        bottom_color=
+            EARLY_TITLE_BOTTOM_COLOR,
+
+        shine_color=
+            EARLY_TITLE_SHINE,
+
+        edge_dark_color=
+            EARLY_TITLE_EDGE_DARK,
+    )
+
+
+# ============================================================
+# GLOBAL – TITEL
+# ============================================================
+
+def draw_global_title_line(
+    image,
+    text,
+    font,
+    center_x,
+    y,
+    spacing,
+):
+
+    return draw_gradient_title(
+        image=image,
+        text=text,
+        font=font,
+        center_x=center_x,
+        y=y,
+        spacing=spacing,
+
+        shadow_offset_x=
+            GLOBAL_TITLE_SHADOW_OFFSET_X,
+
+        shadow_offset_y=
+            GLOBAL_TITLE_SHADOW_OFFSET_Y,
+
+        shadow_blur=
+            GLOBAL_TITLE_SHADOW_BLUR,
+
+        shadow_color=
+            GLOBAL_TITLE_SHADOW,
+
+        glow_blur=
+            GLOBAL_TITLE_GLOW_BLUR,
+
+        glow_color=
+            GLOBAL_TITLE_GLOW,
+
+        outline_color=
+            GLOBAL_TITLE_OUTLINE,
+
+        top_color=
+            GLOBAL_TITLE_TOP_COLOR,
+
+        upper_color=
+            GLOBAL_TITLE_UPPER_COLOR,
+
+        mid_color=
+            GLOBAL_TITLE_MID_COLOR,
+
+        bottom_color=
+            GLOBAL_TITLE_BOTTOM_COLOR,
+
+        shine_color=
+            GLOBAL_TITLE_SHINE,
+
+        edge_dark_color=
+            GLOBAL_TITLE_EDGE_DARK,
+    )
+
+
+# ============================================================
+# GENERISCHER TRENNER
+# ============================================================
+
+def draw_divider(
     image,
     center_y,
+    divider_width,
+    center_gap,
+    thickness,
+    outer_size,
+    inner_size,
+    line_color,
+    ornament_light,
+    ornament_dark,
 ):
 
     width, height = image.size
@@ -1708,17 +1714,13 @@ def draw_global_divider(
     center_x = width / 2
 
     half_width = (
-        GLOBAL_DIVIDER_WIDTH
+        divider_width
         / 2
-    )
-
-    gap = (
-        GLOBAL_DIVIDER_CENTER_GAP
     )
 
 
     # --------------------------------------------------------
-    # LINKER STRICH
+    # LINKE LINIE
     # --------------------------------------------------------
 
     draw.line(
@@ -1726,28 +1728,28 @@ def draw_global_divider(
             center_x - half_width,
             center_y,
 
-            center_x - gap,
+            center_x - center_gap,
             center_y,
         ),
-        fill=GLOBAL_LINE,
-        width=GLOBAL_DIVIDER_THICKNESS,
+        fill=line_color,
+        width=thickness,
     )
 
 
     # --------------------------------------------------------
-    # RECHTER STRICH
+    # RECHTE LINIE
     # --------------------------------------------------------
 
     draw.line(
         (
-            center_x + gap,
+            center_x + center_gap,
             center_y,
 
             center_x + half_width,
             center_y,
         ),
-        fill=GLOBAL_LINE,
-        width=GLOBAL_DIVIDER_THICKNESS,
+        fill=line_color,
+        width=thickness,
     )
 
 
@@ -1755,30 +1757,26 @@ def draw_global_divider(
     # ÄUSSERE RAUTE
     # --------------------------------------------------------
 
-    outer = (
-        GLOBAL_DIVIDER_DIAMOND_OUTER
-    )
-
     draw.polygon(
         [
             (
                 center_x,
-                center_y - outer,
+                center_y - outer_size,
             ),
             (
-                center_x + outer,
+                center_x + outer_size,
                 center_y,
             ),
             (
                 center_x,
-                center_y + outer,
+                center_y + outer_size,
             ),
             (
-                center_x - outer,
+                center_x - outer_size,
                 center_y,
             ),
         ],
-        fill=GLOBAL_ORNAMENT_DARK,
+        fill=ornament_dark,
     )
 
 
@@ -1786,30 +1784,26 @@ def draw_global_divider(
     # INNERE RAUTE
     # --------------------------------------------------------
 
-    inner = (
-        GLOBAL_DIVIDER_DIAMOND_INNER
-    )
-
     draw.polygon(
         [
             (
                 center_x,
-                center_y - inner,
+                center_y - inner_size,
             ),
             (
-                center_x + inner,
+                center_x + inner_size,
                 center_y,
             ),
             (
                 center_x,
-                center_y + inner,
+                center_y + inner_size,
             ),
             (
-                center_x - inner,
+                center_x - inner_size,
                 center_y,
             ),
         ],
-        fill=GLOBAL_ORNAMENT_LIGHT,
+        fill=ornament_light,
     )
 
 
@@ -1839,6 +1833,84 @@ def draw_global_divider(
 
 
 # ============================================================
+# EARLY – TRENNER
+# ============================================================
+
+def draw_early_divider(
+    image,
+    center_y,
+):
+
+    return draw_divider(
+        image=image,
+        center_y=center_y,
+
+        divider_width=
+            EARLY_DIVIDER_WIDTH,
+
+        center_gap=
+            EARLY_DIVIDER_CENTER_GAP,
+
+        thickness=
+            EARLY_DIVIDER_THICKNESS,
+
+        outer_size=
+            EARLY_DIVIDER_DIAMOND_OUTER,
+
+        inner_size=
+            EARLY_DIVIDER_DIAMOND_INNER,
+
+        line_color=
+            EARLY_LINE,
+
+        ornament_light=
+            EARLY_ORNAMENT_LIGHT,
+
+        ornament_dark=
+            EARLY_ORNAMENT_DARK,
+    )
+
+
+# ============================================================
+# GLOBAL – TRENNER
+# ============================================================
+
+def draw_global_divider(
+    image,
+    center_y,
+):
+
+    return draw_divider(
+        image=image,
+        center_y=center_y,
+
+        divider_width=
+            GLOBAL_DIVIDER_WIDTH,
+
+        center_gap=
+            GLOBAL_DIVIDER_CENTER_GAP,
+
+        thickness=
+            GLOBAL_DIVIDER_THICKNESS,
+
+        outer_size=
+            GLOBAL_DIVIDER_DIAMOND_OUTER,
+
+        inner_size=
+            GLOBAL_DIVIDER_DIAMOND_INNER,
+
+        line_color=
+            GLOBAL_LINE,
+
+        ornament_light=
+            GLOBAL_ORNAMENT_LIGHT,
+
+        ornament_dark=
+            GLOBAL_ORNAMENT_DARK,
+    )
+
+
+# ============================================================
 # EARLY ACCESS – VOLLE KARTE
 # ============================================================
 
@@ -1852,21 +1924,21 @@ def create_early_access_full_card(
 
     title_font = load_font(
         EARLY_TITLE_SIZE,
-        bold=True,
+        bold=EARLY_TITLE_BOLD,
     )
 
     date_font = load_font(
-        DATE_SIZE,
+        EARLY_DATE_SIZE,
         bold=True,
     )
 
     noch_font = load_font(
-        NOCH_SIZE,
+        EARLY_NOCH_SIZE,
         bold=True,
     )
 
     days_font = load_font(
-        COUNTDOWN_SIZE,
+        EARLY_COUNTDOWN_SIZE,
         bold=True,
     )
 
@@ -1900,6 +1972,11 @@ def create_early_access_full_card(
         image
     )
 
+
+    # ========================================================
+    # TITEL
+    # ========================================================
+
     title_bbox = probe.textbbox(
         (
             0,
@@ -1908,6 +1985,23 @@ def create_early_access_full_card(
         title_text,
         font=title_font,
     )
+
+    title_spacing = spacing_for_target_width(
+        probe,
+        title_text,
+        title_font,
+        EARLY_TITLE_TARGET_WIDTH,
+    )
+
+    title_y = (
+        EARLY_TITLE_TOP
+        - title_bbox[1]
+    )
+
+
+    # ========================================================
+    # DATUM
+    # ========================================================
 
     date_bbox = probe.textbbox(
         (
@@ -1918,29 +2012,15 @@ def create_early_access_full_card(
         font=date_font,
     )
 
-    days_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        days_text,
-        font=days_font,
-    )
-
-    title_height = (
-        title_bbox[3]
-        - title_bbox[1]
-    )
-
-    date_height = (
-        date_bbox[3]
+    date_y = (
+        EARLY_DATE_TOP
         - date_bbox[1]
     )
 
-    days_height = (
-        days_bbox[3]
-        - days_bbox[1]
-    )
+
+    # ========================================================
+    # NOCH
+    # ========================================================
 
     if noch_text:
 
@@ -1953,106 +2033,62 @@ def create_early_access_full_card(
             font=noch_font,
         )
 
-        noch_height = (
-            noch_bbox[3]
-            - noch_bbox[1]
-        )
-
-        group_height = (
-            title_height
-            + EARLY_GAP_TITLE_DATE
-            + date_height
-            + GAP_DATE_NOCH
-            + noch_height
-            + GAP_NOCH_DAYS
-            + days_height
-        )
-
-    else:
-
-        noch_bbox = (
-            0,
-            0,
-            0,
-            0,
-        )
-
-        noch_height = 0
-
-        group_height = (
-            title_height
-            + EARLY_GAP_TITLE_DATE
-            + date_height
-            + GAP_DATE_NOCH
-            + days_height
-        )
-
-    visible_top = (
-        (
-            FULL_HEIGHT
-            - group_height
-        )
-        / 2
-    )
-
-    title_y = (
-        visible_top
-        - title_bbox[1]
-    )
-
-    date_visible_top = (
-        visible_top
-        + title_height
-        + EARLY_GAP_TITLE_DATE
-    )
-
-    date_y = (
-        date_visible_top
-        - date_bbox[1]
-    )
-
-    if noch_text:
-
-        noch_visible_top = (
-            date_visible_top
-            + date_height
-            + GAP_DATE_NOCH
-        )
-
         noch_y = (
-            noch_visible_top
+            EARLY_NOCH_TOP
             - noch_bbox[1]
-        )
-
-        days_visible_top = (
-            noch_visible_top
-            + noch_height
-            + GAP_NOCH_DAYS
         )
 
     else:
 
-        days_visible_top = (
-            date_visible_top
-            + date_height
-            + GAP_DATE_NOCH
-        )
+        noch_y = 0
+
+
+    # ========================================================
+    # COUNTDOWN
+    # ========================================================
+
+    days_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        days_text,
+        font=days_font,
+    )
 
     days_y = (
-        days_visible_top
+        EARLY_DAYS_TOP
         - days_bbox[1]
     )
 
 
-    image = draw_gold_title(
+    # ========================================================
+    # EARLY ACCESS
+    # ========================================================
+
+    image = draw_early_title(
         image,
         title_text,
         title_font,
         CARD_WIDTH / 2,
         title_y,
-        EARLY_TITLE_SPACING,
+        title_spacing,
     )
 
+
+    # ========================================================
+    # TRENNER
+    # ========================================================
+
+    image = draw_early_divider(
+        image,
+        EARLY_DIVIDER_Y,
+    )
+
+
+    # ========================================================
+    # DATUM
+    # ========================================================
 
     image = draw_soft_centered_text(
         image,
@@ -2064,11 +2100,16 @@ def create_early_access_full_card(
             0,
             0,
             0,
-            125,
+            145,
         ),
-        shadow_blur=3.0,
+        shadow_blur=2.4,
+        shadow_offset=1,
     )
 
+
+    # ========================================================
+    # NOCH
+    # ========================================================
 
     if noch_text:
 
@@ -2078,9 +2119,13 @@ def create_early_access_full_card(
             noch_y,
             noch_font,
             EARLY_MUTED,
-            4,
+            5,
         )
 
+
+    # ========================================================
+    # COUNTDOWN
+    # ========================================================
 
     image = draw_soft_centered_text(
         image,
@@ -2092,9 +2137,10 @@ def create_early_access_full_card(
             0,
             0,
             0,
-            140,
+            155,
         ),
-        shadow_blur=3.5,
+        shadow_blur=3.0,
+        shadow_offset=1,
     )
 
     return image.convert(
@@ -2312,9 +2358,6 @@ def create_global_launch_full_card(
 
     # ========================================================
     # DATUM
-    #
-    # Bleibt noch bewusst schlicht.
-    # Das nehmen wir danach separat.
     # ========================================================
 
     image = draw_soft_centered_text(
@@ -2548,13 +2591,20 @@ def create_compact_card(
 
     else:
 
-        image = draw_gold_title(
+        title_spacing = spacing_for_target_width(
+            probe,
+            title_text,
+            title_font,
+            430,
+        )
+
+        image = draw_early_title(
             image,
             title_text,
             title_font,
             CARD_WIDTH / 2,
             title_y,
-            COMPACT_TITLE_SPACING,
+            title_spacing,
         )
 
         image = draw_soft_centered_text(
