@@ -30,11 +30,7 @@ GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 # ============================================================
 
 CARD_WIDTH = 1200
-
-# Große Karte
 FULL_HEIGHT = 535
-
-# Eingeklappte Karte nach Start
 COMPACT_HEIGHT = 270
 
 
@@ -43,14 +39,11 @@ COMPACT_HEIGHT = 270
 # ============================================================
 
 DATE_SIZE = 32
-NOCH_SIZE = 17
-COUNTDOWN_SIZE = 50
+NOCH_SIZE = 16
+COUNTDOWN_SIZE = 47
 
-# Datum -> NOCH bekommt bewusst deutlich mehr Luft.
-GAP_DATE_NOCH = 52
-
-# NOCH und Countdown gehören optisch zusammen.
-GAP_NOCH_DAYS = 10
+GAP_DATE_NOCH = 22
+GAP_NOCH_DAYS = 8
 
 
 # ============================================================
@@ -59,49 +52,51 @@ GAP_NOCH_DAYS = 10
 
 EARLY_TITLE_SIZE = 68
 EARLY_TITLE_SPACING = 3
+EARLY_GAP_TITLE_DATE = 18
 
 
 # ============================================================
 # GLOBAL LAUNCH – GROSSE KARTE
 #
-# GLOBAL
+# Der Titel wird NICHT mehr als komplette Gruppe zentriert.
 #
-# LAUNCH
-#
-# Beide bleiben 82 px groß.
-#
-# GLOBAL bekommt etwas mehr Tracking, damit beide Zeilen
-# optisch gleichwertig wirken.
+# Seine Oberkante bleibt fest im oberen Bereich.
+# Alles darunter wird unabhängig aufgebaut.
 # ============================================================
 
 GLOBAL_TITLE_SIZE = 82
 
+# GLOBAL optisch auf LAUNCH-Breite bringen
 GLOBAL_TITLE_SPACING_GLOBAL = 14
 GLOBAL_TITLE_SPACING_LAUNCH = 8
 
-# GLOBAL <-> LAUNCH etwas weiter auseinander
-GLOBAL_TITLE_LINE_GAP = 14
+# Feste Oberkante des sichtbaren GLOBAL
+GLOBAL_TITLE_TOP = 64
 
-# LAUNCH -> Zierlinie
+# Abstand GLOBAL -> LAUNCH
+GLOBAL_TITLE_LINE_GAP = 11
+
+# LAUNCH -> Haupttrenner
 GLOBAL_GAP_TITLE_DIVIDER = 24
 
-# Zierlinie
-GLOBAL_DIVIDER_WIDTH = 300
-GLOBAL_DIVIDER_CENTER_GAP = 14
+# Haupttrenner
+GLOBAL_DIVIDER_WIDTH = 330
+GLOBAL_DIVIDER_CENTER_GAP = 15
+GLOBAL_DIVIDER_THICKNESS = 2
+GLOBAL_DIVIDER_DIAMOND = 5
 
-# Zierlinie -> Datum
-GLOBAL_GAP_DIVIDER_DATE = 30
+# Haupttrenner -> Datum
+GLOBAL_GAP_DIVIDER_DATE = 27
 
-# Der gesamte Block wird nahezu geometrisch zentriert.
-# Nur ein minimaler optischer Versatz nach unten.
-GLOBAL_GROUP_Y_OFFSET = 3
+# Datum -> zweiter Trenner
+GLOBAL_GAP_DATE_SECOND_DIVIDER = 32
 
+# Zweiter Trenner -> NOCH
+GLOBAL_GAP_SECOND_DIVIDER_NOCH = 20
 
-# ============================================================
-# EARLY ACCESS – GROSSE KARTE
-# ============================================================
-
-EARLY_GAP_TITLE_DATE = 18
+# Zweiter Trenner bewusst dezenter
+GLOBAL_SECOND_DIVIDER_WIDTH = 190
+GLOBAL_SECOND_DIVIDER_CENTER_GAP = 10
 
 
 # ============================================================
@@ -168,7 +163,14 @@ GLOBAL_LINE = (
     50,
     72,
     103,
-    165,
+    190,
+)
+
+GLOBAL_SECOND_LINE = (
+    60,
+    80,
+    108,
+    125,
 )
 
 
@@ -507,7 +509,7 @@ def load_background(filename):
 
 
 # ============================================================
-# KOMPAKTEN HINTERGRUND AUSSCHNEIDEN
+# KOMPAKTER HINTERGRUND
 # ============================================================
 
 def crop_compact_background(
@@ -1050,6 +1052,11 @@ def draw_gold_title(
 
 # ============================================================
 # GLOBAL – TITEL
+#
+# Gleiche Schrift wie bisher.
+#
+# Der zusätzliche 1-Pixel-Pass gibt etwas mehr Substanz,
+# ohne auf die Bold-Serif umzuschalten.
 # ============================================================
 
 def draw_global_title_line(
@@ -1059,6 +1066,7 @@ def draw_global_title_line(
     center_x,
     y,
     spacing,
+    strengthen=False,
 ):
 
     width, height = image.size
@@ -1107,14 +1115,14 @@ def draw_global_title_line(
             255,
             255,
             255,
-            125,
+            120,
         ),
         spacing,
     )
 
     shadow = shadow.filter(
         ImageFilter.GaussianBlur(
-            1.5
+            1.4
         )
     )
 
@@ -1126,6 +1134,23 @@ def draw_global_title_line(
     draw = ImageDraw.Draw(
         image
     )
+
+    if strengthen:
+
+        draw_spaced_text(
+            draw,
+            x + 1,
+            y,
+            text,
+            font,
+            (
+                35,
+                55,
+                83,
+                185,
+            ),
+            spacing,
+        )
 
     draw_spaced_text(
         draw,
@@ -1141,7 +1166,7 @@ def draw_global_title_line(
 
 
 # ============================================================
-# GLOBAL – ZIERLINIE
+# GLOBAL – HAUPTTRENNER
 # ============================================================
 
 def draw_global_divider(
@@ -1169,9 +1194,7 @@ def draw_global_divider(
         layer
     )
 
-    center_x = (
-        width / 2
-    )
+    center_x = width / 2
 
     half = (
         GLOBAL_DIVIDER_WIDTH / 2
@@ -1189,7 +1212,7 @@ def draw_global_divider(
             center_y,
         ),
         fill=GLOBAL_LINE,
-        width=1,
+        width=GLOBAL_DIVIDER_THICKNESS,
     )
 
     draw.line(
@@ -1200,10 +1223,12 @@ def draw_global_divider(
             center_y,
         ),
         fill=GLOBAL_LINE,
-        width=1,
+        width=GLOBAL_DIVIDER_THICKNESS,
     )
 
-    diamond = 4
+    diamond = (
+        GLOBAL_DIVIDER_DIAMOND
+    )
 
     draw.polygon(
         [
@@ -1225,10 +1250,107 @@ def draw_global_divider(
             ),
         ],
         fill=(
-            46,
-            68,
-            100,
-            195,
+            42,
+            63,
+            94,
+            220,
+        ),
+    )
+
+    return Image.alpha_composite(
+        image,
+        layer,
+    )
+
+
+# ============================================================
+# GLOBAL – ZWEITER, DEZENTER TRENNER
+# ============================================================
+
+def draw_global_second_divider(
+    image,
+    center_y,
+):
+
+    width, height = image.size
+
+    layer = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    draw = ImageDraw.Draw(
+        layer
+    )
+
+    center_x = width / 2
+
+    half = (
+        GLOBAL_SECOND_DIVIDER_WIDTH / 2
+    )
+
+    gap = (
+        GLOBAL_SECOND_DIVIDER_CENTER_GAP
+    )
+
+    draw.line(
+        (
+            center_x - half,
+            center_y,
+            center_x - gap,
+            center_y,
+        ),
+        fill=GLOBAL_SECOND_LINE,
+        width=1,
+    )
+
+    draw.line(
+        (
+            center_x + gap,
+            center_y,
+            center_x + half,
+            center_y,
+        ),
+        fill=GLOBAL_SECOND_LINE,
+        width=1,
+    )
+
+    # Kleiner Punkt / Diamant in der Mitte
+    diamond = 3
+
+    draw.polygon(
+        [
+            (
+                center_x,
+                center_y - diamond,
+            ),
+            (
+                center_x + diamond,
+                center_y,
+            ),
+            (
+                center_x,
+                center_y + diamond,
+            ),
+            (
+                center_x - diamond,
+                center_y,
+            ),
+        ],
+        fill=(
+            60,
+            80,
+            108,
+            145,
         ),
     )
 
@@ -1501,18 +1623,15 @@ def create_early_access_full_card(
 # ============================================================
 # GLOBAL LAUNCH – VOLLE KARTE
 #
-#       GLOBAL
+# GLOBAL
+# LAUNCH
+# =========◆=========
+# 5. OKTOBER 2026
+# ------◇------
+# NOCH
+# 36 TAGE
 #
-#       LAUNCH
-#
-#    -----◆-----
-#
-#   5. OKTOBER 2026
-#
-#
-#       NOCH
-#      36 TAGE
-#
+# Der Titel ist oben fest verankert.
 # ============================================================
 
 def create_global_launch_full_card(
@@ -1653,53 +1772,16 @@ def create_global_launch_full_card(
 
         noch_height = 0
 
-    divider_height = 8
+    # --------------------------------------------------------
+    # GLOBAL – feste sichtbare Oberkante
+    # --------------------------------------------------------
 
-    if noch_text:
-
-        group_height = (
-            global_height
-            + GLOBAL_TITLE_LINE_GAP
-            + launch_height
-            + GLOBAL_GAP_TITLE_DIVIDER
-            + divider_height
-            + GLOBAL_GAP_DIVIDER_DATE
-            + date_height
-            + GAP_DATE_NOCH
-            + noch_height
-            + GAP_NOCH_DAYS
-            + days_height
-        )
-
-    else:
-
-        group_height = (
-            global_height
-            + GLOBAL_TITLE_LINE_GAP
-            + launch_height
-            + GLOBAL_GAP_TITLE_DIVIDER
-            + divider_height
-            + GLOBAL_GAP_DIVIDER_DATE
-            + date_height
-            + GAP_DATE_NOCH
-            + days_height
-        )
-
-    visible_top = (
-        (
-            FULL_HEIGHT
-            - group_height
-        )
-        / 2
-        + GLOBAL_GROUP_Y_OFFSET
+    global_visible_top = (
+        GLOBAL_TITLE_TOP
     )
 
-    # --------------------------------------------------------
-    # GLOBAL
-    # --------------------------------------------------------
-
     global_y = (
-        visible_top
+        global_visible_top
         - global_bbox[1]
     )
 
@@ -1708,7 +1790,7 @@ def create_global_launch_full_card(
     # --------------------------------------------------------
 
     launch_visible_top = (
-        visible_top
+        global_visible_top
         + global_height
         + GLOBAL_TITLE_LINE_GAP
     )
@@ -1719,14 +1801,13 @@ def create_global_launch_full_card(
     )
 
     # --------------------------------------------------------
-    # ZIERLINIE
+    # HAUPTTRENNER
     # --------------------------------------------------------
 
     divider_y = (
         launch_visible_top
         + launch_height
         + GLOBAL_GAP_TITLE_DIVIDER
-        + divider_height / 2
     )
 
     # --------------------------------------------------------
@@ -1735,7 +1816,6 @@ def create_global_launch_full_card(
 
     date_visible_top = (
         divider_y
-        + divider_height / 2
         + GLOBAL_GAP_DIVIDER_DATE
     )
 
@@ -1745,15 +1825,24 @@ def create_global_launch_full_card(
     )
 
     # --------------------------------------------------------
-    # NOCH / TAGE
+    # ZWEITER TRENNER
+    # --------------------------------------------------------
+
+    second_divider_y = (
+        date_visible_top
+        + date_height
+        + GLOBAL_GAP_DATE_SECOND_DIVIDER
+    )
+
+    # --------------------------------------------------------
+    # NOCH / COUNTDOWN
     # --------------------------------------------------------
 
     if noch_text:
 
         noch_visible_top = (
-            date_visible_top
-            + date_height
-            + GAP_DATE_NOCH
+            second_divider_y
+            + GLOBAL_GAP_SECOND_DIVIDER_NOCH
         )
 
         noch_y = (
@@ -1770,9 +1859,8 @@ def create_global_launch_full_card(
     else:
 
         days_visible_top = (
-            date_visible_top
-            + date_height
-            + GAP_DATE_NOCH
+            second_divider_y
+            + GLOBAL_GAP_SECOND_DIVIDER_NOCH
         )
 
     days_y = (
@@ -1791,6 +1879,7 @@ def create_global_launch_full_card(
         CARD_WIDTH / 2,
         global_y,
         GLOBAL_TITLE_SPACING_GLOBAL,
+        strengthen=True,
     )
 
     # --------------------------------------------------------
@@ -1804,10 +1893,11 @@ def create_global_launch_full_card(
         CARD_WIDTH / 2,
         launch_y,
         GLOBAL_TITLE_SPACING_LAUNCH,
+        strengthen=True,
     )
 
     # --------------------------------------------------------
-    # ZIERLINIE
+    # HAUPTTRENNER
     # --------------------------------------------------------
 
     image = draw_global_divider(
@@ -1834,6 +1924,17 @@ def create_global_launch_full_card(
         shadow_blur=1.7,
         shadow_offset=1,
     )
+
+    # --------------------------------------------------------
+    # ZWEITER TRENNER
+    # --------------------------------------------------------
+
+    if noch_text:
+
+        image = draw_global_second_divider(
+            image,
+            second_divider_y,
+        )
 
     # --------------------------------------------------------
     # NOCH
@@ -1864,9 +1965,9 @@ def create_global_launch_full_card(
             255,
             255,
             255,
-            140,
+            125,
         ),
-        shadow_blur=1.8,
+        shadow_blur=1.6,
         shadow_offset=1,
     )
 
@@ -1896,16 +1997,6 @@ def create_full_card(
 
 # ============================================================
 # KOMPAKTE KARTE
-#
-# Nach Start:
-#
-# GLOBAL LAUNCH
-# 5. OKTOBER 2026 · GESTARTET
-#
-# bzw.
-#
-# EARLY ACCESS
-# 30. SEPTEMBER 2026 · GESTARTET
 # ============================================================
 
 def create_compact_card(
@@ -2138,11 +2229,6 @@ def save_milestone_card(
 
 # ============================================================
 # DISCORD
-#
-# TESTPHASE:
-#
-# Beide Karten werden jeweils als eigene Nachricht gepostet.
-# Alte Testnachrichten löschen wir derzeit manuell.
 # ============================================================
 
 def webhook_wait_url():
