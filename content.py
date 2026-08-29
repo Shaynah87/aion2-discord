@@ -34,18 +34,14 @@ COMPACT_HEIGHT = 270
 # GEMEINSAME GEOMETRIE
 #
 # Early Access + Global Launch laufen bei den Größen gemeinsam.
-#
-# NEU:
-# Titel 68 px statt 62 px.
-# Dafür Global bewusst feiner gesetzt.
 # ============================================================
 
-TITLE_SIZE = 68
+TITLE_SIZE = 72
 DATE_SIZE = 31
 NOCH_SIZE = 18
 COUNTDOWN_SIZE = 52
 
-TITLE_SPACING = 4
+TITLE_SPACING = 3
 NOCH_SPACING = 4
 
 GAP_TITLE_DATE = 18
@@ -56,12 +52,12 @@ GAP_NOCH_DAYS = 7
 # ============================================================
 # TITELPOSITION
 #
-# Global wandert jetzt deutlich weiter nach oben.
-# Early Access bleibt für den Moment an seiner bisherigen Höhe.
+# Global sitzt deutlich höher.
+# Early bleibt für den Moment auf seiner bisherigen Position.
 # ============================================================
 
 EARLY_TITLE_Y_OFFSET = 0
-GLOBAL_TITLE_Y_OFFSET = -55
+GLOBAL_TITLE_Y_OFFSET = -80
 
 
 # ============================================================
@@ -607,7 +603,6 @@ def draw_centered_text(
 
 
 # ============================================================
-# HILFSFUNKTION:
 # TEXTMASKE MIT BUCHSTABENABSTAND
 # ============================================================
 
@@ -662,9 +657,6 @@ def create_spaced_text_mask(
 
 # ============================================================
 # EARLY ACCESS – GOLD
-#
-# Early läuft bei Größe/Geometrie mit.
-# Gold-Look bleibt vorerst bestehen.
 # ============================================================
 
 def draw_gold_title(
@@ -697,7 +689,7 @@ def draw_gold_title(
     # WEICHER SCHATTEN
     # --------------------------------------------------------
 
-    shadow_mask = Image.new(
+    shifted_mask = Image.new(
         "L",
         (
             width,
@@ -706,7 +698,7 @@ def draw_gold_title(
         0,
     )
 
-    shadow_mask.paste(
+    shifted_mask.paste(
         mask,
         (
             0,
@@ -714,10 +706,18 @@ def draw_gold_title(
         ),
     )
 
-    shadow_mask = shadow_mask.filter(
+    shadow_mask = shifted_mask.filter(
         ImageFilter.GaussianBlur(
             4.0
         )
+    )
+
+    shadow_alpha = shadow_mask.point(
+        lambda value:
+            int(
+                value
+                * 0.58
+            )
     )
 
     shadow = Image.new(
@@ -735,13 +735,7 @@ def draw_gold_title(
     )
 
     shadow.putalpha(
-        shadow_mask.point(
-            lambda value:
-                int(
-                    value
-                    * 0.58
-                )
-        )
+        shadow_alpha
     )
 
     image = Image.alpha_composite(
@@ -817,17 +811,8 @@ def draw_gold_title(
                 / 0.48
             )
 
-            color = tuple(
-                int(
-                    top_color[channel]
-                    + (
-                        middle_color[channel]
-                        - top_color[channel]
-                    )
-                    * local
-                )
-                for channel in range(3)
-            ) + (255,)
+            start = top_color
+            end = middle_color
 
         else:
 
@@ -839,17 +824,20 @@ def draw_gold_title(
                 / 0.52
             )
 
-            color = tuple(
-                int(
-                    middle_color[channel]
-                    + (
-                        bottom_color[channel]
-                        - middle_color[channel]
-                    )
-                    * local
+            start = middle_color
+            end = bottom_color
+
+        color = tuple(
+            int(
+                start[channel]
+                + (
+                    end[channel]
+                    - start[channel]
                 )
-                for channel in range(3)
-            ) + (255,)
+                * local
+            )
+            for channel in range(3)
+        ) + (255,)
 
         for xx in range(
             bbox[0],
@@ -872,17 +860,14 @@ def draw_gold_title(
 
 
 # ============================================================
-# GLOBAL LAUNCH – NEUES PLATIN
+# GLOBAL LAUNCH – PLATIN V3
 #
-# Ziel:
-#
-# - feiner
-# - klarer
-# - größer
-# - kein milchiger Glow
-# - kein WordArt-3D
-# - sehr feine Außenkante
-# - kleiner Schatten direkt dahinter
+# - kräftiger
+# - kontrastreicher
+# - 2 px Außenkontur
+# - kein Glow
+# - kein großer 3D-Versatz
+# - kleiner direkter Schatten
 # ============================================================
 
 def draw_platinum_title(
@@ -912,10 +897,7 @@ def draw_platinum_title(
         return image
 
     # --------------------------------------------------------
-    # KLEINER WEICHER SCHATTEN
-    #
-    # Kein Versatz nach rechts.
-    # Nur minimal nach unten.
+    # DIREKTER SCHATTEN
     # --------------------------------------------------------
 
     shifted_mask = Image.new(
@@ -937,7 +919,7 @@ def draw_platinum_title(
 
     shadow_mask = shifted_mask.filter(
         ImageFilter.GaussianBlur(
-            2.4
+            1.8
         )
     )
 
@@ -945,7 +927,7 @@ def draw_platinum_title(
         lambda value:
             int(
                 value
-                * 0.48
+                * 0.58
             )
     )
 
@@ -956,9 +938,9 @@ def draw_platinum_title(
             height,
         ),
         (
-            29,
-            37,
-            52,
+            24,
+            30,
+            42,
             0,
         ),
     )
@@ -973,22 +955,26 @@ def draw_platinum_title(
     )
 
     # --------------------------------------------------------
-    # FEINE AUSSENKANTE
-    #
-    # Maske wird nur leicht erweitert.
-    # Danach ziehen wir die Originalmaske ab.
-    # So bleibt wirklich nur ein dünner Ring außen.
+    # 2-PX-AUSSENKONTUR
     # --------------------------------------------------------
 
     expanded = mask.filter(
         ImageFilter.MaxFilter(
-            3
+            5
         )
     )
 
     outline_mask = ImageChops.subtract(
         expanded,
         mask,
+    )
+
+    outline_alpha = outline_mask.point(
+        lambda value:
+            int(
+                value
+                * 0.92
+            )
     )
 
     outline = Image.new(
@@ -998,21 +984,15 @@ def draw_platinum_title(
             height,
         ),
         (
-            70,
-            82,
-            103,
+            48,
+            58,
+            76,
             0,
         ),
     )
 
     outline.putalpha(
-        outline_mask.point(
-            lambda value:
-                int(
-                    value
-                    * 0.82
-                )
-        )
+        outline_alpha
     )
 
     image = Image.alpha_composite(
@@ -1021,12 +1001,7 @@ def draw_platinum_title(
     )
 
     # --------------------------------------------------------
-    # PLATINVERLAUF
-    #
-    # Bewusst heller und sauberer als vorher.
-    #
-    # Kein hartes Chrom.
-    # Kein grauer Matsch.
+    # KONTRASTREICHER PLATINVERLAUF
     # --------------------------------------------------------
 
     top = bbox[1]
@@ -1053,28 +1028,32 @@ def draw_platinum_title(
 
     pixels = platinum.load()
 
-    top_color = (
-        250,
+    # Sehr helle Oberkante
+    color_1 = (
         252,
+        253,
         255,
     )
 
-    upper_mid_color = (
-        224,
-        230,
-        238,
+    # Helles Silber
+    color_2 = (
+        220,
+        226,
+        234,
     )
 
-    lower_mid_color = (
-        170,
-        181,
-        197,
+    # Stahlgrau
+    color_3 = (
+        139,
+        151,
+        168,
     )
 
-    bottom_color = (
-        126,
-        140,
-        160,
+    # Dunklere Unterkante
+    color_4 = (
+        82,
+        96,
+        116,
     )
 
     for yy in range(
@@ -1092,41 +1071,41 @@ def draw_platinum_title(
             )
         )
 
-        if progress < 0.30:
+        if progress < 0.25:
 
             local = (
                 progress
-                / 0.30
+                / 0.25
             )
 
-            start = top_color
-            end = upper_mid_color
+            start = color_1
+            end = color_2
 
-        elif progress < 0.62:
+        elif progress < 0.65:
 
             local = (
                 (
                     progress
-                    - 0.30
+                    - 0.25
                 )
-                / 0.32
+                / 0.40
             )
 
-            start = upper_mid_color
-            end = lower_mid_color
+            start = color_2
+            end = color_3
 
         else:
 
             local = (
                 (
                     progress
-                    - 0.62
+                    - 0.65
                 )
-                / 0.38
+                / 0.35
             )
 
-            start = lower_mid_color
-            end = bottom_color
+            start = color_3
+            end = color_4
 
         color = tuple(
             int(
@@ -1154,16 +1133,59 @@ def draw_platinum_title(
         mask
     )
 
-    return Image.alpha_composite(
+    image = Image.alpha_composite(
         image,
         platinum,
     )
+
+    # --------------------------------------------------------
+    # SEHR DEZENTE LICHTKANTE
+    # --------------------------------------------------------
+
+    highlight_mask = mask.filter(
+        ImageFilter.GaussianBlur(
+            0.5
+        )
+    )
+
+    highlight_alpha = highlight_mask.point(
+        lambda value:
+            int(
+                value
+                * 0.10
+            )
+    )
+
+    highlight = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            255,
+            255,
+            255,
+            0,
+        ),
+    )
+
+    highlight.putalpha(
+        highlight_alpha
+    )
+
+    image = Image.alpha_composite(
+        image,
+        highlight,
+    )
+
+    return image
 
 
 # ============================================================
 # WEICHER ZENTRIERTER TEXT
 #
-# Datum / NOCH / Countdown bleiben für diesen Test bestehen.
+# Datum / NOCH / Countdown bleiben vorerst bestehen.
 # ============================================================
 
 def draw_soft_centered_text(
@@ -1310,12 +1332,11 @@ def draw_centered_spaced_text(
 # ============================================================
 # VIERZEILER
 #
-# Größen + Abstände laufen für beide gemeinsam.
+# Early Access + Global Launch:
+# - identische Titelgröße
+# - identische restliche Schriftgrößen
 #
-# Unterschied:
-# Global-Titel benutzt bewusst Regular statt Bold,
-# damit er feiner wirkt.
-# Die Größe bleibt trotzdem identisch: 68 px.
+# Global darf wegen des Motivs vertikal anders positioniert sein.
 # ============================================================
 
 def create_full_card(milestone):
@@ -1324,19 +1345,12 @@ def create_full_card(milestone):
         milestone["background"]
     )
 
-    if milestone["key"] == "global_launch":
-
-        title_font = load_font(
-            TITLE_SIZE,
-            bold=False,
-        )
-
-    else:
-
-        title_font = load_font(
-            TITLE_SIZE,
-            bold=True,
-        )
+    # Beide Titel wieder BOLD.
+    # Beide exakt 72 px.
+    title_font = load_font(
+        TITLE_SIZE,
+        bold=True,
+    )
 
     date_font = load_font(
         DATE_SIZE,
@@ -1492,9 +1506,7 @@ def create_full_card(milestone):
     )
 
     # --------------------------------------------------------
-    # TITEL-POSITION
-    #
-    # Global bewusst deutlich höher.
+    # TITELPOSITION
     # --------------------------------------------------------
 
     if milestone["key"] == "global_launch":
@@ -1512,7 +1524,9 @@ def create_full_card(milestone):
         )
 
     # --------------------------------------------------------
-    # REST DER KARTE BLEIBT NOCH STEHEN
+    # RESTLICHE POSITIONEN
+    #
+    # Diese verändern wir in diesem Test noch nicht.
     # --------------------------------------------------------
 
     date_visible_top = (
@@ -1587,7 +1601,7 @@ def create_full_card(milestone):
     # --------------------------------------------------------
     # RESTLICHE BESCHRIFTUNG
     #
-    # Für diesen Test noch NICHT neu gestalten.
+    # Noch unverändert.
     # --------------------------------------------------------
 
     if milestone["key"] == "global_launch":
@@ -1654,6 +1668,7 @@ def create_full_card(milestone):
 # ZWEIZEILER
 #
 # Vorerst unangetastet.
+# Den endgültigen Ausschnitt machen wir später.
 # ============================================================
 
 def create_compact_card(milestone):
@@ -1859,10 +1874,13 @@ def save_milestone_card(milestone):
 #
 # TESTPHASE:
 #
-# Beide Karten werden jeweils als eigene Nachricht gesendet.
-# Dadurch stehen sie sauber untereinander.
+# Jede Karte wird als EIGENE Discord-Nachricht gesendet.
+# Dadurch stehen Early Access und Global Launch untereinander.
 #
-# Alte Tests löschen wir derzeit manuell.
+# Alte Testnachrichten werden derzeit manuell gelöscht.
+#
+# Sobald das Design fertig ist, stellen wir wieder auf feste
+# Message-IDs für den Cron-Betrieb um.
 # ============================================================
 
 def webhook_wait_url():
