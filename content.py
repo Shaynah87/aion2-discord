@@ -4,7 +4,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
+from PIL import (
+    Image,
+    ImageDraw,
+    ImageFont,
+    ImageFilter,
+    ImageChops,
+)
 
 
 # ============================================================
@@ -24,57 +30,93 @@ GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 # ============================================================
 
 CARD_WIDTH = 1200
+
+# Große Karte
 FULL_HEIGHT = 535
 
-# Eingeklappter Zweizeiler
+# Eingeklappte Karte nach Start
 COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# GEMEINSAME GEOMETRIE
+# GEMEINSAME TYPOGRAFIE
 #
-# Early Access + Global Launch laufen bei den Größen gemeinsam.
+# Datum / NOCH / Countdown bleiben auf beiden Karten
+# grundsätzlich gleich groß.
 # ============================================================
 
-TITLE_SIZE = 72
-DATE_SIZE = 31
-NOCH_SIZE = 18
-COUNTDOWN_SIZE = 52
+DATE_SIZE = 30
+NOCH_SIZE = 17
+COUNTDOWN_SIZE = 50
 
-TITLE_SPACING = 3
-NOCH_SPACING = 4
-
-GAP_TITLE_DATE = 18
-GAP_DATE_NOCH = 39
+GAP_DATE_NOCH = 36
 GAP_NOCH_DAYS = 7
 
 
 # ============================================================
-# TITELPOSITION
+# EARLY ACCESS – TITEL
+# ============================================================
+
+EARLY_TITLE_SIZE = 68
+EARLY_TITLE_SPACING = 3
+
+
+# ============================================================
+# GLOBAL LAUNCH – GROSSE KARTE
 #
-# Global sitzt deutlich höher.
-# Early bleibt für den Moment auf seiner bisherigen Position.
-# ============================================================
-
-EARLY_TITLE_Y_OFFSET = 0
-GLOBAL_TITLE_Y_OFFSET = -80
-
-
-# ============================================================
-# ZWEIZEILER
+# GLOBAL
+# LAUNCH
 #
-# Wird später separat gestaltet.
+# Zweizeilig, damit die Köpfe frei bleiben.
 # ============================================================
 
-COMPACT_TITLE_SIZE = 44
-COMPACT_STATUS_SIZE = 34
+GLOBAL_TITLE_SIZE = 72
+GLOBAL_TITLE_SPACING = 8
 
-COMPACT_TITLE_SPACING = 6
-COMPACT_GAP = 22
+GLOBAL_TITLE_LINE_GAP = 3
+
+# Abstand vom unteren Rand der zweiten Titelzeile
+# bis zur Zierlinie
+GLOBAL_GAP_TITLE_DIVIDER = 13
+
+# Zierlinie
+GLOBAL_DIVIDER_WIDTH = 300
+GLOBAL_DIVIDER_CENTER_GAP = 14
+
+# Abstand Zierlinie -> Datum
+GLOBAL_GAP_DIVIDER_DATE = 23
+
+# Gesamte Global-Gruppe etwas nach oben
+GLOBAL_GROUP_Y_OFFSET = -22
 
 
 # ============================================================
-# KOMPAKTER HINTERGRUND
+# EARLY ACCESS – GROSSE KARTE
+# ============================================================
+
+EARLY_GAP_TITLE_DATE = 18
+
+
+# ============================================================
+# KOMPAKTE KARTE
+#
+# Nach Start wird Global NICHT mehr zweizeilig dargestellt.
+#
+# GLOBAL LAUNCH
+# 5. OKTOBER 2026 · GESTARTET
+# ============================================================
+
+COMPACT_TITLE_SIZE = 43
+COMPACT_STATUS_SIZE = 28
+
+COMPACT_TITLE_SPACING = 5
+COMPACT_GAP = 18
+
+
+# ============================================================
+# KOMPAKTER BILDAUSSCHNITT
+#
+# Später separat feinjustierbar.
 # ============================================================
 
 COMPACT_CROP_CENTER = {
@@ -86,32 +128,6 @@ COMPACT_CROP_CENTER = {
 # ============================================================
 # FARBEN
 # ============================================================
-
-WHITE = (
-    248,
-    248,
-    250,
-    255,
-)
-
-SOFT_WHITE = (
-    222,
-    223,
-    228,
-    255,
-)
-
-GRAY = (
-    185,
-    188,
-    195,
-    255,
-)
-
-
-# ------------------------------------------------------------
-# EARLY ACCESS
-# ------------------------------------------------------------
 
 EARLY_TEXT = (
     238,
@@ -127,23 +143,32 @@ EARLY_MUTED = (
     255,
 )
 
-
-# ------------------------------------------------------------
-# GLOBAL LAUNCH
-# ------------------------------------------------------------
+GLOBAL_DARK = (
+    35,
+    55,
+    83,
+    255,
+)
 
 GLOBAL_TEXT = (
-    57,
-    66,
-    82,
+    42,
+    59,
+    83,
     255,
 )
 
 GLOBAL_MUTED = (
-    94,
-    101,
-    116,
+    82,
+    95,
+    114,
     255,
+)
+
+GLOBAL_LINE = (
+    50,
+    72,
+    103,
+    165,
 )
 
 
@@ -363,9 +388,42 @@ def build_content_state(data):
 def load_font(
     size,
     bold=False,
+    serif=False,
 ):
 
-    if bold:
+    if serif:
+
+        if bold:
+
+            paths = [
+                (
+                    "/usr/share/fonts/"
+                    "truetype/dejavu/"
+                    "DejaVuSerif-Bold.ttf"
+                ),
+                (
+                    "/usr/share/fonts/"
+                    "truetype/liberation2/"
+                    "LiberationSerif-Bold.ttf"
+                ),
+            ]
+
+        else:
+
+            paths = [
+                (
+                    "/usr/share/fonts/"
+                    "truetype/dejavu/"
+                    "DejaVuSerif.ttf"
+                ),
+                (
+                    "/usr/share/fonts/"
+                    "truetype/liberation2/"
+                    "LiberationSerif-Regular.ttf"
+                ),
+            ]
+
+    elif bold:
 
         paths = [
             (
@@ -556,15 +614,13 @@ def draw_spaced_text(
 
 
 # ============================================================
-# ZENTRIERTER TEXT
+# ZENTRIERTE POSITION
 # ============================================================
 
-def draw_centered_text(
+def centered_text_x(
     draw,
     text,
-    y,
     font,
-    fill,
     width=CARD_WIDTH,
 ):
 
@@ -582,13 +638,30 @@ def draw_centered_text(
         - bbox[0]
     )
 
-    x = (
+    return (
         (
             width
             - text_width
         )
         / 2
         - bbox[0]
+    )
+
+
+def draw_centered_text(
+    draw,
+    text,
+    y,
+    font,
+    fill,
+    width=CARD_WIDTH,
+):
+
+    x = centered_text_x(
+        draw,
+        text,
+        font,
+        width,
     )
 
     draw.text(
@@ -603,7 +676,137 @@ def draw_centered_text(
 
 
 # ============================================================
-# TEXTMASKE MIT BUCHSTABENABSTAND
+# WEICHER TEXTSCHATTEN
+# ============================================================
+
+def draw_soft_centered_text(
+    image,
+    text,
+    y,
+    font,
+    fill,
+    shadow_fill,
+    shadow_blur=2.5,
+    shadow_offset=1,
+):
+
+    width, height = image.size
+
+    probe = ImageDraw.Draw(
+        image
+    )
+
+    x = centered_text_x(
+        probe,
+        text,
+        font,
+        width,
+    )
+
+    shadow = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    shadow_draw = ImageDraw.Draw(
+        shadow
+    )
+
+    shadow_draw.text(
+        (
+            x,
+            y + shadow_offset,
+        ),
+        text,
+        font=font,
+        fill=shadow_fill,
+    )
+
+    shadow = shadow.filter(
+        ImageFilter.GaussianBlur(
+            shadow_blur
+        )
+    )
+
+    image = Image.alpha_composite(
+        image,
+        shadow,
+    )
+
+    draw = ImageDraw.Draw(
+        image
+    )
+
+    draw.text(
+        (
+            x,
+            y,
+        ),
+        text,
+        font=font,
+        fill=fill,
+    )
+
+    return image
+
+
+# ============================================================
+# GESPERRTER ZENTRIERTER TEXT
+# ============================================================
+
+def draw_centered_spaced_text(
+    image,
+    text,
+    y,
+    font,
+    fill,
+    spacing,
+):
+
+    probe = ImageDraw.Draw(
+        image
+    )
+
+    text_width = spaced_text_width(
+        probe,
+        text,
+        font,
+        spacing,
+    )
+
+    x = (
+        CARD_WIDTH / 2
+        - text_width / 2
+    )
+
+    draw = ImageDraw.Draw(
+        image
+    )
+
+    draw_spaced_text(
+        draw,
+        x,
+        y,
+        text,
+        font,
+        fill,
+        spacing,
+    )
+
+    return image
+
+
+# ============================================================
+# EARLY ACCESS – GOLD
 # ============================================================
 
 def create_spaced_text_mask(
@@ -655,10 +858,6 @@ def create_spaced_text_mask(
     return mask
 
 
-# ============================================================
-# EARLY ACCESS – GOLD
-# ============================================================
-
 def draw_gold_title(
     image,
     text,
@@ -685,10 +884,6 @@ def draw_gold_title(
 
         return image
 
-    # --------------------------------------------------------
-    # WEICHER SCHATTEN
-    # --------------------------------------------------------
-
     shifted_mask = Image.new(
         "L",
         (
@@ -708,16 +903,8 @@ def draw_gold_title(
 
     shadow_mask = shifted_mask.filter(
         ImageFilter.GaussianBlur(
-            4.0
+            3.5
         )
-    )
-
-    shadow_alpha = shadow_mask.point(
-        lambda value:
-            int(
-                value
-                * 0.58
-            )
     )
 
     shadow = Image.new(
@@ -735,17 +922,19 @@ def draw_gold_title(
     )
 
     shadow.putalpha(
-        shadow_alpha
+        shadow_mask.point(
+            lambda value:
+                int(
+                    value
+                    * 0.55
+                )
+        )
     )
 
     image = Image.alpha_composite(
         image,
         shadow,
     )
-
-    # --------------------------------------------------------
-    # GOLDVERLAUF
-    # --------------------------------------------------------
 
     top = bbox[1]
     bottom = bbox[3]
@@ -860,17 +1049,16 @@ def draw_gold_title(
 
 
 # ============================================================
-# GLOBAL LAUNCH – PLATIN V3
+# GLOBAL – TITEL
 #
-# - kräftiger
-# - kontrastreicher
-# - 2 px Außenkontur
-# - kein Glow
-# - kein großer 3D-Versatz
-# - kleiner direkter Schatten
+# Bewusst KEIN Chrom / Glow / WordArt.
+#
+# Dunkles, klares Blau.
+# Serif.
+# Sehr kleiner Schatten.
 # ============================================================
 
-def draw_platinum_title(
+def draw_global_title_line(
     image,
     text,
     font,
@@ -881,352 +1069,23 @@ def draw_platinum_title(
 
     width, height = image.size
 
-    mask = create_spaced_text_mask(
-        image.size,
-        text,
-        font,
-        center_x,
-        y,
-        spacing,
-    )
-
-    bbox = mask.getbbox()
-
-    if not bbox:
-
-        return image
-
-    # --------------------------------------------------------
-    # DIREKTER SCHATTEN
-    # --------------------------------------------------------
-
-    shifted_mask = Image.new(
-        "L",
-        (
-            width,
-            height,
-        ),
-        0,
-    )
-
-    shifted_mask.paste(
-        mask,
-        (
-            0,
-            2,
-        ),
-    )
-
-    shadow_mask = shifted_mask.filter(
-        ImageFilter.GaussianBlur(
-            1.8
-        )
-    )
-
-    shadow_alpha = shadow_mask.point(
-        lambda value:
-            int(
-                value
-                * 0.58
-            )
-    )
-
-    shadow = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            24,
-            30,
-            42,
-            0,
-        ),
-    )
-
-    shadow.putalpha(
-        shadow_alpha
-    )
-
-    image = Image.alpha_composite(
-        image,
-        shadow,
-    )
-
-    # --------------------------------------------------------
-    # 2-PX-AUSSENKONTUR
-    # --------------------------------------------------------
-
-    expanded = mask.filter(
-        ImageFilter.MaxFilter(
-            5
-        )
-    )
-
-    outline_mask = ImageChops.subtract(
-        expanded,
-        mask,
-    )
-
-    outline_alpha = outline_mask.point(
-        lambda value:
-            int(
-                value
-                * 0.92
-            )
-    )
-
-    outline = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            48,
-            58,
-            76,
-            0,
-        ),
-    )
-
-    outline.putalpha(
-        outline_alpha
-    )
-
-    image = Image.alpha_composite(
-        image,
-        outline,
-    )
-
-    # --------------------------------------------------------
-    # KONTRASTREICHER PLATINVERLAUF
-    # --------------------------------------------------------
-
-    top = bbox[1]
-    bottom = bbox[3]
-
-    visible_height = max(
-        1,
-        bottom - top,
-    )
-
-    platinum = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            0,
-            0,
-            0,
-            0,
-        ),
-    )
-
-    pixels = platinum.load()
-
-    # Sehr helle Oberkante
-    color_1 = (
-        252,
-        253,
-        255,
-    )
-
-    # Helles Silber
-    color_2 = (
-        220,
-        226,
-        234,
-    )
-
-    # Stahlgrau
-    color_3 = (
-        139,
-        151,
-        168,
-    )
-
-    # Dunklere Unterkante
-    color_4 = (
-        82,
-        96,
-        116,
-    )
-
-    for yy in range(
-        top,
-        bottom,
-    ):
-
-        progress = (
-            (
-                yy - top
-            )
-            / max(
-                1,
-                visible_height - 1,
-            )
-        )
-
-        if progress < 0.25:
-
-            local = (
-                progress
-                / 0.25
-            )
-
-            start = color_1
-            end = color_2
-
-        elif progress < 0.65:
-
-            local = (
-                (
-                    progress
-                    - 0.25
-                )
-                / 0.40
-            )
-
-            start = color_2
-            end = color_3
-
-        else:
-
-            local = (
-                (
-                    progress
-                    - 0.65
-                )
-                / 0.35
-            )
-
-            start = color_3
-            end = color_4
-
-        color = tuple(
-            int(
-                start[channel]
-                + (
-                    end[channel]
-                    - start[channel]
-                )
-                * local
-            )
-            for channel in range(3)
-        ) + (255,)
-
-        for xx in range(
-            bbox[0],
-            bbox[2],
-        ):
-
-            pixels[
-                xx,
-                yy
-            ] = color
-
-    platinum.putalpha(
-        mask
-    )
-
-    image = Image.alpha_composite(
-        image,
-        platinum,
-    )
-
-    # --------------------------------------------------------
-    # SEHR DEZENTE LICHTKANTE
-    # --------------------------------------------------------
-
-    highlight_mask = mask.filter(
-        ImageFilter.GaussianBlur(
-            0.5
-        )
-    )
-
-    highlight_alpha = highlight_mask.point(
-        lambda value:
-            int(
-                value
-                * 0.10
-            )
-    )
-
-    highlight = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            255,
-            255,
-            255,
-            0,
-        ),
-    )
-
-    highlight.putalpha(
-        highlight_alpha
-    )
-
-    image = Image.alpha_composite(
-        image,
-        highlight,
-    )
-
-    return image
-
-
-# ============================================================
-# WEICHER ZENTRIERTER TEXT
-#
-# Datum / NOCH / Countdown bleiben vorerst bestehen.
-# ============================================================
-
-def draw_soft_centered_text(
-    image,
-    text,
-    y,
-    font,
-    fill,
-    shadow_fill,
-    shadow_blur=3.5,
-):
-
-    width, height = image.size
-
     probe = ImageDraw.Draw(
         image
     )
 
-    bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
+    text_width = spaced_text_width(
+        probe,
         text,
-        font=font,
-    )
-
-    text_width = (
-        bbox[2]
-        - bbox[0]
+        font,
+        spacing,
     )
 
     x = (
-        (
-            width
-            - text_width
-        )
-        / 2
-        - bbox[0]
+        center_x
+        - text_width / 2
     )
 
+    # Kleiner Schatten
     shadow = Image.new(
         "RGBA",
         (
@@ -1245,19 +1104,24 @@ def draw_soft_centered_text(
         shadow
     )
 
-    shadow_draw.text(
-        (
-            x,
-            y + 1,
-        ),
+    draw_spaced_text(
+        shadow_draw,
+        x,
+        y + 2,
         text,
-        font=font,
-        fill=shadow_fill,
+        font,
+        (
+            255,
+            255,
+            255,
+            125,
+        ),
+        spacing,
     )
 
     shadow = shadow.filter(
         ImageFilter.GaussianBlur(
-            shadow_blur
+            1.5
         )
     )
 
@@ -1270,59 +1134,13 @@ def draw_soft_centered_text(
         image
     )
 
-    draw.text(
-        (
-            x,
-            y,
-        ),
-        text,
-        font=font,
-        fill=fill,
-    )
-
-    return image
-
-
-# ============================================================
-# NOCH MIT BUCHSTABENABSTAND
-# ============================================================
-
-def draw_centered_spaced_text(
-    image,
-    text,
-    y,
-    font,
-    fill,
-    spacing,
-):
-
-    probe = ImageDraw.Draw(
-        image
-    )
-
-    text_width = spaced_text_width(
-        probe,
-        text,
-        font,
-        spacing,
-    )
-
-    x = (
-        CARD_WIDTH / 2
-        - text_width / 2
-    )
-
-    draw = ImageDraw.Draw(
-        image
-    )
-
     draw_spaced_text(
         draw,
         x,
         y,
         text,
         font,
-        fill,
+        GLOBAL_DARK,
         spacing,
     )
 
@@ -1330,25 +1148,117 @@ def draw_centered_spaced_text(
 
 
 # ============================================================
-# VIERZEILER
-#
-# Early Access + Global Launch:
-# - identische Titelgröße
-# - identische restliche Schriftgrößen
-#
-# Global darf wegen des Motivs vertikal anders positioniert sein.
+# GLOBAL – ZIERLINIE
 # ============================================================
 
-def create_full_card(milestone):
+def draw_global_divider(
+    image,
+    center_y,
+):
+
+    width, height = image.size
+
+    layer = Image.new(
+        "RGBA",
+        (
+            width,
+            height,
+        ),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    draw = ImageDraw.Draw(
+        layer
+    )
+
+    center_x = (
+        width / 2
+    )
+
+    half = (
+        GLOBAL_DIVIDER_WIDTH / 2
+    )
+
+    gap = (
+        GLOBAL_DIVIDER_CENTER_GAP
+    )
+
+    draw.line(
+        (
+            center_x - half,
+            center_y,
+            center_x - gap,
+            center_y,
+        ),
+        fill=GLOBAL_LINE,
+        width=1,
+    )
+
+    draw.line(
+        (
+            center_x + gap,
+            center_y,
+            center_x + half,
+            center_y,
+        ),
+        fill=GLOBAL_LINE,
+        width=1,
+    )
+
+    diamond = 4
+
+    draw.polygon(
+        [
+            (
+                center_x,
+                center_y - diamond,
+            ),
+            (
+                center_x + diamond,
+                center_y,
+            ),
+            (
+                center_x,
+                center_y + diamond,
+            ),
+            (
+                center_x - diamond,
+                center_y,
+            ),
+        ],
+        fill=(
+            46,
+            68,
+            100,
+            195,
+        ),
+    )
+
+    return Image.alpha_composite(
+        image,
+        layer,
+    )
+
+
+# ============================================================
+# EARLY ACCESS – VOLLE KARTE
+# ============================================================
+
+def create_early_access_full_card(
+    milestone
+):
 
     image = load_background(
         milestone["background"]
     )
 
-    # Beide Titel wieder BOLD.
-    # Beide exakt 72 px.
     title_font = load_font(
-        TITLE_SIZE,
+        EARLY_TITLE_SIZE,
         bold=True,
     )
 
@@ -1396,10 +1306,6 @@ def create_full_card(milestone):
     probe = ImageDraw.Draw(
         image
     )
-
-    # --------------------------------------------------------
-    # SICHTBARE TEXTHÖHEN
-    # --------------------------------------------------------
 
     title_bbox = probe.textbbox(
         (
@@ -1461,7 +1367,7 @@ def create_full_card(milestone):
 
         group_height = (
             title_height
-            + GAP_TITLE_DATE
+            + EARLY_GAP_TITLE_DATE
             + date_height
             + GAP_DATE_NOCH
             + noch_height
@@ -1482,15 +1388,11 @@ def create_full_card(milestone):
 
         group_height = (
             title_height
-            + GAP_TITLE_DATE
+            + EARLY_GAP_TITLE_DATE
             + date_height
             + GAP_DATE_NOCH
             + days_height
         )
-
-    # --------------------------------------------------------
-    # GRUPPE VERTIKAL ZENTRIEREN
-    # --------------------------------------------------------
 
     visible_top = (
         (
@@ -1505,34 +1407,10 @@ def create_full_card(milestone):
         - title_bbox[1]
     )
 
-    # --------------------------------------------------------
-    # TITELPOSITION
-    # --------------------------------------------------------
-
-    if milestone["key"] == "global_launch":
-
-        rendered_title_y = (
-            title_y
-            + GLOBAL_TITLE_Y_OFFSET
-        )
-
-    else:
-
-        rendered_title_y = (
-            title_y
-            + EARLY_TITLE_Y_OFFSET
-        )
-
-    # --------------------------------------------------------
-    # RESTLICHE POSITIONEN
-    #
-    # Diese verändern wir in diesem Test noch nicht.
-    # --------------------------------------------------------
-
     date_visible_top = (
         visible_top
         + title_height
-        + GAP_TITLE_DATE
+        + EARLY_GAP_TITLE_DATE
     )
 
     date_y = (
@@ -1573,70 +1451,40 @@ def create_full_card(milestone):
     )
 
     # --------------------------------------------------------
-    # TITEL
+    # TITLE
     # --------------------------------------------------------
 
-    if milestone["key"] == "early_access":
-
-        image = draw_gold_title(
-            image,
-            title_text,
-            title_font,
-            CARD_WIDTH / 2,
-            rendered_title_y,
-            TITLE_SPACING,
-        )
-
-    elif milestone["key"] == "global_launch":
-
-        image = draw_platinum_title(
-            image,
-            title_text,
-            title_font,
-            CARD_WIDTH / 2,
-            rendered_title_y,
-            TITLE_SPACING,
-        )
+    image = draw_gold_title(
+        image,
+        title_text,
+        title_font,
+        CARD_WIDTH / 2,
+        title_y,
+        EARLY_TITLE_SPACING,
+    )
 
     # --------------------------------------------------------
-    # RESTLICHE BESCHRIFTUNG
-    #
-    # Noch unverändert.
+    # DATE
     # --------------------------------------------------------
-
-    if milestone["key"] == "global_launch":
-
-        normal_fill = GLOBAL_TEXT
-        muted_fill = GLOBAL_MUTED
-
-        normal_shadow = (
-            255,
-            255,
-            255,
-            105,
-        )
-
-    else:
-
-        normal_fill = EARLY_TEXT
-        muted_fill = EARLY_MUTED
-
-        normal_shadow = (
-            0,
-            0,
-            0,
-            125,
-        )
 
     image = draw_soft_centered_text(
         image,
         date_text,
         date_y,
         date_font,
-        normal_fill,
-        normal_shadow,
-        shadow_blur=3.5,
+        EARLY_TEXT,
+        (
+            0,
+            0,
+            0,
+            125,
+        ),
+        shadow_blur=3.0,
     )
+
+    # --------------------------------------------------------
+    # NOCH
+    # --------------------------------------------------------
 
     if noch_text:
 
@@ -1645,18 +1493,27 @@ def create_full_card(milestone):
             noch_text,
             noch_y,
             noch_font,
-            muted_fill,
-            NOCH_SPACING,
+            EARLY_MUTED,
+            4,
         )
+
+    # --------------------------------------------------------
+    # COUNTDOWN
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
         days_text,
         days_y,
         days_font,
-        normal_fill,
-        normal_shadow,
-        shadow_blur=4.0,
+        EARLY_TEXT,
+        (
+            0,
+            0,
+            0,
+            140,
+        ),
+        shadow_blur=3.5,
     )
 
     return image.convert(
@@ -1665,13 +1522,411 @@ def create_full_card(milestone):
 
 
 # ============================================================
-# ZWEIZEILER
+# GLOBAL LAUNCH – VOLLE KARTE
 #
-# Vorerst unangetastet.
-# Den endgültigen Ausschnitt machen wir später.
+# NEUE STRUKTUR:
+#
+#       GLOBAL
+#       LAUNCH
+#    -----◆-----
+#   5. OKTOBER 2026
+#
+#       NOCH
+#      37 TAGE
 # ============================================================
 
-def create_compact_card(milestone):
+def create_global_launch_full_card(
+    milestone
+):
+
+    image = load_background(
+        milestone["background"]
+    )
+
+    title_font = load_font(
+        GLOBAL_TITLE_SIZE,
+        bold=False,
+        serif=True,
+    )
+
+    date_font = load_font(
+        DATE_SIZE,
+        bold=True,
+    )
+
+    noch_font = load_font(
+        NOCH_SIZE,
+        bold=True,
+    )
+
+    days_font = load_font(
+        COUNTDOWN_SIZE,
+        bold=True,
+    )
+
+    date_text = (
+        milestone[
+            "date_display"
+        ].upper()
+    )
+
+    if milestone["state"] == "countdown":
+
+        days = milestone["days"]
+
+        days_text = (
+            f"{days} "
+            f"{'TAG' if days == 1 else 'TAGE'}"
+        )
+
+        noch_text = "NOCH"
+
+    else:
+
+        days_text = "HEUTE"
+        noch_text = ""
+
+    probe = ImageDraw.Draw(
+        image
+    )
+
+    global_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        "GLOBAL",
+        font=title_font,
+    )
+
+    launch_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        "LAUNCH",
+        font=title_font,
+    )
+
+    date_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        date_text,
+        font=date_font,
+    )
+
+    days_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        days_text,
+        font=days_font,
+    )
+
+    global_height = (
+        global_bbox[3]
+        - global_bbox[1]
+    )
+
+    launch_height = (
+        launch_bbox[3]
+        - launch_bbox[1]
+    )
+
+    date_height = (
+        date_bbox[3]
+        - date_bbox[1]
+    )
+
+    days_height = (
+        days_bbox[3]
+        - days_bbox[1]
+    )
+
+    if noch_text:
+
+        noch_bbox = probe.textbbox(
+            (
+                0,
+                0,
+            ),
+            noch_text,
+            font=noch_font,
+        )
+
+        noch_height = (
+            noch_bbox[3]
+            - noch_bbox[1]
+        )
+
+    else:
+
+        noch_bbox = (
+            0,
+            0,
+            0,
+            0,
+        )
+
+        noch_height = 0
+
+    divider_height = 8
+
+    if noch_text:
+
+        group_height = (
+            global_height
+            + GLOBAL_TITLE_LINE_GAP
+            + launch_height
+            + GLOBAL_GAP_TITLE_DIVIDER
+            + divider_height
+            + GLOBAL_GAP_DIVIDER_DATE
+            + date_height
+            + GAP_DATE_NOCH
+            + noch_height
+            + GAP_NOCH_DAYS
+            + days_height
+        )
+
+    else:
+
+        group_height = (
+            global_height
+            + GLOBAL_TITLE_LINE_GAP
+            + launch_height
+            + GLOBAL_GAP_TITLE_DIVIDER
+            + divider_height
+            + GLOBAL_GAP_DIVIDER_DATE
+            + date_height
+            + GAP_DATE_NOCH
+            + days_height
+        )
+
+    visible_top = (
+        (
+            FULL_HEIGHT
+            - group_height
+        )
+        / 2
+        + GLOBAL_GROUP_Y_OFFSET
+    )
+
+    # --------------------------------------------------------
+    # GLOBAL
+    # --------------------------------------------------------
+
+    global_y = (
+        visible_top
+        - global_bbox[1]
+    )
+
+    # --------------------------------------------------------
+    # LAUNCH
+    # --------------------------------------------------------
+
+    launch_visible_top = (
+        visible_top
+        + global_height
+        + GLOBAL_TITLE_LINE_GAP
+    )
+
+    launch_y = (
+        launch_visible_top
+        - launch_bbox[1]
+    )
+
+    # --------------------------------------------------------
+    # DIVIDER
+    # --------------------------------------------------------
+
+    divider_y = (
+        launch_visible_top
+        + launch_height
+        + GLOBAL_GAP_TITLE_DIVIDER
+        + divider_height / 2
+    )
+
+    # --------------------------------------------------------
+    # DATE
+    # --------------------------------------------------------
+
+    date_visible_top = (
+        divider_y
+        + divider_height / 2
+        + GLOBAL_GAP_DIVIDER_DATE
+    )
+
+    date_y = (
+        date_visible_top
+        - date_bbox[1]
+    )
+
+    # --------------------------------------------------------
+    # NOCH / TAGE
+    # --------------------------------------------------------
+
+    if noch_text:
+
+        noch_visible_top = (
+            date_visible_top
+            + date_height
+            + GAP_DATE_NOCH
+        )
+
+        noch_y = (
+            noch_visible_top
+            - noch_bbox[1]
+        )
+
+        days_visible_top = (
+            noch_visible_top
+            + noch_height
+            + GAP_NOCH_DAYS
+        )
+
+    else:
+
+        days_visible_top = (
+            date_visible_top
+            + date_height
+            + GAP_DATE_NOCH
+        )
+
+    days_y = (
+        days_visible_top
+        - days_bbox[1]
+    )
+
+    # --------------------------------------------------------
+    # TITEL ZEICHNEN
+    # --------------------------------------------------------
+
+    image = draw_global_title_line(
+        image,
+        "GLOBAL",
+        title_font,
+        CARD_WIDTH / 2,
+        global_y,
+        GLOBAL_TITLE_SPACING,
+    )
+
+    image = draw_global_title_line(
+        image,
+        "LAUNCH",
+        title_font,
+        CARD_WIDTH / 2,
+        launch_y,
+        GLOBAL_TITLE_SPACING,
+    )
+
+    # --------------------------------------------------------
+    # ZIERLINIE
+    # --------------------------------------------------------
+
+    image = draw_global_divider(
+        image,
+        divider_y,
+    )
+
+    # --------------------------------------------------------
+    # DATUM
+    # --------------------------------------------------------
+
+    image = draw_soft_centered_text(
+        image,
+        date_text,
+        date_y,
+        date_font,
+        GLOBAL_TEXT,
+        (
+            255,
+            255,
+            255,
+            135,
+        ),
+        shadow_blur=1.7,
+        shadow_offset=1,
+    )
+
+    # --------------------------------------------------------
+    # NOCH
+    # --------------------------------------------------------
+
+    if noch_text:
+
+        image = draw_centered_spaced_text(
+            image,
+            noch_text,
+            noch_y,
+            noch_font,
+            GLOBAL_MUTED,
+            5,
+        )
+
+    # --------------------------------------------------------
+    # COUNTDOWN
+    # --------------------------------------------------------
+
+    image = draw_soft_centered_text(
+        image,
+        days_text,
+        days_y,
+        days_font,
+        GLOBAL_TEXT,
+        (
+            255,
+            255,
+            255,
+            140,
+        ),
+        shadow_blur=1.8,
+        shadow_offset=1,
+    )
+
+    return image.convert(
+        "RGB"
+    )
+
+
+# ============================================================
+# VOLLE KARTE
+# ============================================================
+
+def create_full_card(
+    milestone
+):
+
+    if milestone["key"] == "global_launch":
+
+        return create_global_launch_full_card(
+            milestone
+        )
+
+    return create_early_access_full_card(
+        milestone
+    )
+
+
+# ============================================================
+# KOMPAKTE KARTE
+#
+# Nach Start:
+#
+# GLOBAL LAUNCH
+# 5. OKTOBER 2026 · GESTARTET
+#
+# bzw.
+#
+# EARLY ACCESS
+# 30. SEPTEMBER 2026 · GESTARTET
+# ============================================================
+
+def create_compact_card(
+    milestone
+):
 
     master = load_background(
         milestone["background"]
@@ -1682,10 +1937,20 @@ def create_compact_card(milestone):
         milestone["key"],
     )
 
-    title_font = load_font(
-        COMPACT_TITLE_SIZE,
-        bold=True,
-    )
+    if milestone["key"] == "global_launch":
+
+        title_font = load_font(
+            COMPACT_TITLE_SIZE,
+            bold=False,
+            serif=True,
+        )
+
+    else:
+
+        title_font = load_font(
+            COMPACT_TITLE_SIZE,
+            bold=True,
+        )
 
     status_font = load_font(
         COMPACT_STATUS_SIZE,
@@ -1763,7 +2028,41 @@ def create_compact_card(milestone):
         - status_bbox[1]
     )
 
-    if milestone["key"] == "early_access":
+    # --------------------------------------------------------
+    # GLOBAL COMPACT
+    # --------------------------------------------------------
+
+    if milestone["key"] == "global_launch":
+
+        image = draw_global_title_line(
+            image,
+            title_text,
+            title_font,
+            CARD_WIDTH / 2,
+            title_y,
+            COMPACT_TITLE_SPACING,
+        )
+
+        image = draw_soft_centered_text(
+            image,
+            status_text,
+            status_y,
+            status_font,
+            GLOBAL_TEXT,
+            (
+                255,
+                255,
+                255,
+                125,
+            ),
+            shadow_blur=1.6,
+        )
+
+    # --------------------------------------------------------
+    # EARLY COMPACT
+    # --------------------------------------------------------
+
+    else:
 
         image = draw_gold_title(
             image,
@@ -1774,32 +2073,20 @@ def create_compact_card(milestone):
             COMPACT_TITLE_SPACING,
         )
 
-        status_fill = EARLY_TEXT
-
-    else:
-
-        image = draw_platinum_title(
+        image = draw_soft_centered_text(
             image,
-            title_text,
-            title_font,
-            CARD_WIDTH / 2,
-            title_y,
-            COMPACT_TITLE_SPACING,
+            status_text,
+            status_y,
+            status_font,
+            EARLY_TEXT,
+            (
+                0,
+                0,
+                0,
+                130,
+            ),
+            shadow_blur=3.0,
         )
-
-        status_fill = GLOBAL_TEXT
-
-    draw = ImageDraw.Draw(
-        image
-    )
-
-    draw_centered_text(
-        draw,
-        status_text,
-        status_y,
-        status_font,
-        status_fill,
-    )
 
     return image.convert(
         "RGB"
@@ -1810,8 +2097,12 @@ def create_compact_card(milestone):
 # MILESTONE RENDERN
 # ============================================================
 
-def render_milestone(milestone):
+def render_milestone(
+    milestone
+):
 
+    # Vor Start + am Starttag:
+    # große Karte
     if milestone["state"] in (
         "countdown",
         "today",
@@ -1821,6 +2112,8 @@ def render_milestone(milestone):
             milestone
         )
 
+    # Nach Start:
+    # kompakte Karte
     return create_compact_card(
         milestone
     )
@@ -1830,7 +2123,9 @@ def render_milestone(milestone):
 # SPEICHERN
 # ============================================================
 
-def save_milestone_card(milestone):
+def save_milestone_card(
+    milestone
+):
 
     image = render_milestone(
         milestone
@@ -1874,13 +2169,10 @@ def save_milestone_card(milestone):
 #
 # TESTPHASE:
 #
-# Jede Karte wird als EIGENE Discord-Nachricht gesendet.
-# Dadurch stehen Early Access und Global Launch untereinander.
+# Beide Karten werden jeweils als eigene Nachricht gepostet.
+# So stehen sie sauber untereinander.
 #
-# Alte Testnachrichten werden derzeit manuell gelöscht.
-#
-# Sobald das Design fertig ist, stellen wir wieder auf feste
-# Message-IDs für den Cron-Betrieb um.
+# Alte Testnachrichten löschen wir derzeit manuell.
 # ============================================================
 
 def webhook_wait_url():
@@ -2024,7 +2316,9 @@ def send_content_to_discord(
 # STATUSAUSGABE
 # ============================================================
 
-def print_status(content_state):
+def print_status(
+    content_state
+):
 
     print("")
     print(
