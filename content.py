@@ -29,7 +29,6 @@ GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 # ============================================================
 
 CARD_WIDTH = 1200
-
 FULL_HEIGHT = 535
 COMPACT_HEIGHT = 270
 
@@ -47,66 +46,73 @@ GAP_NOCH_DAYS = 7
 
 
 # ============================================================
-# GLOBAL – TYPOGRAFIE
+# EARLY ACCESS
+#
+# Bleibt aktuell unverändert.
 # ============================================================
+
+EARLY_TITLE_SIZE = 68
+EARLY_TITLE_SPACING = 3
+EARLY_GAP_TITLE_DATE = 18
+
+
+# ============================================================
+# GLOBAL LAUNCH
+#
+# Keine automatische vertikale Gesamtberechnung mehr.
+# Alle sichtbaren Bereiche haben feste Y-Anker.
+# ============================================================
+
+GLOBAL_TITLE_SIZE = 96
+
+# Kräftige Serifenschrift statt dünner Regular Serif.
+GLOBAL_TITLE_BOLD = True
+
+# Nicht mehr extrem auseinanderziehen.
+# Beide Zeilen werden auf dieselbe Zielbreite gebracht.
+GLOBAL_TITLE_TARGET_WIDTH = 470
+
+
+# ------------------------------------------------------------
+# FESTE VERTIKALE POSITIONEN
+# ------------------------------------------------------------
+
+# Sichtbare Oberkante GLOBAL
+GLOBAL_GLOBAL_TOP = 35
+
+# Sichtbare Oberkante LAUNCH
+GLOBAL_LAUNCH_TOP = 120
+
+# Haupttrenner
+GLOBAL_DIVIDER_Y = 218
+
+# Sichtbare Oberkante Datum
+GLOBAL_DATE_TOP = 250
+
+# Sichtbare Oberkante NOCH
+GLOBAL_NOCH_TOP = 382
+
+# Sichtbare Oberkante Countdown
+GLOBAL_DAYS_TOP = 408
+
+
+# ------------------------------------------------------------
+# GLOBAL – DATUM / COUNTDOWN
+# ------------------------------------------------------------
 
 GLOBAL_DATE_SIZE = 32
 GLOBAL_NOCH_SIZE = 16
 GLOBAL_COUNTDOWN_SIZE = 46
 
 
-# ============================================================
-# EARLY ACCESS – TITEL
-# ============================================================
-
-EARLY_TITLE_SIZE = 68
-EARLY_TITLE_SPACING = 3
-
-EARLY_GAP_TITLE_DATE = 18
-
-
-# ============================================================
-# GLOBAL LAUNCH – GROSSE KARTE
-# ============================================================
-
-GLOBAL_TITLE_SIZE = 90
-
-# GLOBAL und LAUNCH bekommen dieselbe sichtbare Zielbreite.
-GLOBAL_TITLE_TARGET_WIDTH = 515
-
-# Sichtbare Oberkante des Titels.
-GLOBAL_TITLE_TOP = 52
-
-GLOBAL_TITLE_LINE_GAP = 9
-
-
 # ------------------------------------------------------------
-# HAUPTTRENNER
+# GLOBAL – HAUPTTRENNER
 # ------------------------------------------------------------
-
-GLOBAL_GAP_TITLE_DIVIDER = 22
 
 GLOBAL_DIVIDER_WIDTH = 350
 GLOBAL_DIVIDER_CENTER_GAP = 15
 GLOBAL_DIVIDER_THICKNESS = 2
 GLOBAL_DIVIDER_DIAMOND = 5
-
-
-# ------------------------------------------------------------
-# TRENNER -> DATUM
-# ------------------------------------------------------------
-
-GLOBAL_GAP_DIVIDER_DATE = 34
-
-
-# ------------------------------------------------------------
-# DATUM -> COUNTDOWN
-#
-# Kein zweiter Trenner mehr.
-# ------------------------------------------------------------
-
-GLOBAL_GAP_DATE_NOCH = 48
-GLOBAL_GAP_NOCH_DAYS = 8
 
 
 # ============================================================
@@ -149,9 +155,9 @@ EARLY_MUTED = (
 )
 
 GLOBAL_DARK = (
-    35,
-    55,
-    83,
+    32,
+    50,
+    76,
     255,
 )
 
@@ -173,7 +179,7 @@ GLOBAL_LINE = (
     45,
     66,
     98,
-    210,
+    215,
 )
 
 
@@ -606,13 +612,16 @@ def spacing_for_target_width(
             font=font,
         )
 
+    spacing = (
+        target_width
+        - glyph_width
+    ) / (
+        len(text) - 1
+    )
+
     return max(
         0,
-        (
-            target_width
-            - glyph_width
-        )
-        / (len(text) - 1),
+        spacing,
     )
 
 
@@ -1085,6 +1094,9 @@ def draw_gold_title(
 
 # ============================================================
 # GLOBAL – TITEL
+#
+# Kräftige Serifenschrift.
+# Kein künstlicher Doppelpass mehr nötig.
 # ============================================================
 
 def draw_global_title_line(
@@ -1094,7 +1106,6 @@ def draw_global_title_line(
     center_x,
     y,
     spacing,
-    strengthen=False,
 ):
 
     width, height = image.size
@@ -1115,6 +1126,9 @@ def draw_global_title_line(
         - text_width / 2
     )
 
+    # Nur ein sehr leichter heller Schatten,
+    # damit die dunkle Schrift auf der hellen Mitte
+    # sauber bleibt.
     shadow = Image.new(
         "RGBA",
         (
@@ -1143,14 +1157,14 @@ def draw_global_title_line(
             255,
             255,
             255,
-            125,
+            105,
         ),
         spacing,
     )
 
     shadow = shadow.filter(
         ImageFilter.GaussianBlur(
-            1.4
+            1.3
         )
     )
 
@@ -1162,23 +1176,6 @@ def draw_global_title_line(
     draw = ImageDraw.Draw(
         image
     )
-
-    if strengthen:
-
-        draw_spaced_text(
-            draw,
-            x + 1,
-            y,
-            text,
-            font,
-            (
-                32,
-                50,
-                77,
-                185,
-            ),
-            spacing,
-        )
 
     draw_spaced_text(
         draw,
@@ -1273,7 +1270,7 @@ def draw_global_divider(
             40,
             61,
             92,
-            230,
+            235,
         ),
     )
 
@@ -1545,6 +1542,20 @@ def create_early_access_full_card(
 
 # ============================================================
 # GLOBAL LAUNCH – VOLLE KARTE
+#
+# FESTE POSITIONEN:
+#
+# GLOBAL
+# LAUNCH
+#
+# ------- ◆ -------
+#
+# 5. OKTOBER 2026
+#
+#
+#
+# NOCH
+# 36 TAGE
 # ============================================================
 
 def create_global_launch_full_card(
@@ -1557,7 +1568,7 @@ def create_global_launch_full_card(
 
     title_font = load_font(
         GLOBAL_TITLE_SIZE,
-        bold=False,
+        bold=GLOBAL_TITLE_BOLD,
         serif=True,
     )
 
@@ -1602,6 +1613,11 @@ def create_global_launch_full_card(
         image
     )
 
+
+    # ========================================================
+    # TITEL BOUNDING BOXES
+    # ========================================================
+
     global_bbox = probe.textbbox(
         (
             0,
@@ -1620,70 +1636,13 @@ def create_global_launch_full_card(
         font=title_font,
     )
 
-    date_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        date_text,
-        font=date_font,
-    )
 
-    days_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        days_text,
-        font=days_font,
-    )
-
-    global_height = (
-        global_bbox[3]
-        - global_bbox[1]
-    )
-
-    launch_height = (
-        launch_bbox[3]
-        - launch_bbox[1]
-    )
-
-    date_height = (
-        date_bbox[3]
-        - date_bbox[1]
-    )
-
-    if noch_text:
-
-        noch_bbox = probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            noch_text,
-            font=noch_font,
-        )
-
-        noch_height = (
-            noch_bbox[3]
-            - noch_bbox[1]
-        )
-
-    else:
-
-        noch_bbox = (
-            0,
-            0,
-            0,
-            0,
-        )
-
-        noch_height = 0
-
-
-    # --------------------------------------------------------
-    # GLOBAL / LAUNCH – IDENTISCHE BREITE
-    # --------------------------------------------------------
+    # ========================================================
+    # TITELBREITEN
+    #
+    # GLOBAL und LAUNCH werden optisch gleich breit.
+    # Keine extremen Buchstabenabstände mehr.
+    # ========================================================
 
     global_spacing = spacing_for_target_width(
         probe,
@@ -1700,104 +1659,90 @@ def create_global_launch_full_card(
     )
 
 
-    # --------------------------------------------------------
-    # GLOBAL
-    # --------------------------------------------------------
-
-    global_visible_top = (
-        GLOBAL_TITLE_TOP
-    )
+    # ========================================================
+    # FESTE SICHTBARE Y-POSITIONEN
+    #
+    # PIL zeichnet Text nicht ab sichtbarer Oberkante,
+    # deshalb wird bbox[1] abgezogen.
+    # ========================================================
 
     global_y = (
-        global_visible_top
+        GLOBAL_GLOBAL_TOP
         - global_bbox[1]
     )
 
-
-    # --------------------------------------------------------
-    # LAUNCH
-    # --------------------------------------------------------
-
-    launch_visible_top = (
-        global_visible_top
-        + global_height
-        + GLOBAL_TITLE_LINE_GAP
-    )
-
     launch_y = (
-        launch_visible_top
+        GLOBAL_LAUNCH_TOP
         - launch_bbox[1]
     )
 
 
-    # --------------------------------------------------------
-    # HAUPTTRENNER
-    # --------------------------------------------------------
-
-    divider_y = (
-        launch_visible_top
-        + launch_height
-        + GLOBAL_GAP_TITLE_DIVIDER
-    )
-
-
-    # --------------------------------------------------------
+    # ========================================================
     # DATUM
-    # --------------------------------------------------------
+    # ========================================================
 
-    date_visible_top = (
-        divider_y
-        + GLOBAL_GAP_DIVIDER_DATE
+    date_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        date_text,
+        font=date_font,
     )
 
     date_y = (
-        date_visible_top
+        GLOBAL_DATE_TOP
         - date_bbox[1]
     )
 
 
-    # --------------------------------------------------------
-    # NOCH / TAGE
-    #
-    # Kein zweiter Trenner.
-    # --------------------------------------------------------
+    # ========================================================
+    # NOCH
+    # ========================================================
 
     if noch_text:
 
-        noch_visible_top = (
-            date_visible_top
-            + date_height
-            + GLOBAL_GAP_DATE_NOCH
+        noch_bbox = probe.textbbox(
+            (
+                0,
+                0,
+            ),
+            noch_text,
+            font=noch_font,
         )
 
         noch_y = (
-            noch_visible_top
+            GLOBAL_NOCH_TOP
             - noch_bbox[1]
-        )
-
-        days_visible_top = (
-            noch_visible_top
-            + noch_height
-            + GLOBAL_GAP_NOCH_DAYS
         )
 
     else:
 
-        days_visible_top = (
-            date_visible_top
-            + date_height
-            + GLOBAL_GAP_DATE_NOCH
-        )
+        noch_y = 0
+
+
+    # ========================================================
+    # TAGE / HEUTE
+    # ========================================================
+
+    days_bbox = probe.textbbox(
+        (
+            0,
+            0,
+        ),
+        days_text,
+        font=days_font,
+    )
 
     days_y = (
-        days_visible_top
+        GLOBAL_DAYS_TOP
         - days_bbox[1]
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # GLOBAL
-    # --------------------------------------------------------
+    # ========================================================
 
     image = draw_global_title_line(
         image,
@@ -1806,13 +1751,12 @@ def create_global_launch_full_card(
         CARD_WIDTH / 2,
         global_y,
         global_spacing,
-        strengthen=True,
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # LAUNCH
-    # --------------------------------------------------------
+    # ========================================================
 
     image = draw_global_title_line(
         image,
@@ -1821,23 +1765,22 @@ def create_global_launch_full_card(
         CARD_WIDTH / 2,
         launch_y,
         launch_spacing,
-        strengthen=True,
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # HAUPTTRENNER
-    # --------------------------------------------------------
+    # ========================================================
 
     image = draw_global_divider(
         image,
-        divider_y,
+        GLOBAL_DIVIDER_Y,
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # DATUM
-    # --------------------------------------------------------
+    # ========================================================
 
     image = draw_soft_centered_text(
         image,
@@ -1856,9 +1799,9 @@ def create_global_launch_full_card(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # NOCH
-    # --------------------------------------------------------
+    # ========================================================
 
     if noch_text:
 
@@ -1872,9 +1815,9 @@ def create_global_launch_full_card(
         )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # COUNTDOWN
-    # --------------------------------------------------------
+    # ========================================================
 
     image = draw_soft_centered_text(
         image,
@@ -2153,7 +2096,7 @@ def save_milestone_card(
 # DISCORD
 #
 # TESTPHASE:
-# Beide Karten werden als getrennte Nachrichten gesendet.
+# Beide Karten als getrennte Nachrichten.
 # ============================================================
 
 def webhook_wait_url():
