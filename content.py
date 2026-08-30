@@ -35,33 +35,67 @@ COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# EARLY ACCESS
+# GEMEINSAME GOLDKANTE
 #
-# Gleiche Grundarchitektur wie Global:
-#
-# TITEL
-# TRENNER
-# DATUM
-#
-# NOCH
-# XX TAGE
-#
-# Early bleibt bewusst EINZEILIG und ruhiger als Global.
+# Diese Farbe verbindet Early Access und Global Launch.
+# Sie soll im Discord sichtbar bleiben, ohne gelb zu knallen.
 # ============================================================
 
-EARLY_TITLE_SIZE = 76
+SERIES_GOLD_OUTLINE = (
+    225,
+    198,
+    143,
+    215,
+)
+
+SERIES_GOLD_LIGHT = (
+    244,
+    226,
+    187,
+    240,
+)
+
+SERIES_GOLD_DARK = (
+    124,
+    92,
+    51,
+    245,
+)
+
+
+# ============================================================
+# EARLY ACCESS
+#
+# Einzeilig, aber nun auf derselben gestalterischen Ebene
+# wie Global Launch.
+# ============================================================
+
+EARLY_TITLE_SIZE = 90
 EARLY_TITLE_BOLD = True
-EARLY_TITLE_TARGET_WIDTH = 560
 
-EARLY_TITLE_TOP = 105
+# Breiter und präsenter als bisher
+EARLY_TITLE_TARGET_WIDTH = 640
 
-EARLY_DIVIDER_Y = 205
+
+# ------------------------------------------------------------
+# FESTE POSITIONEN EARLY
+# ------------------------------------------------------------
+
+EARLY_TITLE_TOP = 92
+
+EARLY_DIVIDER_Y = 203
+
 EARLY_DATE_TOP = 237
 
-EARLY_NOCH_TOP = 365
-EARLY_DAYS_TOP = 392
+EARLY_NOCH_TOP = 371
+EARLY_DAYS_TOP = 399
 
-EARLY_DATE_SIZE = 30
+
+# ------------------------------------------------------------
+# TYPOGRAFIE EARLY
+# ------------------------------------------------------------
+
+EARLY_DATE_SIZE = 32
 EARLY_NOCH_SIZE = 16
 EARLY_COUNTDOWN_SIZE = 46
 
@@ -79,125 +113,115 @@ EARLY_DIVIDER_DIAMOND_INNER = 4
 
 
 # ============================================================
-# EARLY – CHAMPAGNER / PLATIN-GOLD
+# EARLY – TITELLOOK
 #
-# Bewusst weniger satt und gelb als bisher.
+# Platin / Elfenbein innen
+# Champagner-Gold außen
+# Dunkler Schatten für Tiefe
 # ============================================================
 
 EARLY_TITLE_SHADOW_OFFSET_X = 2
 EARLY_TITLE_SHADOW_OFFSET_Y = 4
-EARLY_TITLE_SHADOW_BLUR = 3.0
+EARLY_TITLE_SHADOW_BLUR = 3.2
 
 EARLY_TITLE_SHADOW = (
     4,
     8,
     13,
-    185,
+    195,
 )
 
-EARLY_TITLE_GLOW_BLUR = 3.0
+EARLY_TITLE_GLOW_BLUR = 3.2
 
 EARLY_TITLE_GLOW = (
-    244,
-    229,
-    194,
-    38,
+    250,
+    235,
+    202,
+    40,
 )
 
-EARLY_TITLE_OUTLINE = (
-    250,
-    242,
-    220,
-    145,
-)
+# Gleiche Goldkante wie Global
+EARLY_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
+
+
+# ------------------------------------------------------------
+# PLATIN-/ELFENBEIN-VERLAUF
+# ------------------------------------------------------------
 
 EARLY_TITLE_TOP_COLOR = (
-    239,
-    225,
-    190,
+    249,
+    247,
+    238,
     255,
 )
 
 EARLY_TITLE_UPPER_COLOR = (
-    218,
-    196,
-    151,
+    232,
+    229,
+    216,
     255,
 )
 
 EARLY_TITLE_MID_COLOR = (
-    188,
-    160,
-    108,
+    204,
+    200,
+    185,
     255,
 )
 
 EARLY_TITLE_BOTTOM_COLOR = (
+    161,
+    154,
     137,
-    108,
-    68,
     255,
 )
 
 EARLY_TITLE_SHINE = (
     255,
-    248,
-    227,
-    90,
+    252,
+    241,
+    105,
 )
 
 EARLY_TITLE_EDGE_DARK = (
-    70,
-    51,
-    30,
-    155,
+    71,
+    65,
+    54,
+    165,
 )
 
 
-# ============================================================
-# EARLY – TEXTFARBEN
-# ============================================================
+# ------------------------------------------------------------
+# EARLY TEXT
+# ------------------------------------------------------------
 
 EARLY_TEXT = (
     226,
-    229,
-    226,
+    230,
+    231,
     255,
 )
 
 EARLY_MUTED = (
-    170,
-    178,
-    180,
+    168,
+    179,
+    183,
     255,
 )
 
 EARLY_LINE = (
-    175,
-    164,
-    139,
-    215,
+    183,
+    160,
+    118,
+    220,
 )
 
-EARLY_ORNAMENT_LIGHT = (
-    244,
-    232,
-    201,
-    235,
-)
-
-EARLY_ORNAMENT_DARK = (
-    112,
-    94,
-    66,
-    245,
-)
+EARLY_ORNAMENT_LIGHT = SERIES_GOLD_LIGHT
+EARLY_ORNAMENT_DARK = SERIES_GOLD_DARK
 
 
 # ============================================================
 # GLOBAL LAUNCH
-#
-# AKTUELLEN STAND NICHT VERÄNDERN.
 # ============================================================
 
 GLOBAL_TITLE_SIZE = 96
@@ -206,7 +230,7 @@ GLOBAL_TITLE_TARGET_WIDTH = 470
 
 
 # ------------------------------------------------------------
-# FESTE VERTIKALE POSITIONEN
+# FESTE POSITIONEN GLOBAL
 # ------------------------------------------------------------
 
 GLOBAL_GLOBAL_TOP = 52
@@ -234,7 +258,6 @@ GLOBAL_COUNTDOWN_SIZE = 46
 
 GLOBAL_DIVIDER_WIDTH = 305
 GLOBAL_DIVIDER_CENTER_GAP = 25
-
 GLOBAL_DIVIDER_THICKNESS = 2
 
 GLOBAL_DIVIDER_DIAMOND_OUTER = 8
@@ -242,7 +265,10 @@ GLOBAL_DIVIDER_DIAMOND_INNER = 4
 
 
 # ============================================================
-# GLOBAL – TITELTIEFE
+# GLOBAL – TITELLOOK
+#
+# Navy / Blaugrau innen
+# Champagner-Gold außen
 # ============================================================
 
 GLOBAL_TITLE_SHADOW_OFFSET_X = 2
@@ -262,8 +288,17 @@ GLOBAL_TITLE_GLOW = (
     212,
     229,
     248,
-    42,
+    38,
 )
+
+# NEU:
+# Goldkante statt weißer Kontur
+GLOBAL_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
+
+
+# ------------------------------------------------------------
+# NAVY-/BLAUGRAU-VERLAUF
+# ------------------------------------------------------------
 
 GLOBAL_TITLE_TOP_COLOR = (
     84,
@@ -293,13 +328,6 @@ GLOBAL_TITLE_BOTTOM_COLOR = (
     255,
 )
 
-GLOBAL_TITLE_OUTLINE = (
-    236,
-    246,
-    255,
-    155,
-)
-
 GLOBAL_TITLE_SHINE = (
     226,
     239,
@@ -315,16 +343,9 @@ GLOBAL_TITLE_EDGE_DARK = (
 )
 
 
-# ============================================================
-# GLOBAL – TEXTFARBEN
-# ============================================================
-
-GLOBAL_DARK = (
-    32,
-    50,
-    76,
-    255,
-)
+# ------------------------------------------------------------
+# GLOBAL TEXT
+# ------------------------------------------------------------
 
 GLOBAL_TEXT = (
     42,
@@ -347,19 +368,8 @@ GLOBAL_LINE = (
     220,
 )
 
-GLOBAL_ORNAMENT_LIGHT = (
-    229,
-    240,
-    251,
-    235,
-)
-
-GLOBAL_ORNAMENT_DARK = (
-    31,
-    53,
-    84,
-    245,
-)
+GLOBAL_ORNAMENT_LIGHT = SERIES_GOLD_LIGHT
+GLOBAL_ORNAMENT_DARK = SERIES_GOLD_DARK
 
 
 # ============================================================
@@ -893,7 +903,7 @@ def centered_text_x(
 
 
 # ============================================================
-# WEICHER TEXTSCHATTEN
+# WEICHER ZENTRIERTER TEXT
 # ============================================================
 
 def draw_soft_centered_text(
@@ -1023,7 +1033,7 @@ def draw_centered_spaced_text(
 
 
 # ============================================================
-# ALLGEMEINE TITELMASKE
+# TITELMASKE
 # ============================================================
 
 def create_title_mask(
@@ -1076,7 +1086,7 @@ def create_title_mask(
 
 
 # ============================================================
-# FARBE MISCHEN
+# FARBEN MISCHEN
 # ============================================================
 
 def mix_rgba(
@@ -1099,7 +1109,7 @@ def mix_rgba(
 
 
 # ============================================================
-# GENERISCHER TITEL-EFFEKT
+# GENERISCHER PREMIUM-TITELEFFEKT
 # ============================================================
 
 def draw_gradient_title(
@@ -1150,9 +1160,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # SCHATTEN
-    # --------------------------------------------------------
+    # ========================================================
 
     shadow_mask = Image.new(
         "L",
@@ -1210,9 +1220,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
-    # GLOW
-    # --------------------------------------------------------
+    # ========================================================
+    # LEICHTER GLOW
+    # ========================================================
 
     glow_mask = mask.filter(
         ImageFilter.GaussianBlur(
@@ -1253,9 +1263,11 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
-    # FEINE KONTUR
-    # --------------------------------------------------------
+    # ========================================================
+    # CHAMPAGNER-GOLD-KONTUR
+    #
+    # 1 Pixel außen um den Titel.
+    # ========================================================
 
     expanded_mask = mask.filter(
         ImageFilter.MaxFilter(
@@ -1301,9 +1313,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
-    # VERLAUF
-    # --------------------------------------------------------
+    # ========================================================
+    # INNERER VERLAUF
+    # ========================================================
 
     gradient = Image.new(
         "RGBA",
@@ -1404,9 +1416,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # DUNKLE UNTERKANTE
-    # --------------------------------------------------------
+    # ========================================================
 
     lower_shift = Image.new(
         "L",
@@ -1463,9 +1475,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # LICHTREFLEX
-    # --------------------------------------------------------
+    # ========================================================
 
     shine_mask = Image.new(
         "L",
@@ -1712,11 +1724,7 @@ def draw_divider(
     )
 
     center_x = width / 2
-
-    half_width = (
-        divider_width
-        / 2
-    )
+    half_width = divider_width / 2
 
 
     # --------------------------------------------------------
@@ -1974,7 +1982,7 @@ def create_early_access_full_card(
 
 
     # ========================================================
-    # TITEL
+    # TITLE
     # ========================================================
 
     title_bbox = probe.textbbox(
@@ -2044,7 +2052,7 @@ def create_early_access_full_card(
 
 
     # ========================================================
-    # COUNTDOWN
+    # TAGE
     # ========================================================
 
     days_bbox = probe.textbbox(
@@ -2100,9 +2108,9 @@ def create_early_access_full_card(
             0,
             0,
             0,
-            145,
+            155,
         ),
-        shadow_blur=2.4,
+        shadow_blur=2.5,
         shadow_offset=1,
     )
 
@@ -2137,7 +2145,7 @@ def create_early_access_full_card(
             0,
             0,
             0,
-            155,
+            170,
         ),
         shadow_blur=3.0,
         shadow_offset=1,
@@ -2300,7 +2308,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # COUNTDOWN
+    # TAGE
     # ========================================================
 
     days_bbox = probe.textbbox(
@@ -2546,6 +2554,10 @@ def create_compact_card(
     )
 
 
+    # ========================================================
+    # GLOBAL COMPACT
+    # ========================================================
+
     if milestone["key"] == "global_launch":
 
         draw = ImageDraw.Draw(
@@ -2570,7 +2582,7 @@ def create_compact_card(
             title_y,
             title_text,
             title_font,
-            GLOBAL_DARK,
+            GLOBAL_TEXT,
             COMPACT_TITLE_SPACING,
         )
 
@@ -2589,13 +2601,18 @@ def create_compact_card(
             shadow_blur=1.6,
         )
 
+
+    # ========================================================
+    # EARLY COMPACT
+    # ========================================================
+
     else:
 
         title_spacing = spacing_for_target_width(
             probe,
             title_text,
             title_font,
-            430,
+            440,
         )
 
         image = draw_early_title(
@@ -2617,9 +2634,9 @@ def create_compact_card(
                 0,
                 0,
                 0,
-                130,
+                140,
             ),
-            shadow_blur=3.0,
+            shadow_blur=2.5,
         )
 
     return image.convert(
