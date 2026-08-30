@@ -105,7 +105,7 @@ EARLY_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
 
 
 # ------------------------------------------------------------
-# EARLY – PLATIN-/CHAMPAGNER-VERLAUF
+# EARLY – PLATIN-/ELFENBEIN-VERLAUF
 # ------------------------------------------------------------
 
 EARLY_TITLE_TOP_COLOR = (
@@ -154,43 +154,44 @@ EARLY_TITLE_EDGE_DARK = (
 # ============================================================
 # EARLY – UNTERE TEXTFARBEN
 #
-# Nicht mehr Weiß.
-# Alles greift die warme Titelfamilie auf.
+# Jetzt bewusst helles Platin/Elfenbein,
+# passend zum oberen Bereich des Titels.
 # ============================================================
 
 EARLY_DATE_TEXT = (
-    223,
-    211,
-    184,
+    242,
+    239,
+    226,
     255,
 )
 
 EARLY_COUNTDOWN_TEXT = (
-    230,
-    218,
-    191,
+    246,
+    243,
+    232,
     255,
 )
 
 EARLY_NOCH_TEXT = (
-    196,
-    181,
-    151,
-    255,
+    222,
+    220,
+    210,
+    235,
 )
 
 
 # ============================================================
 # EARLY – TRENNER
 #
-# Linie und Raute gehören farblich zusammen.
+# Linie + sehr flache Raute in derselben Farbe.
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 305
-EARLY_DIVIDER_CENTER_GAP = 22
+EARLY_DIVIDER_CENTER_GAP = 17
 EARLY_DIVIDER_THICKNESS = 2
 
-EARLY_DIVIDER_DIAMOND_SIZE = 8
+EARLY_DIVIDER_DIAMOND_HALF_WIDTH = 7
+EARLY_DIVIDER_DIAMOND_HALF_HEIGHT = 3
 
 EARLY_LINE = (
     184,
@@ -199,26 +200,11 @@ EARLY_LINE = (
     220,
 )
 
-EARLY_DIAMOND_OUTLINE = (
-    191,
-    159,
-    108,
-    235,
-)
-
-# Gleiche Farbfamilie, aber transparent.
 EARLY_DIAMOND_FILL = (
-    191,
-    159,
-    108,
-    68,
-)
-
-EARLY_DIAMOND_CENTER = (
-    225,
-    202,
-    158,
-    180,
+    184,
+    154,
+    105,
+    85,
 )
 
 
@@ -350,14 +336,15 @@ GLOBAL_MUTED = (
 # ============================================================
 # GLOBAL – TRENNER
 #
-# Linie und Raute greifen das Global-Blau auf.
+# Linie + flache Raute in exakt derselben blauen Farbfamilie.
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 305
-GLOBAL_DIVIDER_CENTER_GAP = 22
+GLOBAL_DIVIDER_CENTER_GAP = 17
 GLOBAL_DIVIDER_THICKNESS = 2
 
-GLOBAL_DIVIDER_DIAMOND_SIZE = 8
+GLOBAL_DIVIDER_DIAMOND_HALF_WIDTH = 7
+GLOBAL_DIVIDER_DIAMOND_HALF_HEIGHT = 3
 
 GLOBAL_LINE = (
     45,
@@ -366,25 +353,11 @@ GLOBAL_LINE = (
     220,
 )
 
-GLOBAL_DIAMOND_OUTLINE = (
-    45,
-    67,
-    99,
-    235,
-)
-
 GLOBAL_DIAMOND_FILL = (
     45,
     67,
     99,
-    62,
-)
-
-GLOBAL_DIAMOND_CENTER = (
-    95,
-    118,
-    150,
-    175,
+    80,
 )
 
 
@@ -1733,10 +1706,7 @@ def draw_global_title_line(
 
 
 # ============================================================
-# TRENNER
-#
-# Außenkontur und Füllung gehören jeweils zur Karte.
-# Die Füllung ist bewusst sehr transparent.
+# TRENNER MIT FLACHER RAUTE
 # ============================================================
 
 def draw_divider(
@@ -1745,11 +1715,10 @@ def draw_divider(
     divider_width,
     center_gap,
     thickness,
-    diamond_size,
+    diamond_half_width,
+    diamond_half_height,
     line_color,
-    diamond_outline,
     diamond_fill,
-    diamond_center,
 ):
 
     width, height = image.size
@@ -1777,14 +1746,13 @@ def draw_divider(
 
 
     # --------------------------------------------------------
-    # LINKE LINIE
+    # LINKER STRICH
     # --------------------------------------------------------
 
     draw.line(
         (
             center_x - half_width,
             center_y,
-
             center_x - center_gap,
             center_y,
         ),
@@ -1794,14 +1762,13 @@ def draw_divider(
 
 
     # --------------------------------------------------------
-    # RECHTE LINIE
+    # RECHTER STRICH
     # --------------------------------------------------------
 
     draw.line(
         (
             center_x + center_gap,
             center_y,
-
             center_x + half_width,
             center_y,
         ),
@@ -1811,66 +1778,40 @@ def draw_divider(
 
 
     # --------------------------------------------------------
-    # RAUTEN-PUNKTE
+    # FLACHE RAUTE
     # --------------------------------------------------------
 
     points = [
         (
             center_x,
-            center_y - diamond_size,
+            center_y - diamond_half_height,
         ),
         (
-            center_x + diamond_size,
+            center_x + diamond_half_width,
             center_y,
         ),
         (
             center_x,
-            center_y + diamond_size,
+            center_y + diamond_half_height,
         ),
         (
-            center_x - diamond_size,
+            center_x - diamond_half_width,
             center_y,
         ),
     ]
 
-
-    # --------------------------------------------------------
-    # TRANSPARENTE INNENFÜLLUNG
-    # --------------------------------------------------------
-
+    # sehr transparente Füllung
     draw.polygon(
         points,
         fill=diamond_fill,
     )
 
-
-    # --------------------------------------------------------
-    # AUSSENKONTUR IN DER FARBWELT DER KARTE
-    # --------------------------------------------------------
-
+    # Kontur exakt in Linienfarbe
     draw.line(
         points + [points[0]],
-        fill=diamond_outline,
+        fill=line_color,
         width=2,
         joint="curve",
-    )
-
-
-    # --------------------------------------------------------
-    # WINZIGER MITTELAKZENT
-    #
-    # Kein weißer Punkt.
-    # Nur eine hellere Variante derselben Farbfamilie.
-    # --------------------------------------------------------
-
-    draw.ellipse(
-        (
-            center_x - 1.5,
-            center_y - 1.5,
-            center_x + 1.5,
-            center_y + 1.5,
-        ),
-        fill=diamond_center,
     )
 
     return Image.alpha_composite(
@@ -1901,20 +1842,17 @@ def draw_early_divider(
         thickness=
             EARLY_DIVIDER_THICKNESS,
 
-        diamond_size=
-            EARLY_DIVIDER_DIAMOND_SIZE,
+        diamond_half_width=
+            EARLY_DIVIDER_DIAMOND_HALF_WIDTH,
+
+        diamond_half_height=
+            EARLY_DIVIDER_DIAMOND_HALF_HEIGHT,
 
         line_color=
             EARLY_LINE,
 
-        diamond_outline=
-            EARLY_DIAMOND_OUTLINE,
-
         diamond_fill=
             EARLY_DIAMOND_FILL,
-
-        diamond_center=
-            EARLY_DIAMOND_CENTER,
     )
 
 
@@ -1940,20 +1878,17 @@ def draw_global_divider(
         thickness=
             GLOBAL_DIVIDER_THICKNESS,
 
-        diamond_size=
-            GLOBAL_DIVIDER_DIAMOND_SIZE,
+        diamond_half_width=
+            GLOBAL_DIVIDER_DIAMOND_HALF_WIDTH,
+
+        diamond_half_height=
+            GLOBAL_DIVIDER_DIAMOND_HALF_HEIGHT,
 
         line_color=
             GLOBAL_LINE,
 
-        diamond_outline=
-            GLOBAL_DIAMOND_OUTLINE,
-
         diamond_fill=
             GLOBAL_DIAMOND_FILL,
-
-        diamond_center=
-            GLOBAL_DIAMOND_CENTER,
     )
 
 
