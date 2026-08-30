@@ -33,7 +33,7 @@ GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 
 CARD_WIDTH = 1200
 FULL_HEIGHT = 535
-COMPACT_HEIGHT = 270
+COMPACT_HEIGHT = 220
 
 
 # ============================================================
@@ -388,9 +388,21 @@ COMPACT_STATUS_SIZE = 28
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
 
+# Temporärer separater Compact-Test.
+# True = zwei zusätzliche Test-Nachrichten unter den echten Headern.
+# Die produktiven Early-/Global-Nachrichten bleiben davon unberührt.
+TEST_COMPACT_PREVIEW = True
+
+EARLY_COMPACT_PREVIEW_OUTPUT = "early_access_compact_preview.png"
+GLOBAL_COMPACT_PREVIEW_OUTPUT = "global_launch_compact_preview.png"
+
 COMPACT_CROP_CENTER = {
+    # Kugel: optische Mitte des Masters.
     "early_access": 0.50,
-    "global_launch": 0.50,
+
+    # Global: Ausschnitt höher im Master, damit die Köpfe
+    # im fertigen 220px-Balken weiter unten sitzen.
+    "global_launch": 0.30,
 }
 
 
@@ -2838,7 +2850,7 @@ def create_compact_card(
 
         title_font = load_font(
             COMPACT_TITLE_SIZE,
-            bold=False,
+            bold=GLOBAL_TITLE_BOLD,
             serif=True,
         )
 
@@ -2932,30 +2944,20 @@ def create_compact_card(
 
     if milestone["key"] == "global_launch":
 
-        draw = ImageDraw.Draw(
-            image
-        )
-
-        title_width = spaced_text_width(
-            draw,
+        global_spacing = spacing_for_target_width(
+            probe,
             title_text,
             title_font,
-            COMPACT_TITLE_SPACING,
+            470,
         )
 
-        title_x = (
-            CARD_WIDTH / 2
-            - title_width / 2
-        )
-
-        draw_spaced_text(
-            draw,
-            title_x,
+        image = draw_global_title_line(
+            image,
+            title_text,
+            title_font,
+            CARD_WIDTH / 2,
             title_y,
-            title_text,
-            title_font,
-            GLOBAL_TEXT,
-            COMPACT_TITLE_SPACING,
+            global_spacing,
         )
 
         image = draw_soft_centered_text(
@@ -2968,9 +2970,10 @@ def create_compact_card(
                 255,
                 255,
                 255,
-                125,
+                135,
             ),
-            shadow_blur=1.6,
+            shadow_blur=1.7,
+            shadow_offset=1,
         )
 
 
@@ -3006,9 +3009,14 @@ def create_compact_card(
                 0,
                 0,
                 0,
-                150,
+                175,
             ),
             shadow_blur=2.5,
+            shadow_offset=1,
+            stroke_width=
+                EARLY_LOWER_READABILITY_STROKE_WIDTH,
+            stroke_fill=
+                EARLY_LOWER_READABILITY_OUTLINE,
         )
 
     return image.convert(
@@ -3076,6 +3084,43 @@ def save_milestone_card(
 
     print(
         f"{milestone['title']}: "
+        f"{filename} "
+        f"({image.width}x{image.height})"
+    )
+
+    return filename
+
+
+def save_compact_preview_card(
+    milestone
+):
+
+    image = create_compact_card(
+        milestone
+    )
+
+    if milestone["key"] == "early_access":
+
+        filename = EARLY_COMPACT_PREVIEW_OUTPUT
+
+    elif milestone["key"] == "global_launch":
+
+        filename = GLOBAL_COMPACT_PREVIEW_OUTPUT
+
+    else:
+
+        filename = (
+            f"{milestone['key']}_compact_preview.png"
+        )
+
+    image.save(
+        filename,
+        "PNG",
+        optimize=True,
+    )
+
+    print(
+        f"{milestone['title']} Compact-Test: "
         f"{filename} "
         f"({image.width}x{image.height})"
     )
@@ -3364,6 +3409,43 @@ def update_or_create_discord_image(
     return True
 
 
+def send_compact_previews_to_discord(
+    early_access_file,
+    global_launch_file,
+):
+
+    print("")
+    print(
+        "Compact-Test: zwei separate Testnachrichten "
+        "werden unter den echten Headern gepostet ..."
+    )
+
+    early_preview_id = post_discord_image(
+        early_access_file,
+        "early_access_compact_preview.png",
+    )
+
+    print(
+        "Early Access Compact-Test erstellt. "
+        f"Message-ID: {early_preview_id}"
+    )
+
+    global_preview_id = post_discord_image(
+        global_launch_file,
+        "global_launch_compact_preview.png",
+    )
+
+    print(
+        "Global Launch Compact-Test erstellt. "
+        f"Message-ID: {global_preview_id}"
+    )
+
+    print(
+        "Die beiden Testnachrichten können danach "
+        "in Discord einfach gelöscht werden."
+    )
+
+
 def send_content_to_discord(
     early_access_file,
     global_launch_file,
@@ -3408,6 +3490,11 @@ def send_content_to_discord(
         save_message_state(
             state
         )
+
+    # Falls die Datei bisher noch nicht existierte und beide IDs
+    # bereits aus einem vorhandenen State kamen, bleibt sie
+    # unangetastet. In jedem anderen Fall wurde sie oben direkt
+    # nach dem Erstellen einer neuen Nachricht gespeichert.
 
     print("")
     print(
@@ -3494,6 +3581,7 @@ def main():
     }
 
     rendered_files = {}
+    milestone_by_key = {}
 
     for milestone in (
         content_state["milestones"]
@@ -3502,6 +3590,10 @@ def main():
         if milestone["key"] not in wanted_keys:
 
             continue
+
+        milestone_by_key[
+            milestone["key"]
+        ] = milestone
 
         filename = save_milestone_card(
             milestone
@@ -3536,6 +3628,25 @@ def main():
             "global_launch"
         ],
     )
+
+    if TEST_COMPACT_PREVIEW:
+
+        early_preview = save_compact_preview_card(
+            milestone_by_key[
+                "early_access"
+            ]
+        )
+
+        global_preview = save_compact_preview_card(
+            milestone_by_key[
+                "global_launch"
+            ]
+        )
+
+        send_compact_previews_to_discord(
+            early_preview,
+            global_preview,
+        )
 
 
 if __name__ == "__main__":
