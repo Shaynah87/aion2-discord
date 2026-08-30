@@ -56,25 +56,26 @@ EARLY_TITLE_TARGET_WIDTH = 625
 
 
 # ------------------------------------------------------------
-# EARLY – FESTE POSITIONEN
-# ------------------------------------------------------------
-
-EARLY_TITLE_TOP = 84
-
-EARLY_DIVIDER_Y = 198
-EARLY_DATE_TOP = 232
-
-EARLY_NOCH_TOP = 372
-EARLY_DAYS_TOP = 401
-
-
-# ------------------------------------------------------------
 # EARLY – TYPOGRAFIE
 # ------------------------------------------------------------
 
 EARLY_DATE_SIZE = 32
 EARLY_NOCH_SIZE = 17
 EARLY_COUNTDOWN_SIZE = 50
+
+
+# ------------------------------------------------------------
+# EARLY – INNERE VERTIKALE ABSTÄNDE
+#
+# Diese Abstände bleiben fest.
+# Der GESAMTE Block wird später mathematisch zentriert.
+# ------------------------------------------------------------
+
+EARLY_GAP_TITLE_DIVIDER = 28
+EARLY_GAP_DIVIDER_DATE = 28
+
+EARLY_GAP_DATE_NOCH = 112
+EARLY_GAP_NOCH_DAYS = 10
 
 
 # ============================================================
@@ -154,36 +155,34 @@ EARLY_TITLE_EDGE_DARK = (
 # ============================================================
 # EARLY – UNTERE TEXTFARBEN
 #
-# Jetzt bewusst helles Platin/Elfenbein,
-# passend zum oberen Bereich des Titels.
+# Jetzt bewusst MITTELTON aus dem Titelverlauf.
+# Nicht hellstes Platin, nicht dunkelstes Bronze.
 # ============================================================
 
 EARLY_DATE_TEXT = (
-    242,
-    239,
-    226,
+    213,
+    207,
+    190,
     255,
 )
 
 EARLY_COUNTDOWN_TEXT = (
-    246,
-    243,
-    232,
+    218,
+    212,
+    194,
     255,
 )
 
 EARLY_NOCH_TEXT = (
-    222,
-    220,
-    210,
-    235,
+    194,
+    190,
+    178,
+    225,
 )
 
 
 # ============================================================
 # EARLY – TRENNER
-#
-# Linie + sehr flache Raute in derselben Farbe.
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 305
@@ -218,26 +217,28 @@ GLOBAL_TITLE_TARGET_WIDTH = 470
 
 
 # ------------------------------------------------------------
-# GLOBAL – FESTE POSITIONEN
-# ------------------------------------------------------------
-
-GLOBAL_GLOBAL_TOP = 52
-GLOBAL_LAUNCH_TOP = 137
-
-GLOBAL_DIVIDER_Y = 243
-GLOBAL_DATE_TOP = 272
-
-GLOBAL_NOCH_TOP = 382
-GLOBAL_DAYS_TOP = 408
-
-
-# ------------------------------------------------------------
 # GLOBAL – TYPOGRAFIE
 # ------------------------------------------------------------
 
 GLOBAL_DATE_SIZE = 32
 GLOBAL_NOCH_SIZE = 16
 GLOBAL_COUNTDOWN_SIZE = 50
+
+
+# ------------------------------------------------------------
+# GLOBAL – INNERE VERTIKALE ABSTÄNDE
+#
+# Auch hier bleibt die innere Architektur bestehen.
+# Nur der Gesamtblock wird mathematisch zentriert.
+# ------------------------------------------------------------
+
+GLOBAL_TITLE_LINE_GAP = 13
+
+GLOBAL_GAP_LAUNCH_DIVIDER = 25
+GLOBAL_GAP_DIVIDER_DATE = 28
+
+GLOBAL_GAP_DATE_NOCH = 101
+GLOBAL_GAP_NOCH_DAYS = 10
 
 
 # ============================================================
@@ -335,8 +336,6 @@ GLOBAL_MUTED = (
 
 # ============================================================
 # GLOBAL – TRENNER
-#
-# Linie + flache Raute in exakt derselben blauen Farbfamilie.
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 305
@@ -857,6 +856,34 @@ def draw_spaced_text(
 
 
 # ============================================================
+# TEXT-METRIKEN
+# ============================================================
+
+def get_visible_text_metrics(
+    draw,
+    text,
+    font,
+):
+
+    bbox = draw.textbbox(
+        (
+            0,
+            0,
+        ),
+        text,
+        font=font,
+    )
+
+    return {
+        "bbox": bbox,
+        "height": (
+            bbox[3]
+            - bbox[1]
+        ),
+    }
+
+
+# ============================================================
 # ZENTRIERTE POSITION
 # ============================================================
 
@@ -1192,9 +1219,9 @@ def draw_gradient_title(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # SCHATTEN
-    # ========================================================
+    # --------------------------------------------------------
 
     shadow_mask = Image.new(
         "L",
@@ -1252,9 +1279,9 @@ def draw_gradient_title(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # GLOW
-    # ========================================================
+    # --------------------------------------------------------
 
     glow_mask = mask.filter(
         ImageFilter.GaussianBlur(
@@ -1295,9 +1322,9 @@ def draw_gradient_title(
     )
 
 
-    # ========================================================
-    # GOLDKONTUR AM TITEL
-    # ========================================================
+    # --------------------------------------------------------
+    # GOLDKONTUR
+    # --------------------------------------------------------
 
     expanded_mask = mask.filter(
         ImageFilter.MaxFilter(
@@ -1343,9 +1370,9 @@ def draw_gradient_title(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # VERLAUF
-    # ========================================================
+    # --------------------------------------------------------
 
     gradient = Image.new(
         "RGBA",
@@ -1435,9 +1462,9 @@ def draw_gradient_title(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # DUNKLE UNTERKANTE
-    # ========================================================
+    # --------------------------------------------------------
 
     lower_shift = Image.new(
         "L",
@@ -1494,9 +1521,9 @@ def draw_gradient_title(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # LICHTREFLEX
-    # ========================================================
+    # --------------------------------------------------------
 
     shine_mask = Image.new(
         "L",
@@ -1745,10 +1772,6 @@ def draw_divider(
     half_width = divider_width / 2
 
 
-    # --------------------------------------------------------
-    # LINKER STRICH
-    # --------------------------------------------------------
-
     draw.line(
         (
             center_x - half_width,
@@ -1760,11 +1783,6 @@ def draw_divider(
         width=thickness,
     )
 
-
-    # --------------------------------------------------------
-    # RECHTER STRICH
-    # --------------------------------------------------------
-
     draw.line(
         (
             center_x + center_gap,
@@ -1775,11 +1793,6 @@ def draw_divider(
         fill=line_color,
         width=thickness,
     )
-
-
-    # --------------------------------------------------------
-    # FLACHE RAUTE
-    # --------------------------------------------------------
 
     points = [
         (
@@ -1800,13 +1813,11 @@ def draw_divider(
         ),
     ]
 
-    # sehr transparente Füllung
     draw.polygon(
         points,
         fill=diamond_fill,
     )
 
-    # Kontur exakt in Linienfarbe
     draw.line(
         points + [points[0]],
         fill=line_color,
@@ -1893,6 +1904,336 @@ def draw_global_divider(
 
 
 # ============================================================
+# EARLY – AUTOMATISCHE VERTIKALE POSITIONEN
+# ============================================================
+
+def calculate_early_layout(
+    image,
+    title_text,
+    title_font,
+    date_text,
+    date_font,
+    noch_text,
+    noch_font,
+    days_text,
+    days_font,
+):
+
+    draw = ImageDraw.Draw(
+        image
+    )
+
+    title_metrics = get_visible_text_metrics(
+        draw,
+        title_text,
+        title_font,
+    )
+
+    date_metrics = get_visible_text_metrics(
+        draw,
+        date_text,
+        date_font,
+    )
+
+    days_metrics = get_visible_text_metrics(
+        draw,
+        days_text,
+        days_font,
+    )
+
+    if noch_text:
+
+        noch_metrics = get_visible_text_metrics(
+            draw,
+            noch_text,
+            noch_font,
+        )
+
+        noch_height = noch_metrics["height"]
+
+    else:
+
+        noch_metrics = None
+        noch_height = 0
+
+
+    title_height = title_metrics["height"]
+    date_height = date_metrics["height"]
+    days_height = days_metrics["height"]
+
+
+    block_height = (
+        title_height
+        + EARLY_GAP_TITLE_DIVIDER
+        + EARLY_GAP_DIVIDER_DATE
+        + date_height
+        + EARLY_GAP_DATE_NOCH
+        + noch_height
+        + (
+            EARLY_GAP_NOCH_DAYS
+            if noch_text
+            else 0
+        )
+        + days_height
+    )
+
+
+    visible_top = (
+        FULL_HEIGHT
+        - block_height
+    ) / 2
+
+
+    title_visible_top = visible_top
+
+    divider_y = (
+        title_visible_top
+        + title_height
+        + EARLY_GAP_TITLE_DIVIDER
+    )
+
+    date_visible_top = (
+        divider_y
+        + EARLY_GAP_DIVIDER_DATE
+    )
+
+    if noch_text:
+
+        noch_visible_top = (
+            date_visible_top
+            + date_height
+            + EARLY_GAP_DATE_NOCH
+        )
+
+        days_visible_top = (
+            noch_visible_top
+            + noch_height
+            + EARLY_GAP_NOCH_DAYS
+        )
+
+    else:
+
+        noch_visible_top = None
+
+        days_visible_top = (
+            date_visible_top
+            + date_height
+            + EARLY_GAP_DATE_NOCH
+        )
+
+
+    title_y = (
+        title_visible_top
+        - title_metrics["bbox"][1]
+    )
+
+    date_y = (
+        date_visible_top
+        - date_metrics["bbox"][1]
+    )
+
+    days_y = (
+        days_visible_top
+        - days_metrics["bbox"][1]
+    )
+
+    if noch_text:
+
+        noch_y = (
+            noch_visible_top
+            - noch_metrics["bbox"][1]
+        )
+
+    else:
+
+        noch_y = 0
+
+
+    return {
+        "title_y": title_y,
+        "divider_y": divider_y,
+        "date_y": date_y,
+        "noch_y": noch_y,
+        "days_y": days_y,
+    }
+
+
+# ============================================================
+# GLOBAL – AUTOMATISCHE VERTIKALE POSITIONEN
+# ============================================================
+
+def calculate_global_layout(
+    image,
+    title_font,
+    date_text,
+    date_font,
+    noch_text,
+    noch_font,
+    days_text,
+    days_font,
+):
+
+    draw = ImageDraw.Draw(
+        image
+    )
+
+    global_metrics = get_visible_text_metrics(
+        draw,
+        "GLOBAL",
+        title_font,
+    )
+
+    launch_metrics = get_visible_text_metrics(
+        draw,
+        "LAUNCH",
+        title_font,
+    )
+
+    date_metrics = get_visible_text_metrics(
+        draw,
+        date_text,
+        date_font,
+    )
+
+    days_metrics = get_visible_text_metrics(
+        draw,
+        days_text,
+        days_font,
+    )
+
+    if noch_text:
+
+        noch_metrics = get_visible_text_metrics(
+            draw,
+            noch_text,
+            noch_font,
+        )
+
+        noch_height = noch_metrics["height"]
+
+    else:
+
+        noch_metrics = None
+        noch_height = 0
+
+
+    global_height = global_metrics["height"]
+    launch_height = launch_metrics["height"]
+    date_height = date_metrics["height"]
+    days_height = days_metrics["height"]
+
+
+    block_height = (
+        global_height
+        + GLOBAL_TITLE_LINE_GAP
+        + launch_height
+        + GLOBAL_GAP_LAUNCH_DIVIDER
+        + GLOBAL_GAP_DIVIDER_DATE
+        + date_height
+        + GLOBAL_GAP_DATE_NOCH
+        + noch_height
+        + (
+            GLOBAL_GAP_NOCH_DAYS
+            if noch_text
+            else 0
+        )
+        + days_height
+    )
+
+
+    visible_top = (
+        FULL_HEIGHT
+        - block_height
+    ) / 2
+
+
+    global_visible_top = visible_top
+
+    launch_visible_top = (
+        global_visible_top
+        + global_height
+        + GLOBAL_TITLE_LINE_GAP
+    )
+
+    divider_y = (
+        launch_visible_top
+        + launch_height
+        + GLOBAL_GAP_LAUNCH_DIVIDER
+    )
+
+    date_visible_top = (
+        divider_y
+        + GLOBAL_GAP_DIVIDER_DATE
+    )
+
+    if noch_text:
+
+        noch_visible_top = (
+            date_visible_top
+            + date_height
+            + GLOBAL_GAP_DATE_NOCH
+        )
+
+        days_visible_top = (
+            noch_visible_top
+            + noch_height
+            + GLOBAL_GAP_NOCH_DAYS
+        )
+
+    else:
+
+        noch_visible_top = None
+
+        days_visible_top = (
+            date_visible_top
+            + date_height
+            + GLOBAL_GAP_DATE_NOCH
+        )
+
+
+    global_y = (
+        global_visible_top
+        - global_metrics["bbox"][1]
+    )
+
+    launch_y = (
+        launch_visible_top
+        - launch_metrics["bbox"][1]
+    )
+
+    date_y = (
+        date_visible_top
+        - date_metrics["bbox"][1]
+    )
+
+    days_y = (
+        days_visible_top
+        - days_metrics["bbox"][1]
+    )
+
+    if noch_text:
+
+        noch_y = (
+            noch_visible_top
+            - noch_metrics["bbox"][1]
+        )
+
+    else:
+
+        noch_y = 0
+
+
+    return {
+        "global_y": global_y,
+        "launch_y": launch_y,
+        "divider_y": divider_y,
+        "date_y": date_y,
+        "noch_y": noch_y,
+        "days_y": days_y,
+    }
+
+
+# ============================================================
 # EARLY ACCESS – VOLLE KARTE
 # ============================================================
 
@@ -1950,22 +2291,9 @@ def create_early_access_full_card(
         days_text = "HEUTE"
         noch_text = ""
 
+
     probe = ImageDraw.Draw(
         image
-    )
-
-
-    # ========================================================
-    # TITEL
-    # ========================================================
-
-    title_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        title_text,
-        font=title_font,
     )
 
     title_spacing = spacing_for_target_width(
@@ -1975,77 +2303,22 @@ def create_early_access_full_card(
         EARLY_TITLE_TARGET_WIDTH,
     )
 
-    title_y = (
-        EARLY_TITLE_TOP
-        - title_bbox[1]
+
+    layout = calculate_early_layout(
+        image=image,
+        title_text=title_text,
+        title_font=title_font,
+        date_text=date_text,
+        date_font=date_font,
+        noch_text=noch_text,
+        noch_font=noch_font,
+        days_text=days_text,
+        days_font=days_font,
     )
 
 
     # ========================================================
-    # DATUM
-    # ========================================================
-
-    date_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        date_text,
-        font=date_font,
-    )
-
-    date_y = (
-        EARLY_DATE_TOP
-        - date_bbox[1]
-    )
-
-
-    # ========================================================
-    # NOCH
-    # ========================================================
-
-    if noch_text:
-
-        noch_bbox = probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            noch_text,
-            font=noch_font,
-        )
-
-        noch_y = (
-            EARLY_NOCH_TOP
-            - noch_bbox[1]
-        )
-
-    else:
-
-        noch_y = 0
-
-
-    # ========================================================
-    # COUNTDOWN
-    # ========================================================
-
-    days_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        days_text,
-        font=days_font,
-    )
-
-    days_y = (
-        EARLY_DAYS_TOP
-        - days_bbox[1]
-    )
-
-
-    # ========================================================
-    # EARLY ACCESS
+    # TITEL
     # ========================================================
 
     image = draw_early_title(
@@ -2053,7 +2326,7 @@ def create_early_access_full_card(
         title_text,
         title_font,
         CARD_WIDTH / 2,
-        title_y,
+        layout["title_y"],
         title_spacing,
     )
 
@@ -2064,7 +2337,7 @@ def create_early_access_full_card(
 
     image = draw_early_divider(
         image,
-        EARLY_DIVIDER_Y,
+        layout["divider_y"],
     )
 
 
@@ -2075,16 +2348,16 @@ def create_early_access_full_card(
     image = draw_soft_centered_text(
         image,
         date_text,
-        date_y,
+        layout["date_y"],
         date_font,
         EARLY_DATE_TEXT,
         (
             0,
             0,
             0,
-            180,
+            175,
         ),
-        shadow_blur=2.6,
+        shadow_blur=2.5,
         shadow_offset=1,
     )
 
@@ -2098,7 +2371,7 @@ def create_early_access_full_card(
         image = draw_centered_spaced_text(
             image,
             noch_text,
-            noch_y,
+            layout["noch_y"],
             noch_font,
             EARLY_NOCH_TEXT,
             5,
@@ -2106,7 +2379,7 @@ def create_early_access_full_card(
                 0,
                 0,
                 0,
-                205,
+                190,
             ),
             shadow_blur=2.0,
             shadow_offset=1,
@@ -2120,14 +2393,14 @@ def create_early_access_full_card(
     image = draw_soft_centered_text(
         image,
         days_text,
-        days_y,
+        layout["days_y"],
         days_font,
         EARLY_COUNTDOWN_TEXT,
         (
             0,
             0,
             0,
-            195,
+            185,
         ),
         shadow_blur=3.0,
         shadow_offset=1,
@@ -2193,31 +2466,9 @@ def create_global_launch_full_card(
         days_text = "HEUTE"
         noch_text = ""
 
+
     probe = ImageDraw.Draw(
         image
-    )
-
-
-    # ========================================================
-    # GLOBAL / LAUNCH
-    # ========================================================
-
-    global_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        "GLOBAL",
-        font=title_font,
-    )
-
-    launch_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        "LAUNCH",
-        font=title_font,
     )
 
     global_spacing = spacing_for_target_width(
@@ -2234,77 +2485,16 @@ def create_global_launch_full_card(
         GLOBAL_TITLE_TARGET_WIDTH,
     )
 
-    global_y = (
-        GLOBAL_GLOBAL_TOP
-        - global_bbox[1]
-    )
 
-    launch_y = (
-        GLOBAL_LAUNCH_TOP
-        - launch_bbox[1]
-    )
-
-
-    # ========================================================
-    # DATUM
-    # ========================================================
-
-    date_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        date_text,
-        font=date_font,
-    )
-
-    date_y = (
-        GLOBAL_DATE_TOP
-        - date_bbox[1]
-    )
-
-
-    # ========================================================
-    # NOCH
-    # ========================================================
-
-    if noch_text:
-
-        noch_bbox = probe.textbbox(
-            (
-                0,
-                0,
-            ),
-            noch_text,
-            font=noch_font,
-        )
-
-        noch_y = (
-            GLOBAL_NOCH_TOP
-            - noch_bbox[1]
-        )
-
-    else:
-
-        noch_y = 0
-
-
-    # ========================================================
-    # COUNTDOWN
-    # ========================================================
-
-    days_bbox = probe.textbbox(
-        (
-            0,
-            0,
-        ),
-        days_text,
-        font=days_font,
-    )
-
-    days_y = (
-        GLOBAL_DAYS_TOP
-        - days_bbox[1]
+    layout = calculate_global_layout(
+        image=image,
+        title_font=title_font,
+        date_text=date_text,
+        date_font=date_font,
+        noch_text=noch_text,
+        noch_font=noch_font,
+        days_text=days_text,
+        days_font=days_font,
     )
 
 
@@ -2317,7 +2507,7 @@ def create_global_launch_full_card(
         "GLOBAL",
         title_font,
         CARD_WIDTH / 2,
-        global_y,
+        layout["global_y"],
         global_spacing,
     )
 
@@ -2331,7 +2521,7 @@ def create_global_launch_full_card(
         "LAUNCH",
         title_font,
         CARD_WIDTH / 2,
-        launch_y,
+        layout["launch_y"],
         launch_spacing,
     )
 
@@ -2342,7 +2532,7 @@ def create_global_launch_full_card(
 
     image = draw_global_divider(
         image,
-        GLOBAL_DIVIDER_Y,
+        layout["divider_y"],
     )
 
 
@@ -2353,7 +2543,7 @@ def create_global_launch_full_card(
     image = draw_soft_centered_text(
         image,
         date_text,
-        date_y,
+        layout["date_y"],
         date_font,
         GLOBAL_TEXT,
         (
@@ -2376,7 +2566,7 @@ def create_global_launch_full_card(
         image = draw_centered_spaced_text(
             image,
             noch_text,
-            noch_y,
+            layout["noch_y"],
             noch_font,
             GLOBAL_MUTED,
             5,
@@ -2390,7 +2580,7 @@ def create_global_launch_full_card(
     image = draw_soft_centered_text(
         image,
         days_text,
-        days_y,
+        layout["days_y"],
         days_font,
         GLOBAL_TEXT,
         (
@@ -2536,10 +2726,6 @@ def create_compact_card(
     )
 
 
-    # ========================================================
-    # GLOBAL COMPACT
-    # ========================================================
-
     if milestone["key"] == "global_launch":
 
         draw = ImageDraw.Draw(
@@ -2582,11 +2768,6 @@ def create_compact_card(
             ),
             shadow_blur=1.6,
         )
-
-
-    # ========================================================
-    # EARLY COMPACT
-    # ========================================================
 
     else:
 
