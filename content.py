@@ -25,8 +25,6 @@ WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
 
 EARLY_ACCESS_OUTPUT = "early_access_card.png"
 GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
-EARLY_COMPACT_PREVIEW_OUTPUT = "early_access_compact_preview.png"
-GLOBAL_COMPACT_PREVIEW_OUTPUT = "global_launch_compact_preview.png"
 
 
 # ============================================================
@@ -390,13 +388,9 @@ COMPACT_STATUS_SIZE = 28
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
 
-# Nur für unsere aktuelle Sichtkontrolle:
-# True = zusätzlich zu den beiden echten Content-Nachrichten werden
-# zwei separate Zweizeiler UNTEN DRUNTER gepostet.
-# Die bestehenden Early-/Global-Nachrichten werden dadurch NICHT
-# auf Compact umgestellt und ihre gespeicherten Message-IDs bleiben
-# unangetastet. Nach dem Test einfach wieder auf False setzen.
-TEST_COMPACT_PREVIEW = True
+# Nur zum Gestalten/Testen des Zweizeilers.
+# Nach Freigabe wieder auf False setzen.
+TEST_COMPACT_MODE = True
 
 COMPACT_CROP_CENTER = {
     # Kugel: optische Mitte des Masters.
@@ -3038,6 +3032,14 @@ def render_milestone(
     milestone
 ):
 
+    # Temporärer Design-Test: beide Karten sofort als
+    # Zweizeiler rendern, ohne die echten Startdaten anzufassen.
+    if TEST_COMPACT_MODE:
+
+        return create_compact_card(
+            milestone
+        )
+
     if milestone["state"] in (
         "countdown",
         "today",
@@ -3090,47 +3092,6 @@ def save_milestone_card(
 
     print(
         f"{milestone['title']}: "
-        f"{filename} "
-        f"({image.width}x{image.height})"
-    )
-
-    return filename
-
-
-def save_compact_preview_card(
-    milestone
-):
-
-    image = create_compact_card(
-        milestone
-    )
-
-    if milestone["key"] == "early_access":
-
-        filename = (
-            EARLY_COMPACT_PREVIEW_OUTPUT
-        )
-
-    elif milestone["key"] == "global_launch":
-
-        filename = (
-            GLOBAL_COMPACT_PREVIEW_OUTPUT
-        )
-
-    else:
-
-        filename = (
-            f"{milestone['key']}_compact_preview.png"
-        )
-
-    image.save(
-        filename,
-        "PNG",
-        optimize=True,
-    )
-
-    print(
-        f"{milestone['title']} Compact-Test: "
         f"{filename} "
         f"({image.width}x{image.height})"
     )
@@ -3419,51 +3380,6 @@ def update_or_create_discord_image(
     return True
 
 
-def send_compact_previews_to_discord(
-    early_access_file,
-    global_launch_file,
-):
-
-    if not WEBHOOK_URL:
-
-        raise RuntimeError(
-            "GitHub Secret CONTENT_WEBHOOK fehlt."
-        )
-
-    print(
-        ""
-    )
-    print(
-        "Compact-Test: separate Zweizeiler werden "
-        "unter den echten Content-Nachrichten gepostet ..."
-    )
-
-    early_preview_id = post_discord_image(
-        early_access_file,
-        "early_access_compact_preview.png",
-    )
-
-    print(
-        "Early Access Compact-Test erstellt. "
-        f"Message-ID: {early_preview_id}"
-    )
-
-    global_preview_id = post_discord_image(
-        global_launch_file,
-        "global_launch_compact_preview.png",
-    )
-
-    print(
-        "Global Launch Compact-Test erstellt. "
-        f"Message-ID: {global_preview_id}"
-    )
-
-    print(
-        "Compact-Test fertig. Die beiden Testnachrichten "
-        "können in Discord einfach gelöscht werden."
-    )
-
-
 def send_content_to_discord(
     early_access_file,
     global_launch_file,
@@ -3599,7 +3515,6 @@ def main():
     }
 
     rendered_files = {}
-    milestone_by_key = {}
 
     for milestone in (
         content_state["milestones"]
@@ -3608,10 +3523,6 @@ def main():
         if milestone["key"] not in wanted_keys:
 
             continue
-
-        milestone_by_key[
-            milestone["key"]
-        ] = milestone
 
         filename = save_milestone_card(
             milestone
@@ -3646,25 +3557,6 @@ def main():
             "global_launch"
         ],
     )
-
-    if TEST_COMPACT_PREVIEW:
-
-        early_compact_preview = save_compact_preview_card(
-            milestone_by_key[
-                "early_access"
-            ]
-        )
-
-        global_compact_preview = save_compact_preview_card(
-            milestone_by_key[
-                "global_launch"
-            ]
-        )
-
-        send_compact_previews_to_discord(
-            early_compact_preview,
-            global_compact_preview,
-        )
 
 
 if __name__ == "__main__":
