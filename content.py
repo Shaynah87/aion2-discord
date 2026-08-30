@@ -36,9 +36,6 @@ COMPACT_HEIGHT = 270
 
 # ============================================================
 # GEMEINSAME GOLDKANTE
-#
-# Diese Farbe verbindet Early Access und Global Launch.
-# Sie soll im Discord sichtbar bleiben, ohne gelb zu knallen.
 # ============================================================
 
 SERIES_GOLD_OUTLINE = (
@@ -66,38 +63,40 @@ SERIES_GOLD_DARK = (
 # ============================================================
 # EARLY ACCESS
 #
-# Einzeilig, aber nun auf derselben gestalterischen Ebene
-# wie Global Launch.
+# Einzeilig, gleicher Designbaukasten wie Global.
 # ============================================================
 
 EARLY_TITLE_SIZE = 90
 EARLY_TITLE_BOLD = True
-
-# Breiter und präsenter als bisher
 EARLY_TITLE_TARGET_WIDTH = 640
 
 
 # ------------------------------------------------------------
-# FESTE POSITIONEN EARLY
+# EARLY – VERTIKALES RASTER
+#
+# Der sichtbare Block wird bewusst mittiger auf der Kugel
+# verteilt.
+# ============================================================
+
+EARLY_TITLE_TOP = 84
+
+EARLY_DIVIDER_Y = 198
+
+EARLY_DATE_TOP = 232
+
+EARLY_NOCH_TOP = 372
+EARLY_DAYS_TOP = 401
+
+
 # ------------------------------------------------------------
-
-EARLY_TITLE_TOP = 92
-
-EARLY_DIVIDER_Y = 203
-
-EARLY_DATE_TOP = 237
-
-EARLY_NOCH_TOP = 371
-EARLY_DAYS_TOP = 399
-
-
-# ------------------------------------------------------------
-# TYPOGRAFIE EARLY
+# EARLY – TYPOGRAFIE
 # ------------------------------------------------------------
 
 EARLY_DATE_SIZE = 32
-EARLY_NOCH_SIZE = 16
-EARLY_COUNTDOWN_SIZE = 46
+EARLY_NOCH_SIZE = 17
+
+# Vorher 46
+EARLY_COUNTDOWN_SIZE = 50
 
 
 # ============================================================
@@ -109,15 +108,11 @@ EARLY_DIVIDER_CENTER_GAP = 25
 EARLY_DIVIDER_THICKNESS = 2
 
 EARLY_DIVIDER_DIAMOND_OUTER = 8
-EARLY_DIVIDER_DIAMOND_INNER = 4
+EARLY_DIVIDER_DIAMOND_INNER = 5
 
 
 # ============================================================
 # EARLY – TITELLOOK
-#
-# Platin / Elfenbein innen
-# Champagner-Gold außen
-# Dunkler Schatten für Tiefe
 # ============================================================
 
 EARLY_TITLE_SHADOW_OFFSET_X = 2
@@ -140,7 +135,6 @@ EARLY_TITLE_GLOW = (
     40,
 )
 
-# Gleiche Goldkante wie Global
 EARLY_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
 
 
@@ -192,32 +186,40 @@ EARLY_TITLE_EDGE_DARK = (
 
 
 # ------------------------------------------------------------
-# EARLY TEXT
+# EARLY – TEXT
 # ------------------------------------------------------------
 
 EARLY_TEXT = (
-    226,
     230,
-    231,
+    234,
+    235,
     255,
 )
 
+# NOCH heller als vorher
 EARLY_MUTED = (
-    168,
-    179,
-    183,
+    205,
+    211,
+    213,
     255,
 )
 
 EARLY_LINE = (
-    183,
-    160,
-    118,
+    184,
+    164,
+    125,
     220,
 )
 
-EARLY_ORNAMENT_LIGHT = SERIES_GOLD_LIGHT
-EARLY_ORNAMENT_DARK = SERIES_GOLD_DARK
+EARLY_ORNAMENT_OUTLINE = SERIES_GOLD_OUTLINE
+
+# Innenfarbe greift das Platin des Titels auf
+EARLY_ORNAMENT_FILL = (
+    222,
+    219,
+    205,
+    255,
+)
 
 
 # ============================================================
@@ -230,7 +232,7 @@ GLOBAL_TITLE_TARGET_WIDTH = 470
 
 
 # ------------------------------------------------------------
-# FESTE POSITIONEN GLOBAL
+# GLOBAL – FESTE POSITIONEN
 # ------------------------------------------------------------
 
 GLOBAL_GLOBAL_TOP = 52
@@ -244,12 +246,14 @@ GLOBAL_DAYS_TOP = 408
 
 
 # ------------------------------------------------------------
-# GLOBAL – DATUM / COUNTDOWN
+# GLOBAL – TYPOGRAFIE
 # ------------------------------------------------------------
 
 GLOBAL_DATE_SIZE = 32
 GLOBAL_NOCH_SIZE = 16
-GLOBAL_COUNTDOWN_SIZE = 46
+
+# Vorher 46
+GLOBAL_COUNTDOWN_SIZE = 50
 
 
 # ============================================================
@@ -261,14 +265,11 @@ GLOBAL_DIVIDER_CENTER_GAP = 25
 GLOBAL_DIVIDER_THICKNESS = 2
 
 GLOBAL_DIVIDER_DIAMOND_OUTER = 8
-GLOBAL_DIVIDER_DIAMOND_INNER = 4
+GLOBAL_DIVIDER_DIAMOND_INNER = 5
 
 
 # ============================================================
 # GLOBAL – TITELLOOK
-#
-# Navy / Blaugrau innen
-# Champagner-Gold außen
 # ============================================================
 
 GLOBAL_TITLE_SHADOW_OFFSET_X = 2
@@ -291,8 +292,6 @@ GLOBAL_TITLE_GLOW = (
     38,
 )
 
-# NEU:
-# Goldkante statt weißer Kontur
 GLOBAL_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
 
 
@@ -344,7 +343,7 @@ GLOBAL_TITLE_EDGE_DARK = (
 
 
 # ------------------------------------------------------------
-# GLOBAL TEXT
+# GLOBAL – TEXT
 # ------------------------------------------------------------
 
 GLOBAL_TEXT = (
@@ -368,8 +367,15 @@ GLOBAL_LINE = (
     220,
 )
 
-GLOBAL_ORNAMENT_LIGHT = SERIES_GOLD_LIGHT
-GLOBAL_ORNAMENT_DARK = SERIES_GOLD_DARK
+GLOBAL_ORNAMENT_OUTLINE = SERIES_GOLD_OUTLINE
+
+# Innenfarbe greift den Navy-/Blaugrau-Titel auf
+GLOBAL_ORNAMENT_FILL = (
+    40,
+    64,
+    96,
+    255,
+)
 
 
 # ============================================================
@@ -997,6 +1003,9 @@ def draw_centered_spaced_text(
     font,
     fill,
     spacing,
+    shadow_fill=None,
+    shadow_blur=0,
+    shadow_offset=1,
 ):
 
     probe = ImageDraw.Draw(
@@ -1014,6 +1023,56 @@ def draw_centered_spaced_text(
         CARD_WIDTH / 2
         - text_width / 2
     )
+
+
+    # --------------------------------------------------------
+    # OPTIONALER SCHATTEN
+    # --------------------------------------------------------
+
+    if shadow_fill is not None:
+
+        shadow = Image.new(
+            "RGBA",
+            image.size,
+            (
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+
+        shadow_draw = ImageDraw.Draw(
+            shadow
+        )
+
+        draw_spaced_text(
+            shadow_draw,
+            x,
+            y + shadow_offset,
+            text,
+            font,
+            shadow_fill,
+            spacing,
+        )
+
+        if shadow_blur > 0:
+
+            shadow = shadow.filter(
+                ImageFilter.GaussianBlur(
+                    shadow_blur
+                )
+            )
+
+        image = Image.alpha_composite(
+            image,
+            shadow,
+        )
+
+
+    # --------------------------------------------------------
+    # TEXT
+    # --------------------------------------------------------
 
     draw = ImageDraw.Draw(
         image
@@ -1109,7 +1168,7 @@ def mix_rgba(
 
 
 # ============================================================
-# GENERISCHER PREMIUM-TITELEFFEKT
+# PREMIUM-TITELEFFEKT
 # ============================================================
 
 def draw_gradient_title(
@@ -1221,7 +1280,7 @@ def draw_gradient_title(
 
 
     # ========================================================
-    # LEICHTER GLOW
+    # GLOW
     # ========================================================
 
     glow_mask = mask.filter(
@@ -1264,9 +1323,7 @@ def draw_gradient_title(
 
 
     # ========================================================
-    # CHAMPAGNER-GOLD-KONTUR
-    #
-    # 1 Pixel außen um den Titel.
+    # GOLDKONTUR
     # ========================================================
 
     expanded_mask = mask.filter(
@@ -1314,7 +1371,7 @@ def draw_gradient_title(
 
 
     # ========================================================
-    # INNERER VERLAUF
+    # VERLAUF
     # ========================================================
 
     gradient = Image.new(
@@ -1687,7 +1744,7 @@ def draw_global_title_line(
 
 
 # ============================================================
-# GENERISCHER TRENNER
+# TRENNER MIT GOLDKANTE UND KARTENFARBE INNEN
 # ============================================================
 
 def draw_divider(
@@ -1699,8 +1756,8 @@ def draw_divider(
     outer_size,
     inner_size,
     line_color,
-    ornament_light,
-    ornament_dark,
+    outline_color,
+    fill_color,
 ):
 
     width, height = image.size
@@ -1762,7 +1819,7 @@ def draw_divider(
 
 
     # --------------------------------------------------------
-    # ÄUSSERE RAUTE
+    # GOLDENE ÄUSSERE RAUTE
     # --------------------------------------------------------
 
     draw.polygon(
@@ -1784,12 +1841,12 @@ def draw_divider(
                 center_y,
             ),
         ],
-        fill=ornament_dark,
+        fill=outline_color,
     )
 
 
     # --------------------------------------------------------
-    # INNERE RAUTE
+    # INNENFÜLLUNG IN TITELFARBE
     # --------------------------------------------------------
 
     draw.polygon(
@@ -1811,12 +1868,12 @@ def draw_divider(
                 center_y,
             ),
         ],
-        fill=ornament_light,
+        fill=fill_color,
     )
 
 
     # --------------------------------------------------------
-    # LICHTPUNKT
+    # KLEINER LICHTPUNKT
     # --------------------------------------------------------
 
     draw.ellipse(
@@ -1830,7 +1887,7 @@ def draw_divider(
             255,
             255,
             255,
-            240,
+            220,
         ),
     )
 
@@ -1871,11 +1928,11 @@ def draw_early_divider(
         line_color=
             EARLY_LINE,
 
-        ornament_light=
-            EARLY_ORNAMENT_LIGHT,
+        outline_color=
+            EARLY_ORNAMENT_OUTLINE,
 
-        ornament_dark=
-            EARLY_ORNAMENT_DARK,
+        fill_color=
+            EARLY_ORNAMENT_FILL,
     )
 
 
@@ -1910,11 +1967,11 @@ def draw_global_divider(
         line_color=
             GLOBAL_LINE,
 
-        ornament_light=
-            GLOBAL_ORNAMENT_LIGHT,
+        outline_color=
+            GLOBAL_ORNAMENT_OUTLINE,
 
-        ornament_dark=
-            GLOBAL_ORNAMENT_DARK,
+        fill_color=
+            GLOBAL_ORNAMENT_FILL,
     )
 
 
@@ -1982,7 +2039,7 @@ def create_early_access_full_card(
 
 
     # ========================================================
-    # TITLE
+    # TITEL
     # ========================================================
 
     title_bbox = probe.textbbox(
@@ -2052,7 +2109,7 @@ def create_early_access_full_card(
 
 
     # ========================================================
-    # TAGE
+    # COUNTDOWN
     # ========================================================
 
     days_bbox = probe.textbbox(
@@ -2108,7 +2165,7 @@ def create_early_access_full_card(
             0,
             0,
             0,
-            155,
+            165,
         ),
         shadow_blur=2.5,
         shadow_offset=1,
@@ -2117,6 +2174,8 @@ def create_early_access_full_card(
 
     # ========================================================
     # NOCH
+    #
+    # Heller + definierter Schatten.
     # ========================================================
 
     if noch_text:
@@ -2128,6 +2187,14 @@ def create_early_access_full_card(
             noch_font,
             EARLY_MUTED,
             5,
+            shadow_fill=(
+                0,
+                0,
+                0,
+                190,
+            ),
+            shadow_blur=2.0,
+            shadow_offset=1,
         )
 
 
@@ -2145,7 +2212,7 @@ def create_early_access_full_card(
             0,
             0,
             0,
-            170,
+            180,
         ),
         shadow_blur=3.0,
         shadow_offset=1,
@@ -2308,7 +2375,7 @@ def create_global_launch_full_card(
 
 
     # ========================================================
-    # TAGE
+    # COUNTDOWN
     # ========================================================
 
     days_bbox = probe.textbbox(
