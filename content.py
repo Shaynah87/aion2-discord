@@ -35,10 +35,10 @@ COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# GEMEINSAME GOLDKANTE DER TITEL
+# GLOBAL – GOLDENE TITELKANTE
 # ============================================================
 
-SERIES_GOLD_OUTLINE = (
+GLOBAL_GOLD_OUTLINE = (
     225,
     198,
     143,
@@ -54,21 +54,13 @@ EARLY_TITLE_SIZE = 96
 EARLY_TITLE_BOLD = True
 EARLY_TITLE_TARGET_WIDTH = 625
 
-
-# ------------------------------------------------------------
-# EARLY – TYPOGRAFIE
-# ------------------------------------------------------------
-
 EARLY_DATE_SIZE = 32
 EARLY_NOCH_SIZE = 17
 EARLY_COUNTDOWN_SIZE = 50
 
 
 # ------------------------------------------------------------
-# EARLY – INNERE VERTIKALE ABSTÄNDE
-#
-# Diese Abstände bleiben fest.
-# Der GESAMTE Block wird später mathematisch zentriert.
+# EARLY – VERTIKALE ARCHITEKTUR
 # ------------------------------------------------------------
 
 EARLY_GAP_TITLE_DIVIDER = 28
@@ -79,7 +71,7 @@ EARLY_GAP_NOCH_DAYS = 10
 
 
 # ============================================================
-# EARLY – TITELLOOK
+# EARLY – TITEL
 # ============================================================
 
 EARLY_TITLE_SHADOW_OFFSET_X = 2
@@ -102,11 +94,27 @@ EARLY_TITLE_GLOW = (
     40,
 )
 
-EARLY_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
+
+# ------------------------------------------------------------
+# EARLY – WEISSE LESEKANTE
+#
+# Keine Goldkante mehr.
+# Diese Kante wird auf ALLE Texte angewendet:
+# Titel, Datum, NOCH und Countdown.
+# ------------------------------------------------------------
+
+EARLY_READABILITY_OUTLINE = (
+    255,
+    255,
+    255,
+    115,
+)
+
+EARLY_READABILITY_STROKE_WIDTH = 1
 
 
 # ------------------------------------------------------------
-# EARLY – PLATIN-/ELFENBEIN-VERLAUF
+# EARLY – PLATIN-/CHAMPAGNER-VERLAUF
 # ------------------------------------------------------------
 
 EARLY_TITLE_TOP_COLOR = (
@@ -152,12 +160,9 @@ EARLY_TITLE_EDGE_DARK = (
 )
 
 
-# ============================================================
-# EARLY – UNTERE TEXTFARBEN
-#
-# Jetzt bewusst MITTELTON aus dem Titelverlauf.
-# Nicht hellstes Platin, nicht dunkelstes Bronze.
-# ============================================================
+# ------------------------------------------------------------
+# EARLY – DATUM / COUNTDOWN
+# ------------------------------------------------------------
 
 EARLY_DATE_TEXT = (
     213,
@@ -186,24 +191,18 @@ EARLY_NOCH_TEXT = (
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 305
-EARLY_DIVIDER_CENTER_GAP = 17
+EARLY_DIVIDER_CENTER_GAP = 22
 EARLY_DIVIDER_THICKNESS = 2
 
-EARLY_DIVIDER_DIAMOND_HALF_WIDTH = 7
-EARLY_DIVIDER_DIAMOND_HALF_HEIGHT = 3
+EARLY_DIVIDER_CHEVRON_WIDTH = 7
+EARLY_DIVIDER_CHEVRON_HEIGHT = 5
+EARLY_DIVIDER_CHEVRON_GAP = 5
 
 EARLY_LINE = (
     184,
     154,
     105,
     220,
-)
-
-EARLY_DIAMOND_FILL = (
-    184,
-    154,
-    105,
-    85,
 )
 
 
@@ -215,21 +214,13 @@ GLOBAL_TITLE_SIZE = 96
 GLOBAL_TITLE_BOLD = True
 GLOBAL_TITLE_TARGET_WIDTH = 470
 
-
-# ------------------------------------------------------------
-# GLOBAL – TYPOGRAFIE
-# ------------------------------------------------------------
-
 GLOBAL_DATE_SIZE = 32
 GLOBAL_NOCH_SIZE = 16
 GLOBAL_COUNTDOWN_SIZE = 50
 
 
 # ------------------------------------------------------------
-# GLOBAL – INNERE VERTIKALE ABSTÄNDE
-#
-# Auch hier bleibt die innere Architektur bestehen.
-# Nur der Gesamtblock wird mathematisch zentriert.
+# GLOBAL – VERTIKALE ARCHITEKTUR
 # ------------------------------------------------------------
 
 GLOBAL_TITLE_LINE_GAP = 13
@@ -264,8 +255,6 @@ GLOBAL_TITLE_GLOW = (
     248,
     38,
 )
-
-GLOBAL_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
 
 
 # ------------------------------------------------------------
@@ -315,9 +304,9 @@ GLOBAL_TITLE_EDGE_DARK = (
 )
 
 
-# ============================================================
-# GLOBAL – UNTERE TEXTFARBEN
-# ============================================================
+# ------------------------------------------------------------
+# GLOBAL – DATUM / COUNTDOWN
+# ------------------------------------------------------------
 
 GLOBAL_TEXT = (
     42,
@@ -339,24 +328,18 @@ GLOBAL_MUTED = (
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 305
-GLOBAL_DIVIDER_CENTER_GAP = 17
+GLOBAL_DIVIDER_CENTER_GAP = 22
 GLOBAL_DIVIDER_THICKNESS = 2
 
-GLOBAL_DIVIDER_DIAMOND_HALF_WIDTH = 7
-GLOBAL_DIVIDER_DIAMOND_HALF_HEIGHT = 3
+GLOBAL_DIVIDER_CHEVRON_WIDTH = 7
+GLOBAL_DIVIDER_CHEVRON_HEIGHT = 5
+GLOBAL_DIVIDER_CHEVRON_GAP = 5
 
 GLOBAL_LINE = (
     45,
     67,
     99,
     220,
-)
-
-GLOBAL_DIAMOND_FILL = (
-    45,
-    67,
-    99,
-    80,
 )
 
 
@@ -370,10 +353,6 @@ COMPACT_STATUS_SIZE = 28
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
 
-
-# ============================================================
-# KOMPAKTER BILDAUSSCHNITT
-# ============================================================
 
 COMPACT_CROP_CENTER = {
     "early_access": 0.50,
@@ -605,61 +584,29 @@ def load_font(
         if bold:
 
             paths = [
-                (
-                    "/usr/share/fonts/"
-                    "truetype/dejavu/"
-                    "DejaVuSerif-Bold.ttf"
-                ),
-                (
-                    "/usr/share/fonts/"
-                    "truetype/liberation2/"
-                    "LiberationSerif-Bold.ttf"
-                ),
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
             ]
 
         else:
 
             paths = [
-                (
-                    "/usr/share/fonts/"
-                    "truetype/dejavu/"
-                    "DejaVuSerif.ttf"
-                ),
-                (
-                    "/usr/share/fonts/"
-                    "truetype/liberation2/"
-                    "LiberationSerif-Regular.ttf"
-                ),
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
             ]
 
     elif bold:
 
         paths = [
-            (
-                "/usr/share/fonts/"
-                "truetype/dejavu/"
-                "DejaVuSans-Bold.ttf"
-            ),
-            (
-                "/usr/share/fonts/"
-                "truetype/liberation2/"
-                "LiberationSans-Bold.ttf"
-            ),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
         ]
 
     else:
 
         paths = [
-            (
-                "/usr/share/fonts/"
-                "truetype/dejavu/"
-                "DejaVuSans.ttf"
-            ),
-            (
-                "/usr/share/fonts/"
-                "truetype/liberation2/"
-                "LiberationSans-Regular.ttf"
-            ),
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
         ]
 
     for path in paths:
@@ -683,8 +630,7 @@ def load_background(filename):
     if not filename:
 
         raise RuntimeError(
-            "Kein Hintergrundbild "
-            "für Content gesetzt."
+            "Kein Hintergrundbild für Content gesetzt."
         )
 
     if not os.path.exists(filename):
@@ -831,6 +777,8 @@ def draw_spaced_text(
     font,
     fill,
     spacing,
+    stroke_width=0,
+    stroke_fill=None,
 ):
 
     for index, char in enumerate(text):
@@ -843,6 +791,8 @@ def draw_spaced_text(
             char,
             font=font,
             fill=fill,
+            stroke_width=stroke_width,
+            stroke_fill=stroke_fill,
         )
 
         x += draw.textlength(
@@ -883,10 +833,6 @@ def get_visible_text_metrics(
     }
 
 
-# ============================================================
-# ZENTRIERTE POSITION
-# ============================================================
-
 def centered_text_x(
     draw,
     text,
@@ -919,7 +865,7 @@ def centered_text_x(
 
 
 # ============================================================
-# WEICHER ZENTRIERTER TEXT
+# ZENTRIERTER TEXT
 # ============================================================
 
 def draw_soft_centered_text(
@@ -931,6 +877,8 @@ def draw_soft_centered_text(
     shadow_fill,
     shadow_blur=2.5,
     shadow_offset=1,
+    stroke_width=0,
+    stroke_fill=None,
 ):
 
     width, height = image.size
@@ -997,13 +945,15 @@ def draw_soft_centered_text(
         text,
         font=font,
         fill=fill,
+        stroke_width=stroke_width,
+        stroke_fill=stroke_fill,
     )
 
     return image
 
 
 # ============================================================
-# GESPERRTER ZENTRIERTER TEXT
+# ZENTRIERTER TEXT MIT BUCHSTABENABSTAND
 # ============================================================
 
 def draw_centered_spaced_text(
@@ -1016,6 +966,8 @@ def draw_centered_spaced_text(
     shadow_fill=None,
     shadow_blur=0,
     shadow_offset=1,
+    stroke_width=0,
+    stroke_fill=None,
 ):
 
     probe = ImageDraw.Draw(
@@ -1086,6 +1038,8 @@ def draw_centered_spaced_text(
         font,
         fill,
         spacing,
+        stroke_width=stroke_width,
+        stroke_fill=stroke_fill,
     )
 
     return image
@@ -1145,7 +1099,7 @@ def create_title_mask(
 
 
 # ============================================================
-# FARBE MISCHEN
+# FARBMISCHUNG
 # ============================================================
 
 def mix_rgba(
@@ -1185,6 +1139,7 @@ def draw_gradient_title(
     glow_blur,
     glow_color,
     outline_color,
+    outline_width,
     top_color,
     upper_color,
     mid_color,
@@ -1323,55 +1278,65 @@ def draw_gradient_title(
 
 
     # --------------------------------------------------------
-    # GOLDKONTUR
+    # AUSSENKONTUR
     # --------------------------------------------------------
 
-    expanded_mask = mask.filter(
-        ImageFilter.MaxFilter(
-            3
+    if (
+        outline_color is not None
+        and outline_width > 0
+    ):
+
+        filter_size = (
+            outline_width * 2
+            + 1
         )
-    )
 
-    outline_mask = ImageChops.subtract(
-        expanded_mask,
-        mask,
-    )
+        expanded_mask = mask.filter(
+            ImageFilter.MaxFilter(
+                filter_size
+            )
+        )
 
-    outline_layer = Image.new(
-        "RGBA",
-        (
-            width,
-            height,
-        ),
-        (
-            outline_color[0],
-            outline_color[1],
-            outline_color[2],
-            0,
-        ),
-    )
+        outline_mask = ImageChops.subtract(
+            expanded_mask,
+            mask,
+        )
 
-    outline_layer.putalpha(
-        outline_mask.point(
-            lambda value:
-                int(
-                    value
-                    * (
-                        outline_color[3]
-                        / 255
+        outline_layer = Image.new(
+            "RGBA",
+            (
+                width,
+                height,
+            ),
+            (
+                outline_color[0],
+                outline_color[1],
+                outline_color[2],
+                0,
+            ),
+        )
+
+        outline_layer.putalpha(
+            outline_mask.point(
+                lambda value:
+                    int(
+                        value
+                        * (
+                            outline_color[3]
+                            / 255
+                        )
                     )
-                )
+            )
         )
-    )
 
-    image = Image.alpha_composite(
-        image,
-        outline_layer,
-    )
+        image = Image.alpha_composite(
+            image,
+            outline_layer,
+        )
 
 
     # --------------------------------------------------------
-    # VERLAUF
+    # FARBVERLAUF
     # --------------------------------------------------------
 
     gradient = Image.new(
@@ -1409,7 +1374,10 @@ def draw_gradient_title(
 
         if progress <= 0.25:
 
-            local = progress / 0.25
+            local = (
+                progress
+                / 0.25
+            )
 
             color = mix_rgba(
                 top_color,
@@ -1610,6 +1578,10 @@ def draw_gradient_title(
 
 # ============================================================
 # EARLY – TITEL
+#
+# WICHTIG:
+# Keine Goldkante.
+# Nur 1 px weiß-transparente Lesekante.
 # ============================================================
 
 def draw_early_title(
@@ -1648,7 +1620,10 @@ def draw_early_title(
             EARLY_TITLE_GLOW,
 
         outline_color=
-            EARLY_TITLE_OUTLINE,
+            EARLY_READABILITY_OUTLINE,
+
+        outline_width=
+            EARLY_READABILITY_STROKE_WIDTH,
 
         top_color=
             EARLY_TITLE_TOP_COLOR,
@@ -1672,6 +1647,8 @@ def draw_early_title(
 
 # ============================================================
 # GLOBAL – TITEL
+#
+# Goldkante bleibt erhalten.
 # ============================================================
 
 def draw_global_title_line(
@@ -1710,7 +1687,9 @@ def draw_global_title_line(
             GLOBAL_TITLE_GLOW,
 
         outline_color=
-            GLOBAL_TITLE_OUTLINE,
+            GLOBAL_GOLD_OUTLINE,
+
+        outline_width=1,
 
         top_color=
             GLOBAL_TITLE_TOP_COLOR,
@@ -1733,7 +1712,7 @@ def draw_global_title_line(
 
 
 # ============================================================
-# TRENNER MIT FLACHER RAUTE
+# TRENNER MIT OFFENEM MITTELAKZENT
 # ============================================================
 
 def draw_divider(
@@ -1742,10 +1721,10 @@ def draw_divider(
     divider_width,
     center_gap,
     thickness,
-    diamond_half_width,
-    diamond_half_height,
+    chevron_width,
+    chevron_height,
+    chevron_gap,
     line_color,
-    diamond_fill,
 ):
 
     width, height = image.size
@@ -1772,6 +1751,8 @@ def draw_divider(
     half_width = divider_width / 2
 
 
+    # linke Linie
+
     draw.line(
         (
             center_x - half_width,
@@ -1782,6 +1763,9 @@ def draw_divider(
         fill=line_color,
         width=thickness,
     )
+
+
+    # rechte Linie
 
     draw.line(
         (
@@ -1794,35 +1778,64 @@ def draw_divider(
         width=thickness,
     )
 
-    points = [
-        (
-            center_x,
-            center_y - diamond_half_height,
-        ),
-        (
-            center_x + diamond_half_width,
-            center_y,
-        ),
-        (
-            center_x,
-            center_y + diamond_half_height,
-        ),
-        (
-            center_x - diamond_half_width,
-            center_y,
-        ),
-    ]
 
-    draw.polygon(
-        points,
-        fill=diamond_fill,
+    # linker Akzent >
+
+    left_center_x = (
+        center_x
+        - chevron_gap
     )
 
     draw.line(
-        points + [points[0]],
+        (
+            left_center_x - chevron_width,
+            center_y - chevron_height,
+            left_center_x,
+            center_y,
+        ),
         fill=line_color,
-        width=2,
-        joint="curve",
+        width=thickness,
+    )
+
+    draw.line(
+        (
+            left_center_x,
+            center_y,
+            left_center_x - chevron_width,
+            center_y + chevron_height,
+        ),
+        fill=line_color,
+        width=thickness,
+    )
+
+
+    # rechter Akzent <
+
+    right_center_x = (
+        center_x
+        + chevron_gap
+    )
+
+    draw.line(
+        (
+            right_center_x + chevron_width,
+            center_y - chevron_height,
+            right_center_x,
+            center_y,
+        ),
+        fill=line_color,
+        width=thickness,
+    )
+
+    draw.line(
+        (
+            right_center_x,
+            center_y,
+            right_center_x + chevron_width,
+            center_y + chevron_height,
+        ),
+        fill=line_color,
+        width=thickness,
     )
 
     return Image.alpha_composite(
@@ -1830,10 +1843,6 @@ def draw_divider(
         layer,
     )
 
-
-# ============================================================
-# EARLY – TRENNER
-# ============================================================
 
 def draw_early_divider(
     image,
@@ -1853,23 +1862,19 @@ def draw_early_divider(
         thickness=
             EARLY_DIVIDER_THICKNESS,
 
-        diamond_half_width=
-            EARLY_DIVIDER_DIAMOND_HALF_WIDTH,
+        chevron_width=
+            EARLY_DIVIDER_CHEVRON_WIDTH,
 
-        diamond_half_height=
-            EARLY_DIVIDER_DIAMOND_HALF_HEIGHT,
+        chevron_height=
+            EARLY_DIVIDER_CHEVRON_HEIGHT,
+
+        chevron_gap=
+            EARLY_DIVIDER_CHEVRON_GAP,
 
         line_color=
             EARLY_LINE,
-
-        diamond_fill=
-            EARLY_DIAMOND_FILL,
     )
 
-
-# ============================================================
-# GLOBAL – TRENNER
-# ============================================================
 
 def draw_global_divider(
     image,
@@ -1889,22 +1894,22 @@ def draw_global_divider(
         thickness=
             GLOBAL_DIVIDER_THICKNESS,
 
-        diamond_half_width=
-            GLOBAL_DIVIDER_DIAMOND_HALF_WIDTH,
+        chevron_width=
+            GLOBAL_DIVIDER_CHEVRON_WIDTH,
 
-        diamond_half_height=
-            GLOBAL_DIVIDER_DIAMOND_HALF_HEIGHT,
+        chevron_height=
+            GLOBAL_DIVIDER_CHEVRON_HEIGHT,
+
+        chevron_gap=
+            GLOBAL_DIVIDER_CHEVRON_GAP,
 
         line_color=
             GLOBAL_LINE,
-
-        diamond_fill=
-            GLOBAL_DIAMOND_FILL,
     )
 
 
 # ============================================================
-# EARLY – AUTOMATISCHE VERTIKALE POSITIONEN
+# EARLY – MATHEMATISCHE VERTIKALE ZENTRIERUNG
 # ============================================================
 
 def calculate_early_layout(
@@ -1949,7 +1954,9 @@ def calculate_early_layout(
             noch_font,
         )
 
-        noch_height = noch_metrics["height"]
+        noch_height = (
+            noch_metrics["height"]
+        )
 
     else:
 
@@ -1957,9 +1964,17 @@ def calculate_early_layout(
         noch_height = 0
 
 
-    title_height = title_metrics["height"]
-    date_height = date_metrics["height"]
-    days_height = days_metrics["height"]
+    title_height = (
+        title_metrics["height"]
+    )
+
+    date_height = (
+        date_metrics["height"]
+    )
+
+    days_height = (
+        days_metrics["height"]
+    )
 
 
     block_height = (
@@ -1984,7 +1999,10 @@ def calculate_early_layout(
     ) / 2
 
 
-    title_visible_top = visible_top
+    title_visible_top = (
+        visible_top
+    )
+
 
     divider_y = (
         title_visible_top
@@ -1992,10 +2010,12 @@ def calculate_early_layout(
         + EARLY_GAP_TITLE_DIVIDER
     )
 
+
     date_visible_top = (
         divider_y
         + EARLY_GAP_DIVIDER_DATE
     )
+
 
     if noch_text:
 
@@ -2037,6 +2057,7 @@ def calculate_early_layout(
         - days_metrics["bbox"][1]
     )
 
+
     if noch_text:
 
         noch_y = (
@@ -2059,7 +2080,7 @@ def calculate_early_layout(
 
 
 # ============================================================
-# GLOBAL – AUTOMATISCHE VERTIKALE POSITIONEN
+# GLOBAL – MATHEMATISCHE VERTIKALE ZENTRIERUNG
 # ============================================================
 
 def calculate_global_layout(
@@ -2101,6 +2122,7 @@ def calculate_global_layout(
         days_font,
     )
 
+
     if noch_text:
 
         noch_metrics = get_visible_text_metrics(
@@ -2109,7 +2131,9 @@ def calculate_global_layout(
             noch_font,
         )
 
-        noch_height = noch_metrics["height"]
+        noch_height = (
+            noch_metrics["height"]
+        )
 
     else:
 
@@ -2117,10 +2141,21 @@ def calculate_global_layout(
         noch_height = 0
 
 
-    global_height = global_metrics["height"]
-    launch_height = launch_metrics["height"]
-    date_height = date_metrics["height"]
-    days_height = days_metrics["height"]
+    global_height = (
+        global_metrics["height"]
+    )
+
+    launch_height = (
+        launch_metrics["height"]
+    )
+
+    date_height = (
+        date_metrics["height"]
+    )
+
+    days_height = (
+        days_metrics["height"]
+    )
 
 
     block_height = (
@@ -2147,7 +2182,10 @@ def calculate_global_layout(
     ) / 2
 
 
-    global_visible_top = visible_top
+    global_visible_top = (
+        visible_top
+    )
+
 
     launch_visible_top = (
         global_visible_top
@@ -2155,16 +2193,19 @@ def calculate_global_layout(
         + GLOBAL_TITLE_LINE_GAP
     )
 
+
     divider_y = (
         launch_visible_top
         + launch_height
         + GLOBAL_GAP_LAUNCH_DIVIDER
     )
 
+
     date_visible_top = (
         divider_y
         + GLOBAL_GAP_DIVIDER_DATE
     )
+
 
     if noch_text:
 
@@ -2211,6 +2252,7 @@ def calculate_global_layout(
         - days_metrics["bbox"][1]
     )
 
+
     if noch_text:
 
         noch_y = (
@@ -2245,6 +2287,7 @@ def create_early_access_full_card(
         milestone["background"]
     )
 
+
     title_font = load_font(
         EARLY_TITLE_SIZE,
         bold=EARLY_TITLE_BOLD,
@@ -2265,6 +2308,7 @@ def create_early_access_full_card(
         bold=True,
     )
 
+
     title_text = (
         milestone["title"].upper()
     )
@@ -2274,6 +2318,7 @@ def create_early_access_full_card(
             "date_display"
         ].upper()
     )
+
 
     if milestone["state"] == "countdown":
 
@@ -2295,6 +2340,7 @@ def create_early_access_full_card(
     probe = ImageDraw.Draw(
         image
     )
+
 
     title_spacing = spacing_for_target_width(
         probe,
@@ -2317,9 +2363,9 @@ def create_early_access_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # TITEL
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_early_title(
         image,
@@ -2331,9 +2377,9 @@ def create_early_access_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # TRENNER
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_early_divider(
         image,
@@ -2341,9 +2387,11 @@ def create_early_access_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # DATUM
-    # ========================================================
+    #
+    # 1 px weiß-transparente Lesekante
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -2359,12 +2407,18 @@ def create_early_access_full_card(
         ),
         shadow_blur=2.5,
         shadow_offset=1,
+        stroke_width=
+            EARLY_READABILITY_STROKE_WIDTH,
+        stroke_fill=
+            EARLY_READABILITY_OUTLINE,
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # NOCH
-    # ========================================================
+    #
+    # Ebenfalls weiße Lesekante
+    # --------------------------------------------------------
 
     if noch_text:
 
@@ -2383,12 +2437,18 @@ def create_early_access_full_card(
             ),
             shadow_blur=2.0,
             shadow_offset=1,
+            stroke_width=
+                EARLY_READABILITY_STROKE_WIDTH,
+            stroke_fill=
+                EARLY_READABILITY_OUTLINE,
         )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # COUNTDOWN
-    # ========================================================
+    #
+    # Ebenfalls weiße Lesekante
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -2404,7 +2464,12 @@ def create_early_access_full_card(
         ),
         shadow_blur=3.0,
         shadow_offset=1,
+        stroke_width=
+            EARLY_READABILITY_STROKE_WIDTH,
+        stroke_fill=
+            EARLY_READABILITY_OUTLINE,
     )
+
 
     return image.convert(
         "RGB"
@@ -2422,6 +2487,7 @@ def create_global_launch_full_card(
     image = load_background(
         milestone["background"]
     )
+
 
     title_font = load_font(
         GLOBAL_TITLE_SIZE,
@@ -2444,11 +2510,13 @@ def create_global_launch_full_card(
         bold=True,
     )
 
+
     date_text = (
         milestone[
             "date_display"
         ].upper()
     )
+
 
     if milestone["state"] == "countdown":
 
@@ -2470,6 +2538,7 @@ def create_global_launch_full_card(
     probe = ImageDraw.Draw(
         image
     )
+
 
     global_spacing = spacing_for_target_width(
         probe,
@@ -2498,9 +2567,9 @@ def create_global_launch_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # GLOBAL
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_global_title_line(
         image,
@@ -2512,9 +2581,9 @@ def create_global_launch_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # LAUNCH
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_global_title_line(
         image,
@@ -2526,9 +2595,9 @@ def create_global_launch_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # TRENNER
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_global_divider(
         image,
@@ -2536,9 +2605,9 @@ def create_global_launch_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # DATUM
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -2557,9 +2626,9 @@ def create_global_launch_full_card(
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # NOCH
-    # ========================================================
+    # --------------------------------------------------------
 
     if noch_text:
 
@@ -2573,9 +2642,9 @@ def create_global_launch_full_card(
         )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # COUNTDOWN
-    # ========================================================
+    # --------------------------------------------------------
 
     image = draw_soft_centered_text(
         image,
@@ -2592,6 +2661,7 @@ def create_global_launch_full_card(
         shadow_blur=1.5,
         shadow_offset=1,
     )
+
 
     return image.convert(
         "RGB"
@@ -2634,6 +2704,7 @@ def create_compact_card(
         milestone["key"],
     )
 
+
     if milestone["key"] == "global_launch":
 
         title_font = load_font(
@@ -2649,10 +2720,12 @@ def create_compact_card(
             bold=True,
         )
 
+
     status_font = load_font(
         COMPACT_STATUS_SIZE,
         bold=True,
     )
+
 
     title_text = (
         milestone["title"].upper()
@@ -2663,9 +2736,11 @@ def create_compact_card(
         f"· GESTARTET"
     )
 
+
     probe = ImageDraw.Draw(
         image
     )
+
 
     title_bbox = probe.textbbox(
         (
@@ -2685,6 +2760,7 @@ def create_compact_card(
         font=status_font,
     )
 
+
     title_height = (
         title_bbox[3]
         - title_bbox[1]
@@ -2695,11 +2771,13 @@ def create_compact_card(
         - status_bbox[1]
     )
 
+
     group_height = (
         title_height
         + COMPACT_GAP
         + status_height
     )
+
 
     visible_top = (
         (
@@ -2709,10 +2787,12 @@ def create_compact_card(
         / 2
     )
 
+
     title_y = (
         visible_top
         - title_bbox[1]
     )
+
 
     status_visible_top = (
         visible_top
@@ -2720,11 +2800,16 @@ def create_compact_card(
         + COMPACT_GAP
     )
 
+
     status_y = (
         status_visible_top
         - status_bbox[1]
     )
 
+
+    # ========================================================
+    # GLOBAL COMPACT
+    # ========================================================
 
     if milestone["key"] == "global_launch":
 
@@ -2769,6 +2854,11 @@ def create_compact_card(
             shadow_blur=1.6,
         )
 
+
+    # ========================================================
+    # EARLY COMPACT
+    # ========================================================
+
     else:
 
         title_spacing = spacing_for_target_width(
@@ -2800,7 +2890,12 @@ def create_compact_card(
                 150,
             ),
             shadow_blur=2.5,
+            stroke_width=
+                EARLY_READABILITY_STROKE_WIDTH,
+            stroke_fill=
+                EARLY_READABILITY_OUTLINE,
         )
+
 
     return image.convert(
         "RGB"
@@ -2841,6 +2936,7 @@ def save_milestone_card(
         milestone
     )
 
+
     if milestone["key"] == "early_access":
 
         filename = (
@@ -2859,17 +2955,20 @@ def save_milestone_card(
             f"{milestone['key']}_card.png"
         )
 
+
     image.save(
         filename,
         "PNG",
         optimize=True,
     )
 
+
     print(
         f"{milestone['title']}: "
         f"{filename} "
         f"({image.width}x{image.height})"
     )
+
 
     return filename
 
@@ -2879,6 +2978,12 @@ def save_milestone_card(
 # ============================================================
 
 def webhook_wait_url():
+
+    if not WEBHOOK_URL:
+
+        raise RuntimeError(
+            "GitHub Secret CONTENT_WEBHOOK fehlt."
+        )
 
     separator = (
         "&"
@@ -2911,6 +3016,7 @@ def post_discord_image(
         ],
     }
 
+
     with open(
         image_file,
         "rb",
@@ -2924,6 +3030,7 @@ def post_discord_image(
             )
         }
 
+
         response = requests.post(
             webhook_wait_url(),
             data={
@@ -2933,6 +3040,7 @@ def post_discord_image(
             files=files,
             timeout=30,
         )
+
 
     if response.status_code not in (
         200,
@@ -2946,11 +3054,13 @@ def post_discord_image(
             f"{response.text}"
         )
 
+
     message = response.json()
 
     message_id = message.get(
         "id"
     )
+
 
     if not message_id:
 
@@ -2958,6 +3068,7 @@ def post_discord_image(
             "Discord hat keine "
             "Message-ID zurückgegeben."
         )
+
 
     return message_id
 
@@ -2973,35 +3084,42 @@ def send_content_to_discord(
             "GitHub Secret CONTENT_WEBHOOK fehlt."
         )
 
+
     print("")
     print(
         "Early Access wird gesendet ..."
     )
+
 
     early_message_id = post_discord_image(
         early_access_file,
         "early_access.png",
     )
 
+
     print(
         f"Early Access Message-ID: "
         f"{early_message_id}"
     )
+
 
     print("")
     print(
         "Global Launch wird gesendet ..."
     )
 
+
     global_message_id = post_discord_image(
         global_launch_file,
         "global_launch.png",
     )
 
+
     print(
         f"Global Launch Message-ID: "
         f"{global_message_id}"
     )
+
 
     print("")
     print(
@@ -3034,6 +3152,7 @@ def print_status(
         "========================================"
     )
 
+
     for milestone in (
         content_state["milestones"]
     ):
@@ -3042,12 +3161,15 @@ def print_status(
         print(
             milestone["title"]
         )
+
         print(
             milestone["date_display"]
         )
+
         print(
             milestone["status_text"]
         )
+
 
     print("")
     print(
@@ -3066,27 +3188,32 @@ def main():
         {},
     )
 
+
     if not data:
 
         raise RuntimeError(
-            "content_data.json "
-            "ist leer oder fehlt."
+            "content_data.json ist leer oder fehlt."
         )
+
 
     content_state = build_content_state(
         data
     )
 
+
     print_status(
         content_state
     )
+
 
     wanted_keys = {
         "early_access",
         "global_launch",
     }
 
+
     rendered_files = {}
+
 
     for milestone in (
         content_state["milestones"]
@@ -3096,13 +3223,16 @@ def main():
 
             continue
 
+
         filename = save_milestone_card(
             milestone
         )
 
+
         rendered_files[
             milestone["key"]
         ] = filename
+
 
     missing = (
         wanted_keys
@@ -3110,6 +3240,7 @@ def main():
             rendered_files.keys()
         )
     )
+
 
     if missing:
 
@@ -3120,6 +3251,7 @@ def main():
                 sorted(missing)
             )
         )
+
 
     send_content_to_discord(
         rendered_files[
