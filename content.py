@@ -1,5 +1,6 @@
 import os
 import json
+import math
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -98,8 +99,8 @@ EARLY_TITLE_GLOW = (
 # ------------------------------------------------------------
 # EARLY – WEISSE LESEKANTE
 #
-# NUR auf EARLY ACCESS.
-# Datum / NOCH / Countdown bleiben ohne Kontur.
+# Nur EARLY ACCESS.
+# Alles darunter bleibt ohne weiße Kontur.
 # ------------------------------------------------------------
 
 EARLY_READABILITY_OUTLINE = (
@@ -187,12 +188,28 @@ EARLY_NOCH_TEXT = (
 
 # ============================================================
 # EARLY – TRENNER
+#
+# Eine einzige zusammenhängende Form.
+#
+# Mitte:
+# kleiner runder Kern.
+#
+# Direkt daneben:
+# sanfter Übergang in die kräftigste Stelle.
+#
+# Außen:
+# immer dünner + transparenter bis auf 0.
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 305
-EARLY_DIVIDER_MAX_HALF_HEIGHT = 4
-EARLY_DIVIDER_CENTER_GAP = 7
-EARLY_DIVIDER_DOT_RADIUS = 2
+
+EARLY_DIVIDER_DOT_RADIUS = 2.2
+
+EARLY_DIVIDER_MAX_HALF_HEIGHT = 3.4
+
+EARLY_DIVIDER_SHOULDER_LENGTH = 13
+
+EARLY_DIVIDER_TAPER_POWER = 1.55
 
 EARLY_LINE = (
     184,
@@ -324,9 +341,14 @@ GLOBAL_MUTED = (
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 305
-GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 4
-GLOBAL_DIVIDER_CENTER_GAP = 7
-GLOBAL_DIVIDER_DOT_RADIUS = 2
+
+GLOBAL_DIVIDER_DOT_RADIUS = 2.2
+
+GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 3.4
+
+GLOBAL_DIVIDER_SHOULDER_LENGTH = 13
+
+GLOBAL_DIVIDER_TAPER_POWER = 1.55
 
 GLOBAL_LINE = (
     45,
@@ -1699,36 +1721,88 @@ def draw_global_title_line(
 
 
 # ============================================================
-# TRENNER – WEICHE DOPPELKlinge
+# TRENNER
 #
-# Der Punkt und die beiden Seiten bilden jetzt EINE Form.
-# Direkt am Mittelpunkt kräftig/rund.
-# Nach außen weich auf 0 auslaufend.
+# WICHTIG:
+#
+# Keine Ellipse hinter dem Punkt.
+# Kein Bridge-Element.
+# Kein GaussianBlur.
+#
+# Die komplette Form wird pro X-Position berechnet.
+#
+# Dadurch besteht sie wirklich aus EINER Form:
+#
+# - runder Kern in der Mitte
+# - weicher Übergang zur dickeren Schulter
+# - anschließend langer Auslauf auf 0
+# - gleichzeitig Transparenz nach außen
 # ============================================================
 
 def draw_blade_divider(
     image,
     center_y,
     divider_width,
-    max_half_height,
-    center_gap,
     dot_radius,
+    max_half_height,
+    shoulder_length,
+    taper_power,
     color,
 ):
 
     width, height = image.size
 
-    # --------------------------------------------------------
-    # 4-FACH ZEICHNEN FÜR SAUBERE KANTEN
-    # --------------------------------------------------------
-
     scale = 4
+
+    scaled_width = (
+        width * scale
+    )
+
+    scaled_height = (
+        height * scale
+    )
+
+    center_x = (
+        width / 2
+        * scale
+    )
+
+    center_y_scaled = (
+        center_y
+        * scale
+    )
+
+    half_total_width = (
+        divider_width
+        / 2
+        * scale
+    )
+
+    dot_radius_scaled = (
+        dot_radius
+        * scale
+    )
+
+    max_half_height_scaled = (
+        max_half_height
+        * scale
+    )
+
+    shoulder_length_scaled = (
+        shoulder_length
+        * scale
+    )
+
+
+    # --------------------------------------------------------
+    # RGBA-LAYER
+    # --------------------------------------------------------
 
     layer = Image.new(
         "RGBA",
         (
-            width * scale,
-            height * scale,
+            scaled_width,
+            scaled_height,
         ),
         (
             0,
@@ -1742,108 +1816,178 @@ def draw_blade_divider(
         layer
     )
 
-    center_x = (
-        width / 2
-    ) * scale
-
-    center_y_scaled = (
-        center_y * scale
-    )
-
-    divider_width_scaled = (
-        divider_width * scale
-    )
-
-    dot_radius_scaled = (
-        dot_radius * scale
-    )
-
-    base_half_height = (
-        max_half_height
-        * scale
-    )
-
 
     # --------------------------------------------------------
-    # DIE KLINGEN BEGINNEN DIREKT IM RUNDEN MITTELPUNKT
+    # FORM PRO X-POSITION
     # --------------------------------------------------------
 
-    connection_x = (
-        dot_radius_scaled
-        * 0.65
+    max_distance = int(
+        half_total_width
     )
 
-    outer_left = (
-        center_x
-        - divider_width_scaled / 2
-    )
-
-    outer_right = (
-        center_x
-        + divider_width_scaled / 2
-    )
-
-    inner_left = (
-        center_x
-        - connection_x
-    )
-
-    inner_right = (
-        center_x
-        + connection_x
-    )
-
-    blade_length = (
-        inner_left
-        - outer_left
-    )
-
-    steps = max(
-        1,
-        int(blade_length)
-    )
-
-
-    # --------------------------------------------------------
-    # LINKER UND RECHTER WEICHER AUSLAUF
-    #
-    # Außen:
-    # praktisch unsichtbar / 0 Höhe
-    #
-    # Mitte:
-    # kräftiger und höher
-    # --------------------------------------------------------
-
-    for i in range(
-        steps + 1
+    for distance in range(
+        0,
+        max_distance + 1,
     ):
 
-        progress = (
-            i / steps
+        d = float(
+            distance
         )
 
-        # Weicher Größenverlauf.
-        # Außen sehr lange fein,
-        # zur Mitte hin zunehmend kräftig.
-        curve = (
-            progress ** 1.65
-        )
 
-        half_height = (
-            base_half_height
-            * curve
-        )
+        # ====================================================
+        # 1. RUNDER MITTELPUNKT
+        #
+        # Innerhalb des Punkt-Radius wird exakt eine
+        # Kreiskontur berechnet.
+        # ====================================================
 
-        # Gleichzeitig die Deckkraft nach außen
-        # vollständig verschwinden lassen.
-        alpha_curve = (
-            progress ** 1.35
-        )
+        if d <= dot_radius_scaled:
+
+            inside = max(
+                0.0,
+                (
+                    dot_radius_scaled
+                    * dot_radius_scaled
+                )
+                - (
+                    d * d
+                ),
+            )
+
+            half_height = math.sqrt(
+                inside
+            )
+
+            alpha_factor = 1.0
+
+
+        # ====================================================
+        # 2. WEICHER ÜBERGANG
+        #
+        # Direkt außerhalb des Kreises geht die Höhe nicht
+        # plötzlich auf eine andere Form über.
+        #
+        # Sie steigt sanft vom Rand des runden Kerns zur
+        # maximalen Schulterhöhe.
+        # ====================================================
+
+        elif d <= (
+            dot_radius_scaled
+            + shoulder_length_scaled
+        ):
+
+            local = (
+                (
+                    d
+                    - dot_radius_scaled
+                )
+                / shoulder_length_scaled
+            )
+
+            # Smoothstep:
+            # 0 -> 1 ohne harte Ecke am Anfang/Ende.
+            smooth = (
+                local
+                * local
+                * (
+                    3.0
+                    - 2.0 * local
+                )
+            )
+
+            # Am Rand des runden Kerns liegt die Kreisform
+            # geometrisch bei 0.
+            #
+            # Wir lassen sie von dort sehr schnell, aber weich
+            # in die eigentliche Klinge wachsen.
+            half_height = (
+                max_half_height_scaled
+                * smooth
+            )
+
+            alpha_factor = 1.0
+
+
+        # ====================================================
+        # 3. LANGER AUSLAUF
+        #
+        # Von der Schulter bis außen:
+        # kontinuierlich dünner.
+        # ====================================================
+
+        else:
+
+            taper_start = (
+                dot_radius_scaled
+                + shoulder_length_scaled
+            )
+
+            taper_length = max(
+                1.0,
+                half_total_width
+                - taper_start,
+            )
+
+            progress = (
+                (
+                    d
+                    - taper_start
+                )
+                / taper_length
+            )
+
+            progress = max(
+                0.0,
+                min(
+                    1.0,
+                    progress,
+                ),
+            )
+
+            remaining = (
+                1.0
+                - progress
+            )
+
+            half_height = (
+                max_half_height_scaled
+                * (
+                    remaining
+                    ** taper_power
+                )
+            )
+
+            # Nach außen nicht nur dünner,
+            # sondern auch transparenter.
+            alpha_factor = (
+                remaining
+                ** 0.85
+            )
+
+
+        # ----------------------------------------------------
+        # GANZ AUSSEN WIRKLICH AUF 0
+        # ----------------------------------------------------
+
+        if distance >= max_distance:
+
+            half_height = 0
+            alpha_factor = 0
+
 
         alpha = int(
             color[3]
-            * alpha_curve
+            * alpha_factor
         )
+
+        if (
+            half_height <= 0
+            or alpha <= 0
+        ):
+
+            continue
+
 
         current_color = (
             color[0],
@@ -1852,141 +1996,75 @@ def draw_blade_divider(
             alpha,
         )
 
-        x_left = (
-            outer_left
-            + i
+
+        x_left = int(
+            round(
+                center_x
+                - distance
+            )
         )
 
-        x_right = (
-            outer_right
-            - i
+        x_right = int(
+            round(
+                center_x
+                + distance
+            )
         )
 
-        if half_height > 0:
+        y_top = int(
+            round(
+                center_y_scaled
+                - half_height
+            )
+        )
+
+        y_bottom = int(
+            round(
+                center_y_scaled
+                + half_height
+            )
+        )
+
+
+        # ----------------------------------------------------
+        # LINKER UND RECHTER TEIL
+        #
+        # Bei distance=0 fällt beides auf dieselbe Position.
+        # Das ist okay.
+        # ----------------------------------------------------
+
+        draw.line(
+            (
+                x_left,
+                y_top,
+                x_left,
+                y_bottom,
+            ),
+            fill=current_color,
+            width=1,
+        )
+
+        if x_right != x_left:
 
             draw.line(
                 (
-                    x_left,
-                    center_y_scaled
-                    - half_height,
-
-                    x_left,
-                    center_y_scaled
-                    + half_height,
+                    x_right,
+                    y_top,
+                    x_right,
+                    y_bottom,
                 ),
                 fill=current_color,
                 width=1,
             )
 
-            draw.line(
-                (
-                    x_right,
-                    center_y_scaled
-                    - half_height,
-
-                    x_right,
-                    center_y_scaled
-                    + half_height,
-                ),
-                fill=current_color,
-                width=1,
-            )
-
 
     # --------------------------------------------------------
-    # RUNDE VERBINDUNG
+    # SUPERSAMPLING ZURÜCKRECHNEN
     #
-    # Diese Ellipse sitzt HINTER dem eigentlichen Punkt und
-    # verbindet die beiden dicken Klingenenden miteinander.
-    # Dadurch gibt es keinen harten Schnitt mehr.
-    # --------------------------------------------------------
-
-    bridge_radius_x = (
-        dot_radius_scaled
-        * 2.15
-    )
-
-    bridge_radius_y = (
-        base_half_height
-        * 0.92
-    )
-
-    bridge_color = (
-        color[0],
-        color[1],
-        color[2],
-        int(
-            color[3]
-            * 0.88
-        ),
-    )
-
-    draw.ellipse(
-        (
-            center_x
-            - bridge_radius_x,
-
-            center_y_scaled
-            - bridge_radius_y,
-
-            center_x
-            + bridge_radius_x,
-
-            center_y_scaled
-            + bridge_radius_y,
-        ),
-        fill=bridge_color,
-    )
-
-
-    # --------------------------------------------------------
-    # RUNDER MITTELPUNKT
+    # KEIN Blur.
     #
-    # Der Punkt liegt innerhalb der Verbindung und wirkt
-    # dadurch als Zentrum derselben Form.
-    # --------------------------------------------------------
-
-    dot_color = (
-        color[0],
-        color[1],
-        color[2],
-        min(
-            255,
-            color[3] + 30,
-        ),
-    )
-
-    draw.ellipse(
-        (
-            center_x
-            - dot_radius_scaled,
-
-            center_y_scaled
-            - dot_radius_scaled,
-
-            center_x
-            + dot_radius_scaled,
-
-            center_y_scaled
-            + dot_radius_scaled,
-        ),
-        fill=dot_color,
-    )
-
-
-    # --------------------------------------------------------
-    # MINIMALE GLÄTTUNG
-    # --------------------------------------------------------
-
-    layer = layer.filter(
-        ImageFilter.GaussianBlur(
-            0.55 * scale
-        )
-    )
-
-
-    # --------------------------------------------------------
-    # ZURÜCK AUF 1200 x 535
+    # Nur LANCZOS-Antialiasing.
+    # Dadurch keine transparente Wolke / kein Klotz.
     # --------------------------------------------------------
 
     layer = layer.resize(
@@ -2015,19 +2093,23 @@ def draw_early_divider(
 
     return draw_blade_divider(
         image=image,
+
         center_y=center_y,
 
         divider_width=
             EARLY_DIVIDER_WIDTH,
 
+        dot_radius=
+            EARLY_DIVIDER_DOT_RADIUS,
+
         max_half_height=
             EARLY_DIVIDER_MAX_HALF_HEIGHT,
 
-        center_gap=
-            EARLY_DIVIDER_CENTER_GAP,
+        shoulder_length=
+            EARLY_DIVIDER_SHOULDER_LENGTH,
 
-        dot_radius=
-            EARLY_DIVIDER_DOT_RADIUS,
+        taper_power=
+            EARLY_DIVIDER_TAPER_POWER,
 
         color=
             EARLY_LINE,
@@ -2045,19 +2127,23 @@ def draw_global_divider(
 
     return draw_blade_divider(
         image=image,
+
         center_y=center_y,
 
         divider_width=
             GLOBAL_DIVIDER_WIDTH,
 
+        dot_radius=
+            GLOBAL_DIVIDER_DOT_RADIUS,
+
         max_half_height=
             GLOBAL_DIVIDER_MAX_HALF_HEIGHT,
 
-        center_gap=
-            GLOBAL_DIVIDER_CENTER_GAP,
+        shoulder_length=
+            GLOBAL_DIVIDER_SHOULDER_LENGTH,
 
-        dot_radius=
-            GLOBAL_DIVIDER_DOT_RADIUS,
+        taper_power=
+            GLOBAL_DIVIDER_TAPER_POWER,
 
         color=
             GLOBAL_LINE,
@@ -2545,7 +2631,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # DATUM
-    # Keine weiße Kontur.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2567,7 +2652,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # NOCH
-    # Keine weiße Kontur.
     # --------------------------------------------------------
 
     if noch_text:
@@ -2592,7 +2676,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # COUNTDOWN
-    # Keine weiße Kontur.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
