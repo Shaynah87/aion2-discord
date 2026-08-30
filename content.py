@@ -36,10 +36,8 @@ COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# GEMEINSAMER COUNTDOWN
+# COUNTDOWN
 # ============================================================
-
-COUNTDOWN_VISIBLE_BOTTOM = 485
 
 COUNTDOWN_DAYS_SIZE = 54
 COUNTDOWN_NOCH_SIZE = 17
@@ -48,6 +46,8 @@ COUNTDOWN_NOCH_DAYS_GAP = 10
 
 # ============================================================
 # GLOBAL – POSITION DES OBEREN BLOCKS
+#
+# GLOBAL bleibt exakt auf der bisherigen Position.
 # ============================================================
 
 GLOBAL_VISIBLE_TOP = 60
@@ -114,7 +114,7 @@ EARLY_TITLE_GLOW = (
 # ------------------------------------------------------------
 # EARLY – WEISSE LESEKANTE
 #
-# Ausschließlich für EARLY ACCESS.
+# Nur EARLY ACCESS.
 # ------------------------------------------------------------
 
 EARLY_READABILITY_OUTLINE = (
@@ -130,13 +130,7 @@ EARLY_READABILITY_STROKE_WIDTH = 1
 # ------------------------------------------------------------
 # EARLY – DUNKLE LESEKANTE
 #
-# Ausschließlich:
-# - Datum
-# - NOCH
-# - Countdown
-#
-# Sehr dunkles Blau-Schwarz.
-# Kein hartes Vollschwarz.
+# Nur Datum / NOCH / Countdown.
 # ------------------------------------------------------------
 
 EARLY_LOWER_READABILITY_OUTLINE = (
@@ -262,6 +256,10 @@ GLOBAL_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
 # ------------------------------------------------------------
 # GLOBAL – ABSTÄNDE
+#
+# GLOBAL / LAUNCH bleibt wie bisher.
+# Trenner sitzt mit identischem Abstand zwischen
+# LAUNCH und Datum.
 # ------------------------------------------------------------
 
 GLOBAL_TITLE_LINE_GAP = 13
@@ -1208,6 +1206,7 @@ def draw_gradient_title(
         bottom - top,
     )
 
+
     # --------------------------------------------------------
     # SCHATTEN
     # --------------------------------------------------------
@@ -1267,6 +1266,7 @@ def draw_gradient_title(
         shadow_layer,
     )
 
+
     # --------------------------------------------------------
     # GLOW
     # --------------------------------------------------------
@@ -1308,6 +1308,7 @@ def draw_gradient_title(
         image,
         glow_layer,
     )
+
 
     # --------------------------------------------------------
     # AUSSENKONTUR
@@ -1365,6 +1366,7 @@ def draw_gradient_title(
             image,
             outline_layer,
         )
+
 
     # --------------------------------------------------------
     # FARBVERLAUF
@@ -1460,6 +1462,7 @@ def draw_gradient_title(
         gradient,
     )
 
+
     # --------------------------------------------------------
     # DUNKLE UNTERKANTE
     # --------------------------------------------------------
@@ -1517,6 +1520,7 @@ def draw_gradient_title(
         image,
         lower_edge_layer,
     )
+
 
     # --------------------------------------------------------
     # LICHTREFLEX
@@ -2050,7 +2054,18 @@ def draw_global_divider(
 
 
 # ============================================================
-# GEMEINSAMER COUNTDOWN-LAYOUT
+# COUNTDOWN-LAYOUT
+#
+# NEU:
+#
+# visible_bottom_margin ist der Abstand, der unten exakt
+# eingehalten werden soll.
+#
+# Global:
+#   oberer Abstand GLOBAL = unterer Abstand 36 TAGE
+#
+# Early:
+#   oberer Abstand EARLY ACCESS = unterer Abstand 31 TAGE
 # ============================================================
 
 def calculate_countdown_layout(
@@ -2059,6 +2074,7 @@ def calculate_countdown_layout(
     noch_font,
     days_text,
     days_font,
+    visible_bottom_margin,
 ):
 
     draw = ImageDraw.Draw(
@@ -2076,7 +2092,8 @@ def calculate_countdown_layout(
     )
 
     days_visible_bottom = (
-        COUNTDOWN_VISIBLE_BOTTOM
+        FULL_HEIGHT
+        - visible_bottom_margin
     )
 
     days_visible_top = (
@@ -2119,12 +2136,15 @@ def calculate_countdown_layout(
     return {
         "noch_y": noch_y,
         "days_y": days_y,
-        "days_visible_top": days_visible_top,
+        "days_visible_bottom":
+            days_visible_bottom,
     }
 
 
 # ============================================================
 # GLOBAL – OBERER BLOCK
+#
+# GLOBAL bleibt exakt auf Position 60.
 # ============================================================
 
 def calculate_global_upper_layout(
@@ -2211,16 +2231,31 @@ def calculate_global_upper_layout(
     ) / 2
 
     return {
-        "global_y": global_y,
-        "launch_y": launch_y,
-        "divider_y": divider_y,
-        "date_y": date_y,
-        "title_block_center_y": title_block_center_y,
+        "global_y":
+            global_y,
+
+        "launch_y":
+            launch_y,
+
+        "divider_y":
+            divider_y,
+
+        "date_y":
+            date_y,
+
+        "global_visible_top":
+            global_visible_top,
+
+        "title_block_center_y":
+            title_block_center_y,
     }
 
 
 # ============================================================
 # EARLY – OBERER BLOCK
+#
+# EARLY ACCESS bleibt exakt auf der Mittellinie des
+# GLOBAL/LAUNCH-Zweizeilers.
 # ============================================================
 
 def calculate_early_upper_layout(
@@ -2279,9 +2314,17 @@ def calculate_early_upper_layout(
     )
 
     return {
-        "title_y": title_y,
-        "divider_y": divider_y,
-        "date_y": date_y,
+        "title_y":
+            title_y,
+
+        "divider_y":
+            divider_y,
+
+        "date_y":
+            date_y,
+
+        "title_visible_top":
+            title_visible_top,
     }
 
 
@@ -2411,12 +2454,29 @@ def create_early_access_full_card(
             global_title_center_y,
     )
 
+
+    # --------------------------------------------------------
+    # EARLY – SYMMETRISCHER AUSSENABSTAND
+    #
+    # Abstand oben von EARLY ACCESS wird 1:1 als Abstand
+    # unten unter 31 TAGE verwendet.
+    # --------------------------------------------------------
+
+    early_top_margin = (
+        upper_layout[
+            "title_visible_top"
+        ]
+    )
+
+
     countdown_layout = calculate_countdown_layout(
         image=image,
         noch_text=noch_text,
         noch_font=noch_font,
         days_text=days_text,
         days_font=days_font,
+        visible_bottom_margin=
+            early_top_margin,
     )
 
 
@@ -2446,9 +2506,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # DATUM
-    #
-    # NEU:
-    # 1 px dunkle Lesekante.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2465,8 +2522,10 @@ def create_early_access_full_card(
         ),
         shadow_blur=2.5,
         shadow_offset=1,
+
         stroke_width=
             EARLY_LOWER_READABILITY_STROKE_WIDTH,
+
         stroke_fill=
             EARLY_LOWER_READABILITY_OUTLINE,
     )
@@ -2474,9 +2533,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # NOCH
-    #
-    # NEU:
-    # dieselbe 1 px Lesekante.
     # --------------------------------------------------------
 
     if noch_text:
@@ -2488,12 +2544,16 @@ def create_early_access_full_card(
             noch_font,
             EARLY_NOCH_TEXT,
             5,
+
             shadow_fill=
                 EARLY_NOCH_SHADOW,
+
             shadow_blur=1.4,
             shadow_offset=1,
+
             stroke_width=
                 EARLY_LOWER_READABILITY_STROKE_WIDTH,
+
             stroke_fill=
                 EARLY_LOWER_READABILITY_OUTLINE,
         )
@@ -2501,9 +2561,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # COUNTDOWN
-    #
-    # NEU:
-    # dieselbe 1 px Lesekante.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2520,8 +2577,10 @@ def create_early_access_full_card(
         ),
         shadow_blur=3.0,
         shadow_offset=1,
+
         stroke_width=
             EARLY_LOWER_READABILITY_STROKE_WIDTH,
+
         stroke_fill=
             EARLY_LOWER_READABILITY_OUTLINE,
     )
@@ -2611,12 +2670,30 @@ def create_global_launch_full_card(
         date_font=date_font,
     )
 
+
+    # --------------------------------------------------------
+    # GLOBAL – SYMMETRISCHER AUSSENABSTAND
+    #
+    # GLOBAL bleibt oben exakt bei 60 px.
+    #
+    # Also endet 36 TAGE exakt 60 px vor der Unterkante.
+    # --------------------------------------------------------
+
+    global_top_margin = (
+        upper_layout[
+            "global_visible_top"
+        ]
+    )
+
+
     countdown_layout = calculate_countdown_layout(
         image=image,
         noch_text=noch_text,
         noch_font=noch_font,
         days_text=days_text,
         days_font=days_font,
+        visible_bottom_margin=
+            global_top_margin,
     )
 
 
