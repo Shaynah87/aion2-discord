@@ -19,6 +19,7 @@ from PIL import (
 # ============================================================
 
 DATA_FILE = "content_data.json"
+MESSAGE_STATE_FILE = "content_message.json"
 
 WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
 
@@ -3084,7 +3085,51 @@ def save_milestone_card(
 
 # ============================================================
 # DISCORD
+#
+# Early Access und Global Launch bleiben jeweils dauerhaft
+# dieselbe Discord-Nachricht.
+#
+# Beim ersten Lauf wird eine Nachricht erstellt und ihre
+# Message-ID in content_message.json gespeichert.
+# Bei allen weiteren Läufen wird genau diese Nachricht per
+# PATCH aktualisiert.
+#
+# Falls eine gespeicherte Discord-Nachricht manuell gelöscht
+# wurde, liefert Discord 404. Dann wird nur diese eine Nachricht
+# neu erstellt und die neue Message-ID gespeichert.
 # ============================================================
+
+def load_message_state():
+
+    state = load_json(
+        MESSAGE_STATE_FILE,
+        {},
+    )
+
+    if not isinstance(state, dict):
+
+        return {}
+
+    return state
+
+
+def save_message_state(state):
+
+    with open(
+        MESSAGE_STATE_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+
+        json.dump(
+            state,
+            file,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+        file.write("\n")
+
 
 def webhook_wait_url():
 
@@ -3107,12 +3152,29 @@ def webhook_wait_url():
     )
 
 
-def post_discord_image(
-    image_file,
+def discord_message_url(message_id):
+
+    if not WEBHOOK_URL:
+
+        raise RuntimeError(
+            "GitHub Secret CONTENT_WEBHOOK fehlt."
+        )
+
+    base_url = WEBHOOK_URL.split(
+        "?",
+        1,
+    )[0]
+
+    return (
+        f"{base_url}/messages/{message_id}"
+    )
+
+
+def build_discord_image_payload(
     discord_filename,
 ):
 
-    payload = {
+    return {
         "content": "",
         "allowed_mentions": {
             "parse": []
@@ -3124,6 +3186,16 @@ def post_discord_image(
             }
         ],
     }
+
+
+def post_discord_image(
+    image_file,
+    discord_filename,
+):
+
+    payload = build_discord_image_payload(
+        discord_filename
+    )
 
     with open(
         image_file,
@@ -3173,7 +3245,123 @@ def post_discord_image(
             "Message-ID zurückgegeben."
         )
 
-    return message_id
+    return str(message_id)
+
+
+def patch_discord_image(
+    message_id,
+    image_file,
+    discord_filename,
+):
+
+    payload = build_discord_image_payload(
+        discord_filename
+    )
+
+    with open(
+        image_file,
+        "rb",
+    ) as image_handle:
+
+        files = {
+            "files[0]": (
+                discord_filename,
+                image_handle,
+                "image/png",
+            )
+        }
+
+        response = requests.patch(
+            discord_message_url(
+                message_id
+            ),
+            data={
+                "payload_json":
+                    json.dumps(payload)
+            },
+            files=files,
+            timeout=30,
+        )
+
+    if response.status_code == 404:
+
+        return False
+
+    if response.status_code not in (
+        200,
+        204,
+    ):
+
+        raise RuntimeError(
+            "Discord Content konnte "
+            "nicht aktualisiert werden.\n"
+            f"HTTP {response.status_code}\n"
+            f"{response.text}"
+        )
+
+    return True
+
+
+def update_or_create_discord_image(
+    state,
+    state_key,
+    image_file,
+    discord_filename,
+    label,
+):
+
+    message_id = state.get(
+        state_key
+    )
+
+    if message_id:
+
+        print(
+            f"{label} wird aktualisiert ..."
+        )
+
+        updated = patch_discord_image(
+            message_id,
+            image_file,
+            discord_filename,
+        )
+
+        if updated:
+
+            print(
+                f"{label} aktualisiert. "
+                f"Message-ID: {message_id}"
+            )
+
+            return False
+
+        print(
+            f"{label}: gespeicherte "
+            "Discord-Nachricht wurde nicht "
+            "gefunden. Sie wird neu erstellt."
+        )
+
+    else:
+
+        print(
+            f"{label}: noch keine "
+            "Message-ID gespeichert. "
+            "Nachricht wird erstellt ..."
+        )
+
+    new_message_id = post_discord_image(
+        image_file,
+        discord_filename,
+    )
+
+    state[state_key] = new_message_id
+
+    print(
+        f"{label} erstellt. "
+        f"Message-ID: {new_message_id}"
+    )
+
+    return True
 
 
 def send_content_to_discord(
@@ -3187,42 +3375,46 @@ def send_content_to_discord(
             "GitHub Secret CONTENT_WEBHOOK fehlt."
         )
 
-    print("")
-    print(
-        "Early Access wird gesendet ..."
-    )
-
-    early_message_id = post_discord_image(
-        early_access_file,
-        "early_access.png",
-    )
-
-    print(
-        f"Early Access Message-ID: "
-        f"{early_message_id}"
-    )
+    state = load_message_state()
 
     print("")
-    print(
-        "Global Launch wird gesendet ..."
+
+    early_changed = update_or_create_discord_image(
+        state=state,
+        state_key="early_access_message_id",
+        image_file=early_access_file,
+        discord_filename="early_access.png",
+        label="Early Access",
     )
 
-    global_message_id = post_discord_image(
-        global_launch_file,
-        "global_launch.png",
+    if early_changed:
+
+        save_message_state(
+            state
+        )
+
+    print("")
+
+    global_changed = update_or_create_discord_image(
+        state=state,
+        state_key="global_launch_message_id",
+        image_file=global_launch_file,
+        discord_filename="global_launch.png",
+        label="Global Launch",
     )
 
-    print(
-        f"Global Launch Message-ID: "
-        f"{global_message_id}"
-    )
+    if global_changed:
+
+        save_message_state(
+            state
+        )
 
     print("")
     print(
         "========================================"
     )
     print(
-        "BEIDE TESTKARTEN GESENDET"
+        "CONTENT-NACHRICHTEN AKTUALISIERT"
     )
     print(
         "========================================"
