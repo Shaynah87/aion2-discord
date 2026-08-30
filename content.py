@@ -35,7 +35,7 @@ COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# GEMEINSAME GOLDKANTE
+# GEMEINSAME GOLDKANTE DER TITEL
 # ============================================================
 
 SERIES_GOLD_OUTLINE = (
@@ -45,35 +45,18 @@ SERIES_GOLD_OUTLINE = (
     215,
 )
 
-SERIES_GOLD_LIGHT = (
-    244,
-    226,
-    187,
-    240,
-)
-
-SERIES_GOLD_DARK = (
-    124,
-    92,
-    51,
-    245,
-)
-
 
 # ============================================================
 # EARLY ACCESS
 # ============================================================
 
-# Gleiche Schriftgröße wie Global
 EARLY_TITLE_SIZE = 96
 EARLY_TITLE_BOLD = True
-
-# Etwas kompakter als vorher
 EARLY_TITLE_TARGET_WIDTH = 625
 
 
 # ------------------------------------------------------------
-# EARLY – VERTIKALES RASTER
+# EARLY – FESTE POSITIONEN
 # ------------------------------------------------------------
 
 EARLY_TITLE_TOP = 84
@@ -92,19 +75,6 @@ EARLY_DAYS_TOP = 401
 EARLY_DATE_SIZE = 32
 EARLY_NOCH_SIZE = 17
 EARLY_COUNTDOWN_SIZE = 50
-
-
-# ============================================================
-# EARLY – TRENNER
-# ============================================================
-
-EARLY_DIVIDER_WIDTH = 305
-EARLY_DIVIDER_CENTER_GAP = 21
-EARLY_DIVIDER_THICKNESS = 2
-
-# Offene Raute
-EARLY_DIVIDER_DIAMOND_SIZE = 7
-EARLY_DIVIDER_DIAMOND_THICKNESS = 2
 
 
 # ============================================================
@@ -135,7 +105,7 @@ EARLY_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
 
 
 # ------------------------------------------------------------
-# PLATIN-/ELFENBEIN-VERLAUF
+# EARLY – PLATIN-/CHAMPAGNER-VERLAUF
 # ------------------------------------------------------------
 
 EARLY_TITLE_TOP_COLOR = (
@@ -181,32 +151,75 @@ EARLY_TITLE_EDGE_DARK = (
 )
 
 
-# ------------------------------------------------------------
-# EARLY – TEXT
-# ------------------------------------------------------------
+# ============================================================
+# EARLY – UNTERE TEXTFARBEN
+#
+# Nicht mehr Weiß.
+# Alles greift die warme Titelfamilie auf.
+# ============================================================
 
-EARLY_TEXT = (
-    230,
-    234,
-    235,
-    255,
-)
-
-EARLY_MUTED = (
-    205,
+EARLY_DATE_TEXT = (
+    223,
     211,
-    213,
+    184,
     255,
 )
+
+EARLY_COUNTDOWN_TEXT = (
+    230,
+    218,
+    191,
+    255,
+)
+
+EARLY_NOCH_TEXT = (
+    196,
+    181,
+    151,
+    255,
+)
+
+
+# ============================================================
+# EARLY – TRENNER
+#
+# Linie und Raute gehören farblich zusammen.
+# ============================================================
+
+EARLY_DIVIDER_WIDTH = 305
+EARLY_DIVIDER_CENTER_GAP = 22
+EARLY_DIVIDER_THICKNESS = 2
+
+EARLY_DIVIDER_DIAMOND_SIZE = 8
 
 EARLY_LINE = (
     184,
-    164,
-    125,
+    154,
+    105,
     220,
 )
 
-EARLY_ORNAMENT_OUTLINE = SERIES_GOLD_OUTLINE
+EARLY_DIAMOND_OUTLINE = (
+    191,
+    159,
+    108,
+    235,
+)
+
+# Gleiche Farbfamilie, aber transparent.
+EARLY_DIAMOND_FILL = (
+    191,
+    159,
+    108,
+    68,
+)
+
+EARLY_DIAMOND_CENTER = (
+    225,
+    202,
+    158,
+    180,
+)
 
 
 # ============================================================
@@ -242,19 +255,6 @@ GLOBAL_COUNTDOWN_SIZE = 50
 
 
 # ============================================================
-# GLOBAL – TRENNER
-# ============================================================
-
-GLOBAL_DIVIDER_WIDTH = 305
-GLOBAL_DIVIDER_CENTER_GAP = 21
-GLOBAL_DIVIDER_THICKNESS = 2
-
-# Offene Raute
-GLOBAL_DIVIDER_DIAMOND_SIZE = 7
-GLOBAL_DIVIDER_DIAMOND_THICKNESS = 2
-
-
-# ============================================================
 # GLOBAL – TITELLOOK
 # ============================================================
 
@@ -282,7 +282,7 @@ GLOBAL_TITLE_OUTLINE = SERIES_GOLD_OUTLINE
 
 
 # ------------------------------------------------------------
-# NAVY-/BLAUGRAU-VERLAUF
+# GLOBAL – NAVY-/BLAUGRAU-VERLAUF
 # ------------------------------------------------------------
 
 GLOBAL_TITLE_TOP_COLOR = (
@@ -328,9 +328,9 @@ GLOBAL_TITLE_EDGE_DARK = (
 )
 
 
-# ------------------------------------------------------------
-# GLOBAL – TEXT
-# ------------------------------------------------------------
+# ============================================================
+# GLOBAL – UNTERE TEXTFARBEN
+# ============================================================
 
 GLOBAL_TEXT = (
     42,
@@ -346,6 +346,19 @@ GLOBAL_MUTED = (
     255,
 )
 
+
+# ============================================================
+# GLOBAL – TRENNER
+#
+# Linie und Raute greifen das Global-Blau auf.
+# ============================================================
+
+GLOBAL_DIVIDER_WIDTH = 305
+GLOBAL_DIVIDER_CENTER_GAP = 22
+GLOBAL_DIVIDER_THICKNESS = 2
+
+GLOBAL_DIVIDER_DIAMOND_SIZE = 8
+
 GLOBAL_LINE = (
     45,
     67,
@@ -353,7 +366,26 @@ GLOBAL_LINE = (
     220,
 )
 
-GLOBAL_ORNAMENT_OUTLINE = SERIES_GOLD_OUTLINE
+GLOBAL_DIAMOND_OUTLINE = (
+    45,
+    67,
+    99,
+    235,
+)
+
+GLOBAL_DIAMOND_FILL = (
+    45,
+    67,
+    99,
+    62,
+)
+
+GLOBAL_DIAMOND_CENTER = (
+    95,
+    118,
+    150,
+    175,
+)
 
 
 # ============================================================
@@ -1113,7 +1145,7 @@ def create_title_mask(
 
 
 # ============================================================
-# FARBEN MISCHEN
+# FARBE MISCHEN
 # ============================================================
 
 def mix_rgba(
@@ -1187,9 +1219,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # SCHATTEN
-    # --------------------------------------------------------
+    # ========================================================
 
     shadow_mask = Image.new(
         "L",
@@ -1247,9 +1279,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # GLOW
-    # --------------------------------------------------------
+    # ========================================================
 
     glow_mask = mask.filter(
         ImageFilter.GaussianBlur(
@@ -1290,9 +1322,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
-    # GOLDKONTUR
-    # --------------------------------------------------------
+    # ========================================================
+    # GOLDKONTUR AM TITEL
+    # ========================================================
 
     expanded_mask = mask.filter(
         ImageFilter.MaxFilter(
@@ -1338,9 +1370,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # VERLAUF
-    # --------------------------------------------------------
+    # ========================================================
 
     gradient = Image.new(
         "RGBA",
@@ -1377,10 +1409,7 @@ def draw_gradient_title(
 
         if progress <= 0.25:
 
-            local = (
-                progress
-                / 0.25
-            )
+            local = progress / 0.25
 
             color = mix_rgba(
                 top_color,
@@ -1391,12 +1420,8 @@ def draw_gradient_title(
         elif progress <= 0.58:
 
             local = (
-                (
-                    progress
-                    - 0.25
-                )
-                / 0.33
-            )
+                progress - 0.25
+            ) / 0.33
 
             color = mix_rgba(
                 upper_color,
@@ -1407,12 +1432,8 @@ def draw_gradient_title(
         else:
 
             local = (
-                (
-                    progress
-                    - 0.58
-                )
-                / 0.42
-            )
+                progress - 0.58
+            ) / 0.42
 
             color = mix_rgba(
                 mid_color,
@@ -1441,9 +1462,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # DUNKLE UNTERKANTE
-    # --------------------------------------------------------
+    # ========================================================
 
     lower_shift = Image.new(
         "L",
@@ -1500,9 +1521,9 @@ def draw_gradient_title(
     )
 
 
-    # --------------------------------------------------------
+    # ========================================================
     # LICHTREFLEX
-    # --------------------------------------------------------
+    # ========================================================
 
     shine_mask = Image.new(
         "L",
@@ -1712,7 +1733,10 @@ def draw_global_title_line(
 
 
 # ============================================================
-# TRENNER MIT OFFENER GOLDRAUTE
+# TRENNER
+#
+# Außenkontur und Füllung gehören jeweils zur Karte.
+# Die Füllung ist bewusst sehr transparent.
 # ============================================================
 
 def draw_divider(
@@ -1722,9 +1746,10 @@ def draw_divider(
     center_gap,
     thickness,
     diamond_size,
-    diamond_thickness,
     line_color,
-    diamond_color,
+    diamond_outline,
+    diamond_fill,
+    diamond_center,
 ):
 
     width, height = image.size
@@ -1786,7 +1811,7 @@ def draw_divider(
 
 
     # --------------------------------------------------------
-    # OFFENE GOLDRAUTE
+    # RAUTEN-PUNKTE
     # --------------------------------------------------------
 
     points = [
@@ -1806,17 +1831,46 @@ def draw_divider(
             center_x - diamond_size,
             center_y,
         ),
-        (
-            center_x,
-            center_y - diamond_size,
-        ),
     ]
 
-    draw.line(
+
+    # --------------------------------------------------------
+    # TRANSPARENTE INNENFÜLLUNG
+    # --------------------------------------------------------
+
+    draw.polygon(
         points,
-        fill=diamond_color,
-        width=diamond_thickness,
+        fill=diamond_fill,
+    )
+
+
+    # --------------------------------------------------------
+    # AUSSENKONTUR IN DER FARBWELT DER KARTE
+    # --------------------------------------------------------
+
+    draw.line(
+        points + [points[0]],
+        fill=diamond_outline,
+        width=2,
         joint="curve",
+    )
+
+
+    # --------------------------------------------------------
+    # WINZIGER MITTELAKZENT
+    #
+    # Kein weißer Punkt.
+    # Nur eine hellere Variante derselben Farbfamilie.
+    # --------------------------------------------------------
+
+    draw.ellipse(
+        (
+            center_x - 1.5,
+            center_y - 1.5,
+            center_x + 1.5,
+            center_y + 1.5,
+        ),
+        fill=diamond_center,
     )
 
     return Image.alpha_composite(
@@ -1850,14 +1904,17 @@ def draw_early_divider(
         diamond_size=
             EARLY_DIVIDER_DIAMOND_SIZE,
 
-        diamond_thickness=
-            EARLY_DIVIDER_DIAMOND_THICKNESS,
-
         line_color=
             EARLY_LINE,
 
-        diamond_color=
-            EARLY_ORNAMENT_OUTLINE,
+        diamond_outline=
+            EARLY_DIAMOND_OUTLINE,
+
+        diamond_fill=
+            EARLY_DIAMOND_FILL,
+
+        diamond_center=
+            EARLY_DIAMOND_CENTER,
     )
 
 
@@ -1886,14 +1943,17 @@ def draw_global_divider(
         diamond_size=
             GLOBAL_DIVIDER_DIAMOND_SIZE,
 
-        diamond_thickness=
-            GLOBAL_DIVIDER_DIAMOND_THICKNESS,
-
         line_color=
             GLOBAL_LINE,
 
-        diamond_color=
-            GLOBAL_ORNAMENT_OUTLINE,
+        diamond_outline=
+            GLOBAL_DIAMOND_OUTLINE,
+
+        diamond_fill=
+            GLOBAL_DIAMOND_FILL,
+
+        diamond_center=
+            GLOBAL_DIAMOND_CENTER,
     )
 
 
@@ -2082,14 +2142,14 @@ def create_early_access_full_card(
         date_text,
         date_y,
         date_font,
-        EARLY_TEXT,
+        EARLY_DATE_TEXT,
         (
             0,
             0,
             0,
-            165,
+            180,
         ),
-        shadow_blur=2.5,
+        shadow_blur=2.6,
         shadow_offset=1,
     )
 
@@ -2105,13 +2165,13 @@ def create_early_access_full_card(
             noch_text,
             noch_y,
             noch_font,
-            EARLY_MUTED,
+            EARLY_NOCH_TEXT,
             5,
             shadow_fill=(
                 0,
                 0,
                 0,
-                195,
+                205,
             ),
             shadow_blur=2.0,
             shadow_offset=1,
@@ -2127,12 +2187,12 @@ def create_early_access_full_card(
         days_text,
         days_y,
         days_font,
-        EARLY_TEXT,
+        EARLY_COUNTDOWN_TEXT,
         (
             0,
             0,
             0,
-            180,
+            195,
         ),
         shadow_blur=3.0,
         shadow_offset=1,
@@ -2541,6 +2601,10 @@ def create_compact_card(
     )
 
 
+    # ========================================================
+    # GLOBAL COMPACT
+    # ========================================================
+
     if milestone["key"] == "global_launch":
 
         draw = ImageDraw.Draw(
@@ -2584,6 +2648,11 @@ def create_compact_card(
             shadow_blur=1.6,
         )
 
+
+    # ========================================================
+    # EARLY COMPACT
+    # ========================================================
+
     else:
 
         title_spacing = spacing_for_target_width(
@@ -2607,12 +2676,12 @@ def create_compact_card(
             status_text,
             status_y,
             status_font,
-            EARLY_TEXT,
+            EARLY_DATE_TEXT,
             (
                 0,
                 0,
                 0,
-                140,
+                150,
             ),
             shadow_blur=2.5,
         )
