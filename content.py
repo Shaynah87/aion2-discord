@@ -98,9 +98,8 @@ EARLY_TITLE_GLOW = (
 # ------------------------------------------------------------
 # EARLY – WEISSE LESEKANTE
 #
-# Keine Goldkante mehr.
-# Diese Kante wird auf ALLE Texte angewendet:
-# Titel, Datum, NOCH und Countdown.
+# NUR auf EARLY ACCESS.
+# Datum / NOCH / Countdown bleiben ohne Kontur.
 # ------------------------------------------------------------
 
 EARLY_READABILITY_OUTLINE = (
@@ -188,15 +187,17 @@ EARLY_NOCH_TEXT = (
 
 # ============================================================
 # EARLY – TRENNER
+#
+# Langgezogene Doppelklinge:
+# außen läuft sie auf 0 aus,
+# Richtung Mitte wird sie dicker.
+# Kleiner Punkt im Zentrum.
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 305
-EARLY_DIVIDER_CENTER_GAP = 22
-EARLY_DIVIDER_THICKNESS = 2
-
-EARLY_DIVIDER_CHEVRON_WIDTH = 7
-EARLY_DIVIDER_CHEVRON_HEIGHT = 5
-EARLY_DIVIDER_CHEVRON_GAP = 5
+EARLY_DIVIDER_MAX_HALF_HEIGHT = 4
+EARLY_DIVIDER_CENTER_GAP = 7
+EARLY_DIVIDER_DOT_RADIUS = 2
 
 EARLY_LINE = (
     184,
@@ -328,12 +329,9 @@ GLOBAL_MUTED = (
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 305
-GLOBAL_DIVIDER_CENTER_GAP = 22
-GLOBAL_DIVIDER_THICKNESS = 2
-
-GLOBAL_DIVIDER_CHEVRON_WIDTH = 7
-GLOBAL_DIVIDER_CHEVRON_HEIGHT = 5
-GLOBAL_DIVIDER_CHEVRON_GAP = 5
+GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 4
+GLOBAL_DIVIDER_CENTER_GAP = 7
+GLOBAL_DIVIDER_DOT_RADIUS = 2
 
 GLOBAL_LINE = (
     45,
@@ -1579,9 +1577,8 @@ def draw_gradient_title(
 # ============================================================
 # EARLY – TITEL
 #
-# WICHTIG:
 # Keine Goldkante.
-# Nur 1 px weiß-transparente Lesekante.
+# Nur weiße, transparente 1-px-Lesekante.
 # ============================================================
 
 def draw_early_title(
@@ -1648,7 +1645,7 @@ def draw_early_title(
 # ============================================================
 # GLOBAL – TITEL
 #
-# Goldkante bleibt erhalten.
+# Goldkante bleibt.
 # ============================================================
 
 def draw_global_title_line(
@@ -1712,19 +1709,30 @@ def draw_global_title_line(
 
 
 # ============================================================
-# TRENNER MIT OFFENEM MITTELAKZENT
+# TRENNER – LANGGEZOGENE DOPPELKlinge
+#
+# Außen:
+#   Spitze bei 0 px Höhe.
+#
+# Richtung Mitte:
+#   langsam breiter.
+#
+# Zentrum:
+#   kleiner Punkt.
+#
+# Keine normale Linie.
+# Keine Raute.
+# Keine Pfeile.
 # ============================================================
 
-def draw_divider(
+def draw_blade_divider(
     image,
     center_y,
     divider_width,
+    max_half_height,
     center_gap,
-    thickness,
-    chevron_width,
-    chevron_height,
-    chevron_gap,
-    line_color,
+    dot_radius,
+    color,
 ):
 
     width, height = image.size
@@ -1747,95 +1755,120 @@ def draw_divider(
         layer
     )
 
-    center_x = width / 2
-    half_width = divider_width / 2
-
-
-    # linke Linie
-
-    draw.line(
-        (
-            center_x - half_width,
-            center_y,
-            center_x - center_gap,
-            center_y,
-        ),
-        fill=line_color,
-        width=thickness,
+    center_x = (
+        width / 2
     )
 
-
-    # rechte Linie
-
-    draw.line(
-        (
-            center_x + center_gap,
-            center_y,
-            center_x + half_width,
-            center_y,
-        ),
-        fill=line_color,
-        width=thickness,
-    )
-
-
-    # linker Akzent >
-
-    left_center_x = (
+    outer_left = (
         center_x
-        - chevron_gap
+        - divider_width / 2
     )
 
-    draw.line(
-        (
-            left_center_x - chevron_width,
-            center_y - chevron_height,
-            left_center_x,
-            center_y,
-        ),
-        fill=line_color,
-        width=thickness,
-    )
-
-    draw.line(
-        (
-            left_center_x,
-            center_y,
-            left_center_x - chevron_width,
-            center_y + chevron_height,
-        ),
-        fill=line_color,
-        width=thickness,
-    )
-
-
-    # rechter Akzent <
-
-    right_center_x = (
+    outer_right = (
         center_x
-        + chevron_gap
+        + divider_width / 2
     )
 
-    draw.line(
-        (
-            right_center_x + chevron_width,
-            center_y - chevron_height,
-            right_center_x,
-            center_y,
-        ),
-        fill=line_color,
-        width=thickness,
+    inner_left = (
+        center_x
+        - center_gap
     )
 
-    draw.line(
+    inner_right = (
+        center_x
+        + center_gap
+    )
+
+
+    # --------------------------------------------------------
+    # LINKER FLACHER KEIL
+    #
+    # Außen komplett spitz.
+    # Innen maximale Höhe.
+    # --------------------------------------------------------
+
+    left_points = [
         (
-            right_center_x,
+            outer_left,
             center_y,
-            right_center_x + chevron_width,
-            center_y + chevron_height,
         ),
-        fill=line_color,
-        width=thickness,
+        (
+            inner_left,
+            center_y - max_half_height,
+        ),
+        (
+            inner_left,
+            center_y + max_half_height,
+        ),
+    ]
+
+    draw.polygon(
+        left_points,
+        fill=color,
+    )
+
+
+    # --------------------------------------------------------
+    # RECHTER FLACHER KEIL
+    # --------------------------------------------------------
+
+    right_points = [
+        (
+            outer_right,
+            center_y,
+        ),
+        (
+            inner_right,
+            center_y - max_half_height,
+        ),
+        (
+            inner_right,
+            center_y + max_half_height,
+        ),
+    ]
+
+    draw.polygon(
+        right_points,
+        fill=color,
+    )
+
+
+    # --------------------------------------------------------
+    # KLEINER PUNKT EXAKT IN DER MITTE
+    # --------------------------------------------------------
+
+    dot_color = (
+        color[0],
+        color[1],
+        color[2],
+        min(
+            255,
+            color[3] + 25,
+        ),
+    )
+
+    draw.ellipse(
+        (
+            center_x - dot_radius,
+            center_y - dot_radius,
+            center_x + dot_radius,
+            center_y + dot_radius,
+        ),
+        fill=dot_color,
+    )
+
+
+    # --------------------------------------------------------
+    # MINIMALE GLÄTTUNG
+    #
+    # Kein sichtbarer Glow.
+    # Nur damit die Keilkanten sauberer wirken.
+    # --------------------------------------------------------
+
+    layer = layer.filter(
+        ImageFilter.GaussianBlur(
+            0.35
+        )
     )
 
     return Image.alpha_composite(
@@ -1844,66 +1877,62 @@ def draw_divider(
     )
 
 
+# ============================================================
+# EARLY – TRENNER
+# ============================================================
+
 def draw_early_divider(
     image,
     center_y,
 ):
 
-    return draw_divider(
+    return draw_blade_divider(
         image=image,
         center_y=center_y,
 
         divider_width=
             EARLY_DIVIDER_WIDTH,
 
+        max_half_height=
+            EARLY_DIVIDER_MAX_HALF_HEIGHT,
+
         center_gap=
             EARLY_DIVIDER_CENTER_GAP,
 
-        thickness=
-            EARLY_DIVIDER_THICKNESS,
+        dot_radius=
+            EARLY_DIVIDER_DOT_RADIUS,
 
-        chevron_width=
-            EARLY_DIVIDER_CHEVRON_WIDTH,
-
-        chevron_height=
-            EARLY_DIVIDER_CHEVRON_HEIGHT,
-
-        chevron_gap=
-            EARLY_DIVIDER_CHEVRON_GAP,
-
-        line_color=
+        color=
             EARLY_LINE,
     )
 
+
+# ============================================================
+# GLOBAL – TRENNER
+# ============================================================
 
 def draw_global_divider(
     image,
     center_y,
 ):
 
-    return draw_divider(
+    return draw_blade_divider(
         image=image,
         center_y=center_y,
 
         divider_width=
             GLOBAL_DIVIDER_WIDTH,
 
+        max_half_height=
+            GLOBAL_DIVIDER_MAX_HALF_HEIGHT,
+
         center_gap=
             GLOBAL_DIVIDER_CENTER_GAP,
 
-        thickness=
-            GLOBAL_DIVIDER_THICKNESS,
+        dot_radius=
+            GLOBAL_DIVIDER_DOT_RADIUS,
 
-        chevron_width=
-            GLOBAL_DIVIDER_CHEVRON_WIDTH,
-
-        chevron_height=
-            GLOBAL_DIVIDER_CHEVRON_HEIGHT,
-
-        chevron_gap=
-            GLOBAL_DIVIDER_CHEVRON_GAP,
-
-        line_color=
+        color=
             GLOBAL_LINE,
     )
 
@@ -2390,7 +2419,7 @@ def create_early_access_full_card(
     # --------------------------------------------------------
     # DATUM
     #
-    # 1 px weiß-transparente Lesekante
+    # Keine weiße Kontur.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2407,17 +2436,13 @@ def create_early_access_full_card(
         ),
         shadow_blur=2.5,
         shadow_offset=1,
-        stroke_width=
-            EARLY_READABILITY_STROKE_WIDTH,
-        stroke_fill=
-            EARLY_READABILITY_OUTLINE,
     )
 
 
     # --------------------------------------------------------
     # NOCH
     #
-    # Ebenfalls weiße Lesekante
+    # Keine weiße Kontur.
     # --------------------------------------------------------
 
     if noch_text:
@@ -2437,17 +2462,13 @@ def create_early_access_full_card(
             ),
             shadow_blur=2.0,
             shadow_offset=1,
-            stroke_width=
-                EARLY_READABILITY_STROKE_WIDTH,
-            stroke_fill=
-                EARLY_READABILITY_OUTLINE,
         )
 
 
     # --------------------------------------------------------
     # COUNTDOWN
     #
-    # Ebenfalls weiße Lesekante
+    # Keine weiße Kontur.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2464,10 +2485,6 @@ def create_early_access_full_card(
         ),
         shadow_blur=3.0,
         shadow_offset=1,
-        stroke_width=
-            EARLY_READABILITY_STROKE_WIDTH,
-        stroke_fill=
-            EARLY_READABILITY_OUTLINE,
     )
 
 
@@ -2890,10 +2907,6 @@ def create_compact_card(
                 150,
             ),
             shadow_blur=2.5,
-            stroke_width=
-                EARLY_READABILITY_STROKE_WIDTH,
-            stroke_fill=
-                EARLY_READABILITY_OUTLINE,
         )
 
 
