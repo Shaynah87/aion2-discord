@@ -36,16 +36,32 @@ COMPACT_HEIGHT = 270
 
 
 # ============================================================
-# GEMEINSAMER UNTERER ABSCHLUSS
+# GEMEINSAMER SICHTBARER AUSSENRAHMEN
 #
-# Beide Karten bekommen NOCH und xx TAGE exakt auf dieselben
-# sichtbaren Y-Positionen.
+# Beide Karten:
+#
+# 50 px sichtbarer Abstand oben
+# 50 px sichtbarer Abstand unten
+#
+# Dadurch:
+#
+# EARLY ACCESS / GLOBAL beginnen auf derselben Höhe.
+# 31 TAGE / 36 TAGE enden auf derselben Höhe.
 # ============================================================
 
-COUNTDOWN_NOCH_VISIBLE_Y = 397
-COUNTDOWN_DAYS_VISIBLE_Y = 418
+CONTENT_VISIBLE_TOP = 50
+CONTENT_VISIBLE_BOTTOM = 485
+
+
+# ============================================================
+# GEMEINSAMER COUNTDOWN
+# ============================================================
 
 COUNTDOWN_DAYS_SIZE = 54
+
+COUNTDOWN_NOCH_SIZE = 17
+
+COUNTDOWN_NOCH_DAYS_GAP = 10
 
 
 # ============================================================
@@ -69,12 +85,12 @@ EARLY_TITLE_BOLD = True
 EARLY_TITLE_TARGET_WIDTH = 625
 
 EARLY_DATE_SIZE = 32
-EARLY_NOCH_SIZE = 17
+EARLY_NOCH_SIZE = COUNTDOWN_NOCH_SIZE
 EARLY_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
 
 # ------------------------------------------------------------
-# EARLY – VERTIKALE ARCHITEKTUR
+# EARLY – ABSTÄNDE
 # ------------------------------------------------------------
 
 EARLY_GAP_TITLE_DIVIDER = 28
@@ -110,7 +126,6 @@ EARLY_TITLE_GLOW = (
 # EARLY – WEISSE LESEKANTE
 #
 # Nur EARLY ACCESS.
-# Nicht für Datum / NOCH / Countdown.
 # ------------------------------------------------------------
 
 EARLY_READABILITY_OUTLINE = (
@@ -192,14 +207,14 @@ EARLY_COUNTDOWN_TEXT = (
 # ------------------------------------------------------------
 # EARLY – NOCH
 #
-# Etwas heller als vorher, damit es auf dem Globus nicht
-# verschwindet.
+# Heller als ursprünglich,
+# damit es über dem Globus lesbar bleibt.
 # ------------------------------------------------------------
 
 EARLY_NOCH_TEXT = (
-    218,
-    213,
-    200,
+    222,
+    217,
+    204,
     255,
 )
 
@@ -207,18 +222,25 @@ EARLY_NOCH_SHADOW = (
     0,
     0,
     0,
-    225,
+    230,
 )
 
 
 # ============================================================
 # EARLY – TRENNER
+#
+# Etwas kräftiger als Global,
+# weil der Globus deutlich unruhiger ist.
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 410
+
 EARLY_DIVIDER_DOT_RADIUS = 1.8
-EARLY_DIVIDER_MAX_HALF_HEIGHT = 2.4
+
+EARLY_DIVIDER_MAX_HALF_HEIGHT = 2.6
+
 EARLY_DIVIDER_SHOULDER_LENGTH = 18
+
 EARLY_DIVIDER_TAPER_POWER = 1.32
 
 EARLY_LINE = (
@@ -238,19 +260,19 @@ GLOBAL_TITLE_BOLD = True
 GLOBAL_TITLE_TARGET_WIDTH = 470
 
 GLOBAL_DATE_SIZE = 32
-GLOBAL_NOCH_SIZE = 16
+GLOBAL_NOCH_SIZE = COUNTDOWN_NOCH_SIZE
 GLOBAL_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
 
 # ------------------------------------------------------------
-# GLOBAL – VERTIKALE ARCHITEKTUR
-#
-# Datum bekommt 9 px mehr Luft zum Trenner.
+# GLOBAL – ABSTÄNDE
 # ------------------------------------------------------------
 
 GLOBAL_TITLE_LINE_GAP = 13
 
 GLOBAL_GAP_LAUNCH_DIVIDER = 25
+
+# 9 px mehr Luft als ursprünglich
 GLOBAL_GAP_DIVIDER_DATE = 37
 
 
@@ -347,14 +369,16 @@ GLOBAL_MUTED = (
 
 # ============================================================
 # GLOBAL – TRENNER
-#
-# Gleiche Länge, aber etwas flacher als Early.
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 410
+
 GLOBAL_DIVIDER_DOT_RADIUS = 1.8
-GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 2.0
+
+GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 2.2
+
 GLOBAL_DIVIDER_SHOULDER_LENGTH = 18
+
 GLOBAL_DIVIDER_TAPER_POWER = 1.32
 
 GLOBAL_LINE = (
@@ -519,14 +543,33 @@ def build_content_state(data):
 
         result["milestones"].append(
             {
-                "key": milestone["key"],
-                "title": milestone["title"],
-                "date": milestone["date"],
-                "date_display": milestone["date_display"],
-                "background": milestone.get("background"),
-                "state": status["state"],
-                "days": status.get("days"),
-                "status_text": status["text"],
+                "key":
+                    milestone["key"],
+
+                "title":
+                    milestone["title"],
+
+                "date":
+                    milestone["date"],
+
+                "date_display":
+                    milestone["date_display"],
+
+                "background":
+                    milestone.get(
+                        "background"
+                    ),
+
+                "state":
+                    status["state"],
+
+                "days":
+                    status.get(
+                        "days"
+                    ),
+
+                "status_text":
+                    status["text"],
             }
         )
 
@@ -560,7 +603,8 @@ def build_content_state(data):
     if active_phases:
 
         active_phases.sort(
-            key=lambda item: item[0]
+            key=lambda item:
+                item[0]
         )
 
         result["active_content"] = (
@@ -853,6 +897,28 @@ def visible_y_to_draw_y(
     return (
         visible_y
         - bbox[1]
+    )
+
+
+def visible_bottom_to_draw_y(
+    draw,
+    text,
+    font,
+    visible_bottom,
+):
+
+    bbox = draw.textbbox(
+        (
+            0,
+            0,
+        ),
+        text,
+        font=font,
+    )
+
+    return (
+        visible_bottom
+        - bbox[3]
     )
 
 
@@ -1730,6 +1796,12 @@ def draw_global_title_line(
 
 # ============================================================
 # TRENNER
+#
+# Feste Farbe.
+# Keine Transparenz.
+# Keine Blur-Wolke.
+#
+# Nur die geometrische Dicke läuft nach außen auf 0.
 # ============================================================
 
 def draw_blade_divider(
@@ -1817,6 +1889,11 @@ def draw_blade_divider(
             distance
         )
 
+
+        # ----------------------------------------------------
+        # RUNDER MITTELPUNKT
+        # ----------------------------------------------------
+
         if d <= dot_radius_scaled:
 
             inside = max(
@@ -1833,6 +1910,11 @@ def draw_blade_divider(
             half_height = math.sqrt(
                 inside
             )
+
+
+        # ----------------------------------------------------
+        # WEICHER ÜBERGANG
+        # ----------------------------------------------------
 
         elif d <= (
             dot_radius_scaled
@@ -1860,6 +1942,11 @@ def draw_blade_divider(
                 max_half_height_scaled
                 * smooth
             )
+
+
+        # ----------------------------------------------------
+        # LANGER AUSLAUF
+        # ----------------------------------------------------
 
         else:
 
@@ -1903,13 +1990,16 @@ def draw_blade_divider(
                 )
             )
 
+
         if distance >= max_distance:
 
             half_height = 0
 
+
         if half_height <= 0:
 
             continue
+
 
         x_left = int(
             round(
@@ -1939,6 +2029,7 @@ def draw_blade_divider(
             )
         )
 
+
         draw.line(
             (
                 x_left,
@@ -1963,6 +2054,11 @@ def draw_blade_divider(
                 width=1,
             )
 
+
+    # --------------------------------------------------------
+    # NUR ANTIALIASING
+    # --------------------------------------------------------
+
     layer = layer.resize(
         (
             width,
@@ -1970,6 +2066,7 @@ def draw_blade_divider(
         ),
         Image.Resampling.LANCZOS,
     )
+
 
     return Image.alpha_composite(
         image,
@@ -1989,12 +2086,24 @@ def draw_early_divider(
     return draw_blade_divider(
         image=image,
         center_y=center_y,
-        divider_width=EARLY_DIVIDER_WIDTH,
-        dot_radius=EARLY_DIVIDER_DOT_RADIUS,
-        max_half_height=EARLY_DIVIDER_MAX_HALF_HEIGHT,
-        shoulder_length=EARLY_DIVIDER_SHOULDER_LENGTH,
-        taper_power=EARLY_DIVIDER_TAPER_POWER,
-        color=EARLY_LINE,
+
+        divider_width=
+            EARLY_DIVIDER_WIDTH,
+
+        dot_radius=
+            EARLY_DIVIDER_DOT_RADIUS,
+
+        max_half_height=
+            EARLY_DIVIDER_MAX_HALF_HEIGHT,
+
+        shoulder_length=
+            EARLY_DIVIDER_SHOULDER_LENGTH,
+
+        taper_power=
+            EARLY_DIVIDER_TAPER_POWER,
+
+        color=
+            EARLY_LINE,
     )
 
 
@@ -2010,23 +2119,114 @@ def draw_global_divider(
     return draw_blade_divider(
         image=image,
         center_y=center_y,
-        divider_width=GLOBAL_DIVIDER_WIDTH,
-        dot_radius=GLOBAL_DIVIDER_DOT_RADIUS,
-        max_half_height=GLOBAL_DIVIDER_MAX_HALF_HEIGHT,
-        shoulder_length=GLOBAL_DIVIDER_SHOULDER_LENGTH,
-        taper_power=GLOBAL_DIVIDER_TAPER_POWER,
-        color=GLOBAL_LINE,
+
+        divider_width=
+            GLOBAL_DIVIDER_WIDTH,
+
+        dot_radius=
+            GLOBAL_DIVIDER_DOT_RADIUS,
+
+        max_half_height=
+            GLOBAL_DIVIDER_MAX_HALF_HEIGHT,
+
+        shoulder_length=
+            GLOBAL_DIVIDER_SHOULDER_LENGTH,
+
+        taper_power=
+            GLOBAL_DIVIDER_TAPER_POWER,
+
+        color=
+            GLOBAL_LINE,
     )
+
+
+# ============================================================
+# GEMEINSAMER COUNTDOWN-LAYOUT
+#
+# xx TAGE endet auf beiden Karten exakt bei Y = 485.
+#
+# NOCH sitzt direkt darüber mit identischem Abstand.
+# ============================================================
+
+def calculate_countdown_layout(
+    image,
+    noch_text,
+    noch_font,
+    days_text,
+    days_font,
+):
+
+    draw = ImageDraw.Draw(
+        image
+    )
+
+    days_metrics = get_visible_text_metrics(
+        draw,
+        days_text,
+        days_font,
+    )
+
+    days_height = (
+        days_metrics["height"]
+    )
+
+    days_visible_bottom = (
+        CONTENT_VISIBLE_BOTTOM
+    )
+
+    days_visible_top = (
+        days_visible_bottom
+        - days_height
+    )
+
+    days_y = (
+        days_visible_top
+        - days_metrics["bbox"][1]
+    )
+
+
+    if noch_text:
+
+        noch_metrics = get_visible_text_metrics(
+            draw,
+            noch_text,
+            noch_font,
+        )
+
+        noch_height = (
+            noch_metrics["height"]
+        )
+
+        noch_visible_top = (
+            days_visible_top
+            - COUNTDOWN_NOCH_DAYS_GAP
+            - noch_height
+        )
+
+        noch_y = (
+            noch_visible_top
+            - noch_metrics["bbox"][1]
+        )
+
+    else:
+
+        noch_y = 0
+
+
+    return {
+        "noch_y": noch_y,
+        "days_y": days_y,
+        "days_visible_top": days_visible_top,
+    }
 
 
 # ============================================================
 # EARLY – OBERER BLOCK
 #
-# Nur Titel / Trenner / Datum werden hier berechnet.
-# NOCH + TAGE haben gemeinsame feste Y-Positionen.
+# Sichtbare Oberkante des Titels ist EXAKT 50 px.
 # ============================================================
 
-def calculate_early_layout(
+def calculate_early_upper_layout(
     image,
     title_text,
     title_font,
@@ -2054,29 +2254,8 @@ def calculate_early_layout(
         title_metrics["height"]
     )
 
-    date_height = (
-        date_metrics["height"]
-    )
-
-    upper_block_height = (
-        title_height
-        + EARLY_GAP_TITLE_DIVIDER
-        + EARLY_GAP_DIVIDER_DATE
-        + date_height
-    )
-
-    # Der obere Early-Block bleibt in seinem bisherigen
-    # Bereich und wird zwischen Kartenoberkante und dem
-    # gemeinsamen Countdown-Bereich sauber platziert.
-    upper_area_bottom = 300
-
-    visible_top = (
-        upper_area_bottom
-        - upper_block_height
-    ) / 2
-
     title_visible_top = (
-        visible_top
+        CONTENT_VISIBLE_TOP
     )
 
     divider_y = (
@@ -2110,12 +2289,10 @@ def calculate_early_layout(
 # ============================================================
 # GLOBAL – OBERER BLOCK
 #
-# Global bleibt Zweizeiler.
-# Datum bekommt 9 px mehr Abstand.
-# NOCH + TAGE haben gemeinsame feste Y-Positionen.
+# Sichtbare Oberkante von GLOBAL ist EXAKT 50 px.
 # ============================================================
 
-def calculate_global_layout(
+def calculate_global_upper_layout(
     image,
     title_font,
     date_text,
@@ -2152,29 +2329,11 @@ def calculate_global_layout(
         launch_metrics["height"]
     )
 
-    date_height = (
-        date_metrics["height"]
-    )
-
-    upper_block_height = (
-        global_height
-        + GLOBAL_TITLE_LINE_GAP
-        + launch_height
-        + GLOBAL_GAP_LAUNCH_DIVIDER
-        + GLOBAL_GAP_DIVIDER_DATE
-        + date_height
-    )
-
-    upper_area_bottom = 355
-
-    visible_top = (
-        upper_area_bottom
-        - upper_block_height
-    ) / 2
 
     global_visible_top = (
-        visible_top
+        CONTENT_VISIBLE_TOP
     )
+
 
     launch_visible_top = (
         global_visible_top
@@ -2182,31 +2341,37 @@ def calculate_global_layout(
         + GLOBAL_TITLE_LINE_GAP
     )
 
+
     divider_y = (
         launch_visible_top
         + launch_height
         + GLOBAL_GAP_LAUNCH_DIVIDER
     )
 
+
     date_visible_top = (
         divider_y
         + GLOBAL_GAP_DIVIDER_DATE
     )
+
 
     global_y = (
         global_visible_top
         - global_metrics["bbox"][1]
     )
 
+
     launch_y = (
         launch_visible_top
         - launch_metrics["bbox"][1]
     )
 
+
     date_y = (
         date_visible_top
         - date_metrics["bbox"][1]
     )
+
 
     return {
         "global_y": global_y,
@@ -2228,6 +2393,7 @@ def create_early_access_full_card(
         milestone["background"]
     )
 
+
     title_font = load_font(
         EARLY_TITLE_SIZE,
         bold=EARLY_TITLE_BOLD,
@@ -2248,6 +2414,7 @@ def create_early_access_full_card(
         bold=True,
     )
 
+
     title_text = (
         milestone["title"].upper()
     )
@@ -2257,6 +2424,7 @@ def create_early_access_full_card(
             "date_display"
         ].upper()
     )
+
 
     if milestone["state"] == "countdown":
 
@@ -2274,9 +2442,11 @@ def create_early_access_full_card(
         days_text = "HEUTE"
         noch_text = ""
 
+
     probe = ImageDraw.Draw(
         image
     )
+
 
     title_spacing = spacing_for_target_width(
         probe,
@@ -2285,7 +2455,8 @@ def create_early_access_full_card(
         EARLY_TITLE_TARGET_WIDTH,
     )
 
-    layout = calculate_early_layout(
+
+    upper_layout = calculate_early_upper_layout(
         image=image,
         title_text=title_text,
         title_font=title_font,
@@ -2293,29 +2464,15 @@ def create_early_access_full_card(
         date_font=date_font,
     )
 
-    # --------------------------------------------------------
-    # GEMEINSAME UNTERE Y-POSITIONEN
-    # --------------------------------------------------------
 
-    if noch_text:
-
-        noch_y = visible_y_to_draw_y(
-            probe,
-            noch_text,
-            noch_font,
-            COUNTDOWN_NOCH_VISIBLE_Y,
-        )
-
-    else:
-
-        noch_y = 0
-
-    days_y = visible_y_to_draw_y(
-        probe,
-        days_text,
-        days_font,
-        COUNTDOWN_DAYS_VISIBLE_Y,
+    countdown_layout = calculate_countdown_layout(
+        image=image,
+        noch_text=noch_text,
+        noch_font=noch_font,
+        days_text=days_text,
+        days_font=days_font,
     )
+
 
     # --------------------------------------------------------
     # TITEL
@@ -2326,9 +2483,10 @@ def create_early_access_full_card(
         title_text,
         title_font,
         CARD_WIDTH / 2,
-        layout["title_y"],
+        upper_layout["title_y"],
         title_spacing,
     )
+
 
     # --------------------------------------------------------
     # TRENNER
@@ -2336,8 +2494,9 @@ def create_early_access_full_card(
 
     image = draw_early_divider(
         image,
-        layout["divider_y"],
+        upper_layout["divider_y"],
     )
+
 
     # --------------------------------------------------------
     # DATUM
@@ -2346,7 +2505,7 @@ def create_early_access_full_card(
     image = draw_soft_centered_text(
         image,
         date_text,
-        layout["date_y"],
+        upper_layout["date_y"],
         date_font,
         EARLY_DATE_TEXT,
         (
@@ -2359,8 +2518,9 @@ def create_early_access_full_card(
         shadow_offset=1,
     )
 
+
     # --------------------------------------------------------
-    # NOCH – heller + kräftigerer Schatten
+    # NOCH
     # --------------------------------------------------------
 
     if noch_text:
@@ -2368,14 +2528,16 @@ def create_early_access_full_card(
         image = draw_centered_spaced_text(
             image,
             noch_text,
-            noch_y,
+            countdown_layout["noch_y"],
             noch_font,
             EARLY_NOCH_TEXT,
             5,
-            shadow_fill=EARLY_NOCH_SHADOW,
-            shadow_blur=1.5,
+            shadow_fill=
+                EARLY_NOCH_SHADOW,
+            shadow_blur=1.4,
             shadow_offset=1,
         )
+
 
     # --------------------------------------------------------
     # COUNTDOWN
@@ -2384,7 +2546,7 @@ def create_early_access_full_card(
     image = draw_soft_centered_text(
         image,
         days_text,
-        days_y,
+        countdown_layout["days_y"],
         days_font,
         EARLY_COUNTDOWN_TEXT,
         (
@@ -2396,6 +2558,7 @@ def create_early_access_full_card(
         shadow_blur=3.0,
         shadow_offset=1,
     )
+
 
     return image.convert(
         "RGB"
@@ -2413,6 +2576,7 @@ def create_global_launch_full_card(
     image = load_background(
         milestone["background"]
     )
+
 
     title_font = load_font(
         GLOBAL_TITLE_SIZE,
@@ -2435,11 +2599,13 @@ def create_global_launch_full_card(
         bold=True,
     )
 
+
     date_text = (
         milestone[
             "date_display"
         ].upper()
     )
+
 
     if milestone["state"] == "countdown":
 
@@ -2457,9 +2623,11 @@ def create_global_launch_full_card(
         days_text = "HEUTE"
         noch_text = ""
 
+
     probe = ImageDraw.Draw(
         image
     )
+
 
     global_spacing = spacing_for_target_width(
         probe,
@@ -2468,6 +2636,7 @@ def create_global_launch_full_card(
         GLOBAL_TITLE_TARGET_WIDTH,
     )
 
+
     launch_spacing = spacing_for_target_width(
         probe,
         "LAUNCH",
@@ -2475,36 +2644,23 @@ def create_global_launch_full_card(
         GLOBAL_TITLE_TARGET_WIDTH,
     )
 
-    layout = calculate_global_layout(
+
+    upper_layout = calculate_global_upper_layout(
         image=image,
         title_font=title_font,
         date_text=date_text,
         date_font=date_font,
     )
 
-    # --------------------------------------------------------
-    # GEMEINSAME UNTERE Y-POSITIONEN
-    # --------------------------------------------------------
 
-    if noch_text:
-
-        noch_y = visible_y_to_draw_y(
-            probe,
-            noch_text,
-            noch_font,
-            COUNTDOWN_NOCH_VISIBLE_Y,
-        )
-
-    else:
-
-        noch_y = 0
-
-    days_y = visible_y_to_draw_y(
-        probe,
-        days_text,
-        days_font,
-        COUNTDOWN_DAYS_VISIBLE_Y,
+    countdown_layout = calculate_countdown_layout(
+        image=image,
+        noch_text=noch_text,
+        noch_font=noch_font,
+        days_text=days_text,
+        days_font=days_font,
     )
+
 
     # --------------------------------------------------------
     # GLOBAL
@@ -2515,9 +2671,10 @@ def create_global_launch_full_card(
         "GLOBAL",
         title_font,
         CARD_WIDTH / 2,
-        layout["global_y"],
+        upper_layout["global_y"],
         global_spacing,
     )
+
 
     # --------------------------------------------------------
     # LAUNCH
@@ -2528,9 +2685,10 @@ def create_global_launch_full_card(
         "LAUNCH",
         title_font,
         CARD_WIDTH / 2,
-        layout["launch_y"],
+        upper_layout["launch_y"],
         launch_spacing,
     )
+
 
     # --------------------------------------------------------
     # TRENNER
@@ -2538,8 +2696,9 @@ def create_global_launch_full_card(
 
     image = draw_global_divider(
         image,
-        layout["divider_y"],
+        upper_layout["divider_y"],
     )
+
 
     # --------------------------------------------------------
     # DATUM
@@ -2548,7 +2707,7 @@ def create_global_launch_full_card(
     image = draw_soft_centered_text(
         image,
         date_text,
-        layout["date_y"],
+        upper_layout["date_y"],
         date_font,
         GLOBAL_TEXT,
         (
@@ -2561,6 +2720,7 @@ def create_global_launch_full_card(
         shadow_offset=1,
     )
 
+
     # --------------------------------------------------------
     # NOCH
     # --------------------------------------------------------
@@ -2570,11 +2730,12 @@ def create_global_launch_full_card(
         image = draw_centered_spaced_text(
             image,
             noch_text,
-            noch_y,
+            countdown_layout["noch_y"],
             noch_font,
             GLOBAL_MUTED,
             5,
         )
+
 
     # --------------------------------------------------------
     # COUNTDOWN
@@ -2583,7 +2744,7 @@ def create_global_launch_full_card(
     image = draw_soft_centered_text(
         image,
         days_text,
-        days_y,
+        countdown_layout["days_y"],
         days_font,
         GLOBAL_TEXT,
         (
@@ -2595,6 +2756,7 @@ def create_global_launch_full_card(
         shadow_blur=1.5,
         shadow_offset=1,
     )
+
 
     return image.convert(
         "RGB"
@@ -2637,6 +2799,7 @@ def create_compact_card(
         milestone["key"],
     )
 
+
     if milestone["key"] == "global_launch":
 
         title_font = load_font(
@@ -2652,23 +2815,28 @@ def create_compact_card(
             bold=True,
         )
 
+
     status_font = load_font(
         COMPACT_STATUS_SIZE,
         bold=True,
     )
 
+
     title_text = (
         milestone["title"].upper()
     )
+
 
     status_text = (
         f"{milestone['date_display'].upper()} "
         f"· GESTARTET"
     )
 
+
     probe = ImageDraw.Draw(
         image
     )
+
 
     title_bbox = probe.textbbox(
         (
@@ -2679,6 +2847,7 @@ def create_compact_card(
         font=title_font,
     )
 
+
     status_bbox = probe.textbbox(
         (
             0,
@@ -2688,21 +2857,25 @@ def create_compact_card(
         font=status_font,
     )
 
+
     title_height = (
         title_bbox[3]
         - title_bbox[1]
     )
+
 
     status_height = (
         status_bbox[3]
         - status_bbox[1]
     )
 
+
     group_height = (
         title_height
         + COMPACT_GAP
         + status_height
     )
+
 
     visible_top = (
         (
@@ -2712,10 +2885,12 @@ def create_compact_card(
         / 2
     )
 
+
     title_y = (
         visible_top
         - title_bbox[1]
     )
+
 
     status_visible_top = (
         visible_top
@@ -2723,10 +2898,12 @@ def create_compact_card(
         + COMPACT_GAP
     )
 
+
     status_y = (
         status_visible_top
         - status_bbox[1]
     )
+
 
     # ========================================================
     # GLOBAL COMPACT
@@ -2775,6 +2952,7 @@ def create_compact_card(
             shadow_blur=1.6,
         )
 
+
     # ========================================================
     # EARLY COMPACT
     # ========================================================
@@ -2811,6 +2989,7 @@ def create_compact_card(
             ),
             shadow_blur=2.5,
         )
+
 
     return image.convert(
         "RGB"
@@ -2851,6 +3030,7 @@ def save_milestone_card(
         milestone
     )
 
+
     if milestone["key"] == "early_access":
 
         filename = (
@@ -2869,17 +3049,20 @@ def save_milestone_card(
             f"{milestone['key']}_card.png"
         )
 
+
     image.save(
         filename,
         "PNG",
         optimize=True,
     )
 
+
     print(
         f"{milestone['title']}: "
         f"{filename} "
         f"({image.width}x{image.height})"
     )
+
 
     return filename
 
@@ -2927,6 +3110,7 @@ def post_discord_image(
         ],
     }
 
+
     with open(
         image_file,
         "rb",
@@ -2940,6 +3124,7 @@ def post_discord_image(
             )
         }
 
+
         response = requests.post(
             webhook_wait_url(),
             data={
@@ -2949,6 +3134,7 @@ def post_discord_image(
             files=files,
             timeout=30,
         )
+
 
     if response.status_code not in (
         200,
@@ -2962,11 +3148,13 @@ def post_discord_image(
             f"{response.text}"
         )
 
+
     message = response.json()
 
     message_id = message.get(
         "id"
     )
+
 
     if not message_id:
 
@@ -2974,6 +3162,7 @@ def post_discord_image(
             "Discord hat keine "
             "Message-ID zurückgegeben."
         )
+
 
     return message_id
 
@@ -2989,35 +3178,42 @@ def send_content_to_discord(
             "GitHub Secret CONTENT_WEBHOOK fehlt."
         )
 
+
     print("")
     print(
         "Early Access wird gesendet ..."
     )
+
 
     early_message_id = post_discord_image(
         early_access_file,
         "early_access.png",
     )
 
+
     print(
         f"Early Access Message-ID: "
         f"{early_message_id}"
     )
+
 
     print("")
     print(
         "Global Launch wird gesendet ..."
     )
 
+
     global_message_id = post_discord_image(
         global_launch_file,
         "global_launch.png",
     )
 
+
     print(
         f"Global Launch Message-ID: "
         f"{global_message_id}"
     )
+
 
     print("")
     print(
@@ -3050,6 +3246,7 @@ def print_status(
         "========================================"
     )
 
+
     for milestone in (
         content_state["milestones"]
     ):
@@ -3066,6 +3263,7 @@ def print_status(
         print(
             milestone["status_text"]
         )
+
 
     print("")
     print(
@@ -3084,26 +3282,32 @@ def main():
         {},
     )
 
+
     if not data:
 
         raise RuntimeError(
             "content_data.json ist leer oder fehlt."
         )
 
+
     content_state = build_content_state(
         data
     )
 
+
     print_status(
         content_state
     )
+
 
     wanted_keys = {
         "early_access",
         "global_launch",
     }
 
+
     rendered_files = {}
+
 
     for milestone in (
         content_state["milestones"]
@@ -3113,13 +3317,16 @@ def main():
 
             continue
 
+
         filename = save_milestone_card(
             milestone
         )
 
+
         rendered_files[
             milestone["key"]
         ] = filename
+
 
     missing = (
         wanted_keys
@@ -3127,6 +3334,7 @@ def main():
             rendered_files.keys()
         )
     )
+
 
     if missing:
 
@@ -3137,6 +3345,7 @@ def main():
                 sorted(missing)
             )
         )
+
 
     send_content_to_discord(
         rendered_files[
