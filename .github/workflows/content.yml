@@ -2,9 +2,6 @@ name: AION 2 Content
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 22 * * *"
-    - cron: "0 23 * * *"
 
 permissions:
   contents: write
@@ -25,28 +22,12 @@ jobs:
       - name: Pillow installieren
         run: pip install pillow requests
 
-      - name: Prüfen ob Content aktualisiert werden soll
-        id: berlin_time
-        run: |
-          HOUR=$(TZ=Europe/Berlin date +%H)
-          MINUTE=$(TZ=Europe/Berlin date +%M)
-
-          echo "Berlin-Zeit: ${HOUR}:${MINUTE}"
-
-          if [ "$HOUR" = "00" ] && [ "$MINUTE" = "00" ]; then
-            echo "run_content=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_content=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: AION 2 Content aktualisieren
-        if: github.event_name == 'workflow_dispatch' || steps.berlin_time.outputs.run_content == 'true'
         env:
           CONTENT_WEBHOOK: ${{ secrets.CONTENT_WEBHOOK }}
         run: python content.py
 
       - name: Content-Status speichern
-        if: github.event_name == 'workflow_dispatch' || steps.berlin_time.outputs.run_content == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
