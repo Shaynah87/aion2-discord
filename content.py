@@ -37,11 +37,6 @@ COMPACT_HEIGHT = 270
 
 # ============================================================
 # GEMEINSAMER COUNTDOWN
-#
-# NOCH und xx TAGE bleiben bei beiden Karten exakt
-# auf derselben Höhe.
-#
-# Die sichtbare Unterkante der Tage bleibt bei Y = 485.
 # ============================================================
 
 COUNTDOWN_VISIBLE_BOTTOM = 485
@@ -53,16 +48,6 @@ COUNTDOWN_NOCH_DAYS_GAP = 10
 
 # ============================================================
 # GLOBAL – POSITION DES OBEREN BLOCKS
-#
-# Nicht mehr an 50 px Oberkante festgenagelt.
-#
-# Der komplette GLOBAL/LAUNCH-Bereich sitzt jetzt etwas
-# tiefer. Dadurch wird:
-#
-# - der obere Außenabstand ruhiger
-# - Datum → NOCH automatisch kleiner
-# - Early Access kann sich an der Mitte des Zweizeilers
-#   orientieren
 # ============================================================
 
 GLOBAL_VISIBLE_TOP = 60
@@ -129,7 +114,7 @@ EARLY_TITLE_GLOW = (
 # ------------------------------------------------------------
 # EARLY – WEISSE LESEKANTE
 #
-# Nur EARLY ACCESS.
+# Ausschließlich für EARLY ACCESS.
 # ------------------------------------------------------------
 
 EARLY_READABILITY_OUTLINE = (
@@ -140,6 +125,28 @@ EARLY_READABILITY_OUTLINE = (
 )
 
 EARLY_READABILITY_STROKE_WIDTH = 1
+
+
+# ------------------------------------------------------------
+# EARLY – DUNKLE LESEKANTE
+#
+# Ausschließlich:
+# - Datum
+# - NOCH
+# - Countdown
+#
+# Sehr dunkles Blau-Schwarz.
+# Kein hartes Vollschwarz.
+# ------------------------------------------------------------
+
+EARLY_LOWER_READABILITY_OUTLINE = (
+    4,
+    9,
+    15,
+    190,
+)
+
+EARLY_LOWER_READABILITY_STROKE_WIDTH = 1
 
 
 # ------------------------------------------------------------
@@ -207,11 +214,6 @@ EARLY_COUNTDOWN_TEXT = (
     255,
 )
 
-
-# ------------------------------------------------------------
-# EARLY – NOCH
-# ------------------------------------------------------------
-
 EARLY_NOCH_TEXT = (
     222,
     217,
@@ -232,13 +234,9 @@ EARLY_NOCH_SHADOW = (
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 410
-
 EARLY_DIVIDER_DOT_RADIUS = 1.8
-
 EARLY_DIVIDER_MAX_HALF_HEIGHT = 2.6
-
 EARLY_DIVIDER_SHOULDER_LENGTH = 18
-
 EARLY_DIVIDER_TAPER_POWER = 1.32
 
 EARLY_LINE = (
@@ -264,14 +262,6 @@ GLOBAL_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
 # ------------------------------------------------------------
 # GLOBAL – ABSTÄNDE
-#
-# GLOBAL / LAUNCH bleibt wie bisher.
-#
-# Wichtig:
-# LAUNCH -> TRENNER = 28
-# TRENNER -> DATUM = 28
-#
-# Damit ist der Trenner wirklich mittig zwischen beiden.
 # ------------------------------------------------------------
 
 GLOBAL_TITLE_LINE_GAP = 13
@@ -376,13 +366,9 @@ GLOBAL_MUTED = (
 # ============================================================
 
 GLOBAL_DIVIDER_WIDTH = 410
-
 GLOBAL_DIVIDER_DOT_RADIUS = 1.8
-
 GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 2.2
-
 GLOBAL_DIVIDER_SHOULDER_LENGTH = 18
-
 GLOBAL_DIVIDER_TAPER_POWER = 1.32
 
 GLOBAL_LINE = (
@@ -1222,7 +1208,6 @@ def draw_gradient_title(
         bottom - top,
     )
 
-
     # --------------------------------------------------------
     # SCHATTEN
     # --------------------------------------------------------
@@ -1282,7 +1267,6 @@ def draw_gradient_title(
         shadow_layer,
     )
 
-
     # --------------------------------------------------------
     # GLOW
     # --------------------------------------------------------
@@ -1324,7 +1308,6 @@ def draw_gradient_title(
         image,
         glow_layer,
     )
-
 
     # --------------------------------------------------------
     # AUSSENKONTUR
@@ -1382,7 +1365,6 @@ def draw_gradient_title(
             image,
             outline_layer,
         )
-
 
     # --------------------------------------------------------
     # FARBVERLAUF
@@ -1478,7 +1460,6 @@ def draw_gradient_title(
         gradient,
     )
 
-
     # --------------------------------------------------------
     # DUNKLE UNTERKANTE
     # --------------------------------------------------------
@@ -1536,7 +1517,6 @@ def draw_gradient_title(
         image,
         lower_edge_layer,
     )
-
 
     # --------------------------------------------------------
     # LICHTREFLEX
@@ -1756,12 +1736,6 @@ def draw_global_title_line(
 
 # ============================================================
 # TRENNER
-#
-# Runder Mittelpunkt.
-# Danach weicher Aufbau.
-# Anschließend langer geometrischer Auslauf auf 0.
-#
-# Keine zusätzliche Transparenz.
 # ============================================================
 
 def draw_blade_divider(
@@ -1849,10 +1823,6 @@ def draw_blade_divider(
             distance
         )
 
-        # ----------------------------------------------------
-        # RUNDER MITTELPUNKT
-        # ----------------------------------------------------
-
         if d <= dot_radius_scaled:
 
             inside = max(
@@ -1869,10 +1839,6 @@ def draw_blade_divider(
             half_height = math.sqrt(
                 inside
             )
-
-        # ----------------------------------------------------
-        # WEICHER ÜBERGANG
-        # ----------------------------------------------------
 
         elif d <= (
             dot_radius_scaled
@@ -1900,10 +1866,6 @@ def draw_blade_divider(
                 max_half_height_scaled
                 * smooth
             )
-
-        # ----------------------------------------------------
-        # LANGER AUSLAUF
-        # ----------------------------------------------------
 
         else:
 
@@ -2089,9 +2051,6 @@ def draw_global_divider(
 
 # ============================================================
 # GEMEINSAMER COUNTDOWN-LAYOUT
-#
-# NOCH und xx TAGE sind bei Early und Global identisch
-# ausgerichtet.
 # ============================================================
 
 def calculate_countdown_layout(
@@ -2166,11 +2125,6 @@ def calculate_countdown_layout(
 
 # ============================================================
 # GLOBAL – OBERER BLOCK
-#
-# Der komplette obere Block beginnt bei GLOBAL_VISIBLE_TOP.
-#
-# GLOBAL/LAUNCH-Abstand bleibt erhalten.
-# Trenner sitzt mit 28/28 sauber zwischen LAUNCH und Datum.
 # ============================================================
 
 def calculate_global_upper_layout(
@@ -2246,12 +2200,6 @@ def calculate_global_upper_layout(
         - date_metrics["bbox"][1]
     )
 
-    # --------------------------------------------------------
-    # MITTE DES KOMPLETTEN GLOBAL/LAUNCH-ZWEIZEILERS
-    #
-    # Genau diese Achse wird später für EARLY ACCESS benutzt.
-    # --------------------------------------------------------
-
     title_block_visible_bottom = (
         launch_visible_top
         + launch_height
@@ -2273,12 +2221,6 @@ def calculate_global_upper_layout(
 
 # ============================================================
 # EARLY – OBERER BLOCK
-#
-# EARLY ACCESS wird nicht mehr an einer festen Oberkante
-# ausgerichtet.
-#
-# Seine sichtbare Mitte liegt exakt auf der sichtbaren Mitte
-# des GLOBAL/LAUNCH-Zweizeilers.
 # ============================================================
 
 def calculate_early_upper_layout(
@@ -2344,10 +2286,7 @@ def calculate_early_upper_layout(
 
 
 # ============================================================
-# GEMEINSAME GLOBAL-TITELMITTE ERMITTELN
-#
-# Damit Early exakt dieselbe Achse benutzt, ohne dass die
-# Global-Karte dafür zuerst gerendert werden muss.
+# GLOBAL-TITELMITTE
 # ============================================================
 
 def get_global_title_center_y():
@@ -2480,6 +2419,7 @@ def create_early_access_full_card(
         days_font=days_font,
     )
 
+
     # --------------------------------------------------------
     # TITEL
     # --------------------------------------------------------
@@ -2493,6 +2433,7 @@ def create_early_access_full_card(
         title_spacing,
     )
 
+
     # --------------------------------------------------------
     # TRENNER
     # --------------------------------------------------------
@@ -2502,8 +2443,12 @@ def create_early_access_full_card(
         upper_layout["divider_y"],
     )
 
+
     # --------------------------------------------------------
     # DATUM
+    #
+    # NEU:
+    # 1 px dunkle Lesekante.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2520,10 +2465,18 @@ def create_early_access_full_card(
         ),
         shadow_blur=2.5,
         shadow_offset=1,
+        stroke_width=
+            EARLY_LOWER_READABILITY_STROKE_WIDTH,
+        stroke_fill=
+            EARLY_LOWER_READABILITY_OUTLINE,
     )
+
 
     # --------------------------------------------------------
     # NOCH
+    #
+    # NEU:
+    # dieselbe 1 px Lesekante.
     # --------------------------------------------------------
 
     if noch_text:
@@ -2539,10 +2492,18 @@ def create_early_access_full_card(
                 EARLY_NOCH_SHADOW,
             shadow_blur=1.4,
             shadow_offset=1,
+            stroke_width=
+                EARLY_LOWER_READABILITY_STROKE_WIDTH,
+            stroke_fill=
+                EARLY_LOWER_READABILITY_OUTLINE,
         )
+
 
     # --------------------------------------------------------
     # COUNTDOWN
+    #
+    # NEU:
+    # dieselbe 1 px Lesekante.
     # --------------------------------------------------------
 
     image = draw_soft_centered_text(
@@ -2559,6 +2520,10 @@ def create_early_access_full_card(
         ),
         shadow_blur=3.0,
         shadow_offset=1,
+        stroke_width=
+            EARLY_LOWER_READABILITY_STROKE_WIDTH,
+        stroke_fill=
+            EARLY_LOWER_READABILITY_OUTLINE,
     )
 
     return image.convert(
@@ -2654,6 +2619,7 @@ def create_global_launch_full_card(
         days_font=days_font,
     )
 
+
     # --------------------------------------------------------
     # GLOBAL
     # --------------------------------------------------------
@@ -2666,6 +2632,7 @@ def create_global_launch_full_card(
         upper_layout["global_y"],
         global_spacing,
     )
+
 
     # --------------------------------------------------------
     # LAUNCH
@@ -2680,6 +2647,7 @@ def create_global_launch_full_card(
         launch_spacing,
     )
 
+
     # --------------------------------------------------------
     # TRENNER
     # --------------------------------------------------------
@@ -2688,6 +2656,7 @@ def create_global_launch_full_card(
         image,
         upper_layout["divider_y"],
     )
+
 
     # --------------------------------------------------------
     # DATUM
@@ -2709,6 +2678,7 @@ def create_global_launch_full_card(
         shadow_offset=1,
     )
 
+
     # --------------------------------------------------------
     # NOCH
     # --------------------------------------------------------
@@ -2723,6 +2693,7 @@ def create_global_launch_full_card(
             GLOBAL_MUTED,
             5,
         )
+
 
     # --------------------------------------------------------
     # COUNTDOWN
@@ -2876,6 +2847,7 @@ def create_compact_card(
         - status_bbox[1]
     )
 
+
     # ========================================================
     # GLOBAL COMPACT
     # ========================================================
@@ -2922,6 +2894,7 @@ def create_compact_card(
             ),
             shadow_blur=1.6,
         )
+
 
     # ========================================================
     # EARLY COMPACT
