@@ -187,11 +187,6 @@ EARLY_NOCH_TEXT = (
 
 # ============================================================
 # EARLY – TRENNER
-#
-# Langgezogene Doppelklinge:
-# außen läuft sie auf 0 aus,
-# Richtung Mitte wird sie dicker.
-# Kleiner Punkt im Zentrum.
 # ============================================================
 
 EARLY_DIVIDER_WIDTH = 305
@@ -1576,9 +1571,6 @@ def draw_gradient_title(
 
 # ============================================================
 # EARLY – TITEL
-#
-# Keine Goldkante.
-# Nur weiße, transparente 1-px-Lesekante.
 # ============================================================
 
 def draw_early_title(
@@ -1644,8 +1636,6 @@ def draw_early_title(
 
 # ============================================================
 # GLOBAL – TITEL
-#
-# Goldkante bleibt.
 # ============================================================
 
 def draw_global_title_line(
@@ -1709,20 +1699,11 @@ def draw_global_title_line(
 
 
 # ============================================================
-# TRENNER – LANGGEZOGENE DOPPELKlinge
+# TRENNER – WEICHE DOPPELKlinge
 #
-# Außen:
-#   Spitze bei 0 px Höhe.
-#
-# Richtung Mitte:
-#   langsam breiter.
-#
-# Zentrum:
-#   kleiner Punkt.
-#
-# Keine normale Linie.
-# Keine Raute.
-# Keine Pfeile.
+# Der Punkt und die beiden Seiten bilden jetzt EINE Form.
+# Direkt am Mittelpunkt kräftig/rund.
+# Nach außen weich auf 0 auslaufend.
 # ============================================================
 
 def draw_blade_divider(
@@ -1737,11 +1718,17 @@ def draw_blade_divider(
 
     width, height = image.size
 
+    # --------------------------------------------------------
+    # 4-FACH ZEICHNEN FÜR SAUBERE KANTEN
+    # --------------------------------------------------------
+
+    scale = 4
+
     layer = Image.new(
         "RGBA",
         (
-            width,
-            height,
+            width * scale,
+            height * scale,
         ),
         (
             0,
@@ -1757,84 +1744,206 @@ def draw_blade_divider(
 
     center_x = (
         width / 2
+    ) * scale
+
+    center_y_scaled = (
+        center_y * scale
+    )
+
+    divider_width_scaled = (
+        divider_width * scale
+    )
+
+    dot_radius_scaled = (
+        dot_radius * scale
+    )
+
+    base_half_height = (
+        max_half_height
+        * scale
+    )
+
+
+    # --------------------------------------------------------
+    # DIE KLINGEN BEGINNEN DIREKT IM RUNDEN MITTELPUNKT
+    # --------------------------------------------------------
+
+    connection_x = (
+        dot_radius_scaled
+        * 0.65
     )
 
     outer_left = (
         center_x
-        - divider_width / 2
+        - divider_width_scaled / 2
     )
 
     outer_right = (
         center_x
-        + divider_width / 2
+        + divider_width_scaled / 2
     )
 
     inner_left = (
         center_x
-        - center_gap
+        - connection_x
     )
 
     inner_right = (
         center_x
-        + center_gap
+        + connection_x
+    )
+
+    blade_length = (
+        inner_left
+        - outer_left
+    )
+
+    steps = max(
+        1,
+        int(blade_length)
     )
 
 
     # --------------------------------------------------------
-    # LINKER FLACHER KEIL
+    # LINKER UND RECHTER WEICHER AUSLAUF
     #
-    # Außen komplett spitz.
-    # Innen maximale Höhe.
+    # Außen:
+    # praktisch unsichtbar / 0 Höhe
+    #
+    # Mitte:
+    # kräftiger und höher
     # --------------------------------------------------------
 
-    left_points = [
-        (
-            outer_left,
-            center_y,
-        ),
-        (
-            inner_left,
-            center_y - max_half_height,
-        ),
-        (
-            inner_left,
-            center_y + max_half_height,
-        ),
-    ]
+    for i in range(
+        steps + 1
+    ):
 
-    draw.polygon(
-        left_points,
-        fill=color,
+        progress = (
+            i / steps
+        )
+
+        # Weicher Größenverlauf.
+        # Außen sehr lange fein,
+        # zur Mitte hin zunehmend kräftig.
+        curve = (
+            progress ** 1.65
+        )
+
+        half_height = (
+            base_half_height
+            * curve
+        )
+
+        # Gleichzeitig die Deckkraft nach außen
+        # vollständig verschwinden lassen.
+        alpha_curve = (
+            progress ** 1.35
+        )
+
+        alpha = int(
+            color[3]
+            * alpha_curve
+        )
+
+        current_color = (
+            color[0],
+            color[1],
+            color[2],
+            alpha,
+        )
+
+        x_left = (
+            outer_left
+            + i
+        )
+
+        x_right = (
+            outer_right
+            - i
+        )
+
+        if half_height > 0:
+
+            draw.line(
+                (
+                    x_left,
+                    center_y_scaled
+                    - half_height,
+
+                    x_left,
+                    center_y_scaled
+                    + half_height,
+                ),
+                fill=current_color,
+                width=1,
+            )
+
+            draw.line(
+                (
+                    x_right,
+                    center_y_scaled
+                    - half_height,
+
+                    x_right,
+                    center_y_scaled
+                    + half_height,
+                ),
+                fill=current_color,
+                width=1,
+            )
+
+
+    # --------------------------------------------------------
+    # RUNDE VERBINDUNG
+    #
+    # Diese Ellipse sitzt HINTER dem eigentlichen Punkt und
+    # verbindet die beiden dicken Klingenenden miteinander.
+    # Dadurch gibt es keinen harten Schnitt mehr.
+    # --------------------------------------------------------
+
+    bridge_radius_x = (
+        dot_radius_scaled
+        * 2.15
+    )
+
+    bridge_radius_y = (
+        base_half_height
+        * 0.92
+    )
+
+    bridge_color = (
+        color[0],
+        color[1],
+        color[2],
+        int(
+            color[3]
+            * 0.88
+        ),
+    )
+
+    draw.ellipse(
+        (
+            center_x
+            - bridge_radius_x,
+
+            center_y_scaled
+            - bridge_radius_y,
+
+            center_x
+            + bridge_radius_x,
+
+            center_y_scaled
+            + bridge_radius_y,
+        ),
+        fill=bridge_color,
     )
 
 
     # --------------------------------------------------------
-    # RECHTER FLACHER KEIL
-    # --------------------------------------------------------
-
-    right_points = [
-        (
-            outer_right,
-            center_y,
-        ),
-        (
-            inner_right,
-            center_y - max_half_height,
-        ),
-        (
-            inner_right,
-            center_y + max_half_height,
-        ),
-    ]
-
-    draw.polygon(
-        right_points,
-        fill=color,
-    )
-
-
-    # --------------------------------------------------------
-    # KLEINER PUNKT EXAKT IN DER MITTE
+    # RUNDER MITTELPUNKT
+    #
+    # Der Punkt liegt innerhalb der Verbindung und wirkt
+    # dadurch als Zentrum derselben Form.
     # --------------------------------------------------------
 
     dot_color = (
@@ -1843,16 +1952,23 @@ def draw_blade_divider(
         color[2],
         min(
             255,
-            color[3] + 25,
+            color[3] + 30,
         ),
     )
 
     draw.ellipse(
         (
-            center_x - dot_radius,
-            center_y - dot_radius,
-            center_x + dot_radius,
-            center_y + dot_radius,
+            center_x
+            - dot_radius_scaled,
+
+            center_y_scaled
+            - dot_radius_scaled,
+
+            center_x
+            + dot_radius_scaled,
+
+            center_y_scaled
+            + dot_radius_scaled,
         ),
         fill=dot_color,
     )
@@ -1860,16 +1976,27 @@ def draw_blade_divider(
 
     # --------------------------------------------------------
     # MINIMALE GLÄTTUNG
-    #
-    # Kein sichtbarer Glow.
-    # Nur damit die Keilkanten sauberer wirken.
     # --------------------------------------------------------
 
     layer = layer.filter(
         ImageFilter.GaussianBlur(
-            0.35
+            0.55 * scale
         )
     )
+
+
+    # --------------------------------------------------------
+    # ZURÜCK AUF 1200 x 535
+    # --------------------------------------------------------
+
+    layer = layer.resize(
+        (
+            width,
+            height,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
 
     return Image.alpha_composite(
         image,
@@ -2418,7 +2545,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # DATUM
-    #
     # Keine weiße Kontur.
     # --------------------------------------------------------
 
@@ -2441,7 +2567,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # NOCH
-    #
     # Keine weiße Kontur.
     # --------------------------------------------------------
 
@@ -2467,7 +2592,6 @@ def create_early_access_full_card(
 
     # --------------------------------------------------------
     # COUNTDOWN
-    #
     # Keine weiße Kontur.
     # --------------------------------------------------------
 
