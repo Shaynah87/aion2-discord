@@ -189,33 +189,28 @@ EARLY_NOCH_TEXT = (
 # ============================================================
 # EARLY – TRENNER
 #
-# Eine einzige zusammenhängende Form.
-#
-# Mitte:
-# kleiner runder Kern.
-#
-# Direkt daneben:
-# sanfter Übergang in die kräftigste Stelle.
-#
-# Außen:
-# immer dünner + transparenter bis auf 0.
+# Jetzt:
+# - länger
+# - flacher
+# - keine Transparenz
+# - gleicher Champagnerton wie die Schrift
 # ============================================================
 
-EARLY_DIVIDER_WIDTH = 305
+EARLY_DIVIDER_WIDTH = 410
 
-EARLY_DIVIDER_DOT_RADIUS = 2.2
+EARLY_DIVIDER_DOT_RADIUS = 1.8
 
-EARLY_DIVIDER_MAX_HALF_HEIGHT = 3.4
+EARLY_DIVIDER_MAX_HALF_HEIGHT = 2.4
 
-EARLY_DIVIDER_SHOULDER_LENGTH = 13
+EARLY_DIVIDER_SHOULDER_LENGTH = 18
 
-EARLY_DIVIDER_TAPER_POWER = 1.55
+EARLY_DIVIDER_TAPER_POWER = 1.32
 
 EARLY_LINE = (
-    184,
-    154,
-    105,
-    220,
+    213,
+    207,
+    190,
+    255,
 )
 
 
@@ -338,23 +333,29 @@ GLOBAL_MUTED = (
 
 # ============================================================
 # GLOBAL – TRENNER
+#
+# Jetzt:
+# - länger
+# - flacher
+# - keine Transparenz
+# - gleicher Blauton wie Datum / Countdown
 # ============================================================
 
-GLOBAL_DIVIDER_WIDTH = 305
+GLOBAL_DIVIDER_WIDTH = 410
 
-GLOBAL_DIVIDER_DOT_RADIUS = 2.2
+GLOBAL_DIVIDER_DOT_RADIUS = 1.8
 
-GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 3.4
+GLOBAL_DIVIDER_MAX_HALF_HEIGHT = 2.4
 
-GLOBAL_DIVIDER_SHOULDER_LENGTH = 13
+GLOBAL_DIVIDER_SHOULDER_LENGTH = 18
 
-GLOBAL_DIVIDER_TAPER_POWER = 1.55
+GLOBAL_DIVIDER_TAPER_POWER = 1.32
 
 GLOBAL_LINE = (
-    45,
-    67,
-    99,
-    220,
+    42,
+    59,
+    83,
+    255,
 )
 
 
@@ -1723,20 +1724,13 @@ def draw_global_title_line(
 # ============================================================
 # TRENNER
 #
-# WICHTIG:
+# Eine durchgehende symmetrische Form.
 #
-# Keine Ellipse hinter dem Punkt.
-# Kein Bridge-Element.
-# Kein GaussianBlur.
-#
-# Die komplette Form wird pro X-Position berechnet.
-#
-# Dadurch besteht sie wirklich aus EINER Form:
-#
-# - runder Kern in der Mitte
-# - weicher Übergang zur dickeren Schulter
-# - anschließend langer Auslauf auf 0
-# - gleichzeitig Transparenz nach außen
+# Wichtig:
+# - keinerlei Alpha-Ausblendung nach außen
+# - Farbe bleibt überall vollständig erhalten
+# - nur die geometrische Dicke läuft auf 0
+# - längere und feinere Form
 # ============================================================
 
 def draw_blade_divider(
@@ -1751,6 +1745,13 @@ def draw_blade_divider(
 ):
 
     width, height = image.size
+
+    # --------------------------------------------------------
+    # 4x Supersampling
+    #
+    # Kein Blur.
+    # Nur saubere LANCZOS-Kanten.
+    # --------------------------------------------------------
 
     scale = 4
 
@@ -1795,7 +1796,7 @@ def draw_blade_divider(
 
 
     # --------------------------------------------------------
-    # RGBA-LAYER
+    # LAYER
     # --------------------------------------------------------
 
     layer = Image.new(
@@ -1817,13 +1818,14 @@ def draw_blade_divider(
     )
 
 
-    # --------------------------------------------------------
-    # FORM PRO X-POSITION
-    # --------------------------------------------------------
-
     max_distance = int(
         half_total_width
     )
+
+
+    # --------------------------------------------------------
+    # FORM
+    # --------------------------------------------------------
 
     for distance in range(
         0,
@@ -1836,10 +1838,7 @@ def draw_blade_divider(
 
 
         # ====================================================
-        # 1. RUNDER MITTELPUNKT
-        #
-        # Innerhalb des Punkt-Radius wird exakt eine
-        # Kreiskontur berechnet.
+        # 1. RUNDER KERN
         # ====================================================
 
         if d <= dot_radius_scaled:
@@ -1859,17 +1858,9 @@ def draw_blade_divider(
                 inside
             )
 
-            alpha_factor = 1.0
-
 
         # ====================================================
-        # 2. WEICHER ÜBERGANG
-        #
-        # Direkt außerhalb des Kreises geht die Höhe nicht
-        # plötzlich auf eine andere Form über.
-        #
-        # Sie steigt sanft vom Rand des runden Kerns zur
-        # maximalen Schulterhöhe.
+        # 2. ÜBERGANG VOM PUNKT IN DIE FLACHE KLINGE
         # ====================================================
 
         elif d <= (
@@ -1885,8 +1876,6 @@ def draw_blade_divider(
                 / shoulder_length_scaled
             )
 
-            # Smoothstep:
-            # 0 -> 1 ohne harte Ecke am Anfang/Ende.
             smooth = (
                 local
                 * local
@@ -1896,24 +1885,17 @@ def draw_blade_divider(
                 )
             )
 
-            # Am Rand des runden Kerns liegt die Kreisform
-            # geometrisch bei 0.
-            #
-            # Wir lassen sie von dort sehr schnell, aber weich
-            # in die eigentliche Klinge wachsen.
             half_height = (
                 max_half_height_scaled
                 * smooth
             )
 
-            alpha_factor = 1.0
-
 
         # ====================================================
         # 3. LANGER AUSLAUF
         #
-        # Von der Schulter bis außen:
-        # kontinuierlich dünner.
+        # Keine Transparenz.
+        # Nur die Dicke nimmt kontinuierlich ab.
         # ====================================================
 
         else:
@@ -1958,43 +1940,28 @@ def draw_blade_divider(
                 )
             )
 
-            # Nach außen nicht nur dünner,
-            # sondern auch transparenter.
-            alpha_factor = (
-                remaining
-                ** 0.85
-            )
-
 
         # ----------------------------------------------------
-        # GANZ AUSSEN WIRKLICH AUF 0
+        # Ganz außen geometrisch exakt auf Null
         # ----------------------------------------------------
 
         if distance >= max_distance:
 
             half_height = 0
-            alpha_factor = 0
 
 
-        alpha = int(
-            color[3]
-            * alpha_factor
-        )
-
-        if (
-            half_height <= 0
-            or alpha <= 0
-        ):
+        if half_height <= 0:
 
             continue
 
 
-        current_color = (
-            color[0],
-            color[1],
-            color[2],
-            alpha,
-        )
+        # ----------------------------------------------------
+        # KEINE ALPHA-ÄNDERUNG
+        #
+        # Exakt dieselbe Farbe vom Zentrum bis zum Auslauf.
+        # ----------------------------------------------------
+
+        current_color = color
 
 
         x_left = int(
@@ -2026,13 +1993,6 @@ def draw_blade_divider(
         )
 
 
-        # ----------------------------------------------------
-        # LINKER UND RECHTER TEIL
-        #
-        # Bei distance=0 fällt beides auf dieselbe Position.
-        # Das ist okay.
-        # ----------------------------------------------------
-
         draw.line(
             (
                 x_left,
@@ -2059,12 +2019,7 @@ def draw_blade_divider(
 
 
     # --------------------------------------------------------
-    # SUPERSAMPLING ZURÜCKRECHNEN
-    #
-    # KEIN Blur.
-    #
-    # Nur LANCZOS-Antialiasing.
-    # Dadurch keine transparente Wolke / kein Klotz.
+    # NUR ANTIALIASING
     # --------------------------------------------------------
 
     layer = layer.resize(
