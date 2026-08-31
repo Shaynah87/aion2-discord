@@ -2571,25 +2571,25 @@ def main():
             {
                 "id": 0,
                 "filename":
-                    OVERVIEW_CARD_FILE,
+                    OVERVIEW_CARD_FILE.name,
             },
 
             {
                 "id": 1,
                 "filename":
-                    RIFT_CARD_FILE,
+                    RIFT_CARD_FILE.name,
             },
 
             {
                 "id": 2,
                 "filename":
-                    SHUGO_CARD_FILE,
+                    SHUGO_CARD_FILE.name,
             },
 
             {
                 "id": 3,
                 "filename":
-                    RESET_CARD_FILE,
+                    RESET_CARD_FILE.name,
             },
         ],
     }
