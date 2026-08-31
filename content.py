@@ -36,7 +36,7 @@ GLOBAL_LAUNCH_COMPACT_TEST_OUTPUT = "global_launch_compact_test.png"
 
 CARD_WIDTH = 1200
 FULL_HEIGHT = 535
-COMPACT_HEIGHT = 270
+COMPACT_HEIGHT = 220
 
 
 # ============================================================
