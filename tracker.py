@@ -3,6 +3,7 @@ import json
 import urllib.request
 import uuid
 from io import BytesIO
+from pathlib import Path
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -11,8 +12,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 WEBHOOK_URL = os.environ.get("TRACKER_WEBHOOK")
 
-DATA_FILE = "tracker_data.json"
-STATE_FILE = "tracker_message.json"
+BASE_DIR = Path(__file__).resolve().parent
+
+DATA_FILE = BASE_DIR / "tracker_data.json"
+STATE_FILE = BASE_DIR / "tracker_message.json"
 
 
 # ============================================================
@@ -39,22 +42,22 @@ DISPLAY_NAMES = {
 
 OVERVIEW_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
-    "Shaynah87/aion2-discord/main/event_overview.png"
+    "Shaynah87/aion2-discord/main/Tracker/event_overview.png"
 )
 
 RIFT_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
-    "Shaynah87/aion2-discord/main/spacetime_rift.png"
+    "Shaynah87/aion2-discord/main/Tracker/spacetime_rift.png"
 )
 
 SHUGO_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
-    "Shaynah87/aion2-discord/main/shugo_games.png"
+    "Shaynah87/aion2-discord/main/Tracker/shugo_games.png"
 )
 
 RESET_BACKGROUND_URL = (
     "https://raw.githubusercontent.com/"
-    "Shaynah87/aion2-discord/main/resets.png"
+    "Shaynah87/aion2-discord/main/Tracker/resets.png"
 )
 
 
@@ -62,10 +65,10 @@ RESET_BACKGROUND_URL = (
 # AUSGABEDATEIEN
 # ============================================================
 
-OVERVIEW_CARD_FILE = "event_overview_card.png"
-RIFT_CARD_FILE = "spacetime_rift_card.png"
-SHUGO_CARD_FILE = "shugo_games_card.png"
-RESET_CARD_FILE = "resets_card.png"
+OVERVIEW_CARD_FILE = BASE_DIR / "event_overview_card.png"
+RIFT_CARD_FILE = BASE_DIR / "spacetime_rift_card.png"
+SHUGO_CARD_FILE = BASE_DIR / "shugo_games_card.png"
+RESET_CARD_FILE = BASE_DIR / "resets_card.png"
 
 
 # ============================================================
