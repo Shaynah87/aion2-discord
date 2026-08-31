@@ -22,17 +22,17 @@ jobs:
       - name: AION 2 Ankündigungen prüfen
         env:
           ANKUENDIGUNGEN_WEBHOOK: ${{ secrets.ANKUENDIGUNGEN_WEBHOOK }}
-        run: python ankuendigungen.py
+        run: python Ankuendigungen/ankuendigungen.py
 
       - name: Status speichern
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet ankuendigungen_status.json; then
+          if git diff --quiet Ankuendigungen/ankuendigungen_status.json; then
             echo "Keine Änderung am Status."
           else
-            git add ankuendigungen_status.json
+            git add Ankuendigungen/ankuendigungen_status.json
             git commit -m "Update AION announcement status"
             git push
           fi
