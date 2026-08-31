@@ -127,6 +127,24 @@ EARLY_READABILITY_OUTLINE = (
 
 EARLY_READABILITY_STROKE_WIDTH = 1
 
+# Zusätzliche sehr feine dunkle Außenkante nur für EARLY ACCESS.
+# Groß bewusst dezenter als Compact.
+EARLY_TITLE_DARK_OUTLINE = (
+    0,
+    0,
+    0,
+    120,
+)
+
+EARLY_COMPACT_DARK_OUTLINE = (
+    0,
+    0,
+    0,
+    165,
+)
+
+EARLY_DARK_OUTLINE_WIDTH = 1
+
 
 # ------------------------------------------------------------
 # EARLY – DUNKLE LESEKANTE
@@ -1633,6 +1651,7 @@ def draw_early_title(
     center_x,
     y,
     spacing,
+    dark_outline_color=EARLY_TITLE_DARK_OUTLINE,
 ):
 
     return draw_gradient_title(
@@ -1662,10 +1681,10 @@ def draw_early_title(
             EARLY_TITLE_GLOW,
 
         outline_color=
-            EARLY_READABILITY_OUTLINE,
+            dark_outline_color,
 
         outline_width=
-            EARLY_READABILITY_STROKE_WIDTH,
+            EARLY_DARK_OUTLINE_WIDTH,
 
         top_color=
             EARLY_TITLE_TOP_COLOR,
@@ -3037,6 +3056,8 @@ def create_compact_card(
             CARD_WIDTH / 2,
             title_y,
             title_spacing,
+            dark_outline_color=
+                EARLY_COMPACT_DARK_OUTLINE,
         )
 
         image = draw_soft_centered_text(
