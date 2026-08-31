@@ -409,7 +409,7 @@ COMPACT_GAP = 18
 # Temporärer separater Compact-Test.
 # True = zwei zusätzliche Test-Nachrichten unter den echten Headern.
 # Die produktiven Early-/Global-Nachrichten bleiben davon unberührt.
-TEST_COMPACT_PREVIEW = True
+TEST_COMPACT_PREVIEW = False
 
 EARLY_COMPACT_PREVIEW_OUTPUT = "early_access_compact_preview.png"
 GLOBAL_COMPACT_PREVIEW_OUTPUT = "global_launch_compact_preview.png"
