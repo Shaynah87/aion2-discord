@@ -25,17 +25,17 @@ jobs:
       - name: AION 2 Content aktualisieren
         env:
           CONTENT_WEBHOOK: ${{ secrets.CONTENT_WEBHOOK }}
-        run: python content.py
+        run: python Content/content.py
 
       - name: Content-Status speichern
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet content_message.json; then
-            echo "Keine Änderung an content_message.json."
+          if git diff --quiet Content/content_message.json; then
+            echo "Keine Änderung an Content/content_message.json."
           else
-            git add content_message.json
+            git add Content/content_message.json
             git commit -m "Update content message state"
             git push
           fi
