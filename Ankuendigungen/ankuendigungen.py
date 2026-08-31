@@ -5,6 +5,7 @@ import html
 import time
 import urllib.request
 import urllib.error
+from pathlib import Path
 from datetime import datetime
 
 
@@ -24,7 +25,9 @@ LIST_API = (
     "&previousArticleId=0"
 )
 
-STATE_FILE = "ankuendigungen_status.json"
+BASE_DIR = Path(__file__).resolve().parent
+
+STATE_FILE = BASE_DIR / "ankuendigungen_status.json"
 
 
 # ------------------------------------------------------------
