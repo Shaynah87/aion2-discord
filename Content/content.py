@@ -704,10 +704,24 @@ def load_background(filename):
 
     if not background_path.is_absolute():
 
-        background_path = (
+        direct_path = (
             BASE_DIR
             / background_path
         )
+
+        launch_path = (
+            BASE_DIR
+            / "Launch"
+            / background_path
+        )
+
+        if direct_path.exists():
+
+            background_path = direct_path
+
+        else:
+
+            background_path = launch_path
 
     if not background_path.exists():
 
