@@ -74,7 +74,7 @@ EARLY_TITLE_SIZE = 96
 EARLY_TITLE_BOLD = True
 EARLY_TITLE_TARGET_WIDTH = 625
 
-EARLY_DATE_SIZE = 32
+EARLY_DATE_SIZE = 36
 EARLY_NOCH_SIZE = COUNTDOWN_NOCH_SIZE
 EARLY_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
@@ -250,7 +250,7 @@ GLOBAL_TITLE_SIZE = 96
 GLOBAL_TITLE_BOLD = True
 GLOBAL_TITLE_TARGET_WIDTH = 470
 
-GLOBAL_DATE_SIZE = 32
+GLOBAL_DATE_SIZE = 36
 GLOBAL_NOCH_SIZE = COUNTDOWN_NOCH_SIZE
 GLOBAL_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
@@ -382,8 +382,8 @@ GLOBAL_LINE = (
 # KOMPAKTE KARTE
 # ============================================================
 
-COMPACT_TITLE_SIZE = 43
-COMPACT_STATUS_SIZE = 28
+COMPACT_TITLE_SIZE = 49
+COMPACT_STATUS_SIZE = 31
 
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
@@ -402,7 +402,7 @@ COMPACT_CROP_CENTER = {
 
     # Global: Ausschnitt höher im Master, damit die Köpfe
     # im fertigen 220px-Balken weiter unten sitzen.
-    "global_launch": 0.30,
+    "global_launch": 0.26,
 }
 
 
@@ -2951,13 +2951,53 @@ def create_compact_card(
             470,
         )
 
-        image = draw_global_title_line(
-            image,
-            title_text,
-            title_font,
-            CARD_WIDTH / 2,
-            title_y,
-            global_spacing,
+        image = draw_gradient_title(
+            image=image,
+            text=title_text,
+            font=title_font,
+            center_x=CARD_WIDTH / 2,
+            y=title_y,
+            spacing=global_spacing,
+
+            shadow_offset_x=
+                GLOBAL_TITLE_SHADOW_OFFSET_X,
+
+            shadow_offset_y=
+                GLOBAL_TITLE_SHADOW_OFFSET_Y,
+
+            shadow_blur=
+                GLOBAL_TITLE_SHADOW_BLUR,
+
+            shadow_color=
+                GLOBAL_TITLE_SHADOW,
+
+            glow_blur=
+                GLOBAL_TITLE_GLOW_BLUR,
+
+            glow_color=
+                GLOBAL_TITLE_GLOW,
+
+            # Nur in der kleinen Global-Version keine Goldkante.
+            outline_color=None,
+            outline_width=0,
+
+            top_color=
+                GLOBAL_TITLE_TOP_COLOR,
+
+            upper_color=
+                GLOBAL_TITLE_UPPER_COLOR,
+
+            mid_color=
+                GLOBAL_TITLE_MID_COLOR,
+
+            bottom_color=
+                GLOBAL_TITLE_BOTTOM_COLOR,
+
+            shine_color=
+                GLOBAL_TITLE_SHINE,
+
+            edge_dark_color=
+                GLOBAL_TITLE_EDGE_DARK,
         )
 
         image = draw_soft_centered_text(
