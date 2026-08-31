@@ -25,17 +25,17 @@ jobs:
       - name: AION 2 Tracker aktualisieren
         env:
           TRACKER_WEBHOOK: ${{ secrets.TRACKER_WEBHOOK }}
-        run: python tracker.py
+        run: python Tracker/tracker.py
 
       - name: Tracker-Nachricht speichern
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet tracker_message.json; then
-            echo "Keine Änderung an tracker_message.json."
+          if git diff --quiet Tracker/tracker_message.json; then
+            echo "Keine Änderung an Tracker/tracker_message.json."
           else
-            git add tracker_message.json
+            git add Tracker/tracker_message.json
             git commit -m "Update tracker message state"
             git push
           fi
