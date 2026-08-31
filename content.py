@@ -1,6 +1,7 @@
 import os
 import json
 import math
+from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -18,13 +19,15 @@ from PIL import (
 # DATEIEN / EINSTELLUNGEN
 # ============================================================
 
-DATA_FILE = "content_data.json"
-MESSAGE_STATE_FILE = "content_message.json"
+BASE_DIR = Path(__file__).resolve().parent
+
+DATA_FILE = BASE_DIR / "content_data.json"
+MESSAGE_STATE_FILE = BASE_DIR / "content_message.json"
 
 WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
 
-EARLY_ACCESS_OUTPUT = "early_access_card.png"
-GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
+EARLY_ACCESS_OUTPUT = BASE_DIR / "early_access_card.png"
+GLOBAL_LAUNCH_OUTPUT = BASE_DIR / "global_launch_card.png"
 
 
 # ============================================================
@@ -411,8 +414,8 @@ COMPACT_GAP = 18
 # Die produktiven Early-/Global-Nachrichten bleiben davon unberührt.
 TEST_COMPACT_PREVIEW = False
 
-EARLY_COMPACT_PREVIEW_OUTPUT = "early_access_compact_preview.png"
-GLOBAL_COMPACT_PREVIEW_OUTPUT = "global_launch_compact_preview.png"
+EARLY_COMPACT_PREVIEW_OUTPUT = BASE_DIR / "early_access_compact_preview.png"
+GLOBAL_COMPACT_PREVIEW_OUTPUT = BASE_DIR / "global_launch_compact_preview.png"
 
 COMPACT_CROP_CENTER = {
     # Kugel: optische Mitte des Masters.
@@ -697,14 +700,23 @@ def load_background(filename):
             "Kein Hintergrundbild für Content gesetzt."
         )
 
-    if not os.path.exists(filename):
+    background_path = Path(filename)
+
+    if not background_path.is_absolute():
+
+        background_path = (
+            BASE_DIR
+            / background_path
+        )
+
+    if not background_path.exists():
 
         raise RuntimeError(
-            f"Hintergrund fehlt: {filename}"
+            f"Hintergrund fehlt: {background_path}"
         )
 
     image = Image.open(
-        filename
+        background_path
     ).convert(
         "RGBA"
     )
@@ -3134,7 +3146,8 @@ def save_milestone_card(
     else:
 
         filename = (
-            f"{milestone['key']}_card.png"
+            BASE_DIR
+            / f"{milestone['key']}_card.png"
         )
 
     image.save(
@@ -3171,7 +3184,8 @@ def save_compact_preview_card(
     else:
 
         filename = (
-            f"{milestone['key']}_compact_preview.png"
+            BASE_DIR
+            / f"{milestone['key']}_compact_preview.png"
         )
 
     image.save(
