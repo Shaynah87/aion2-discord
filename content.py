@@ -33,7 +33,7 @@ GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 
 CARD_WIDTH = 1200
 FULL_HEIGHT = 535
-COMPACT_HEIGHT = 270
+COMPACT_HEIGHT = 220
 
 
 # ============================================================
@@ -388,9 +388,17 @@ COMPACT_STATUS_SIZE = 28
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
 
+# Nur zum Gestalten/Testen des Zweizeilers.
+# Nach Freigabe wieder auf False setzen.
+TEST_COMPACT_MODE = True
+
 COMPACT_CROP_CENTER = {
+    # Kugel: optische Mitte des Masters.
     "early_access": 0.50,
-    "global_launch": 0.50,
+
+    # Global: Ausschnitt etwas höher, damit die Gesichter
+    # der beiden Hauptfiguren im 220px-Zweizeiler bleiben.
+    "global_launch": 0.40,
 }
 
 
@@ -3024,6 +3032,14 @@ def render_milestone(
     milestone
 ):
 
+    # Temporärer Design-Test: beide Karten sofort als
+    # Zweizeiler rendern, ohne die echten Startdaten anzufassen.
+    if TEST_COMPACT_MODE:
+
+        return create_compact_card(
+            milestone
+        )
+
     if milestone["state"] in (
         "countdown",
         "today",
@@ -3408,6 +3424,11 @@ def send_content_to_discord(
         save_message_state(
             state
         )
+
+    # Falls die Datei bisher noch nicht existierte und beide IDs
+    # bereits aus einem vorhandenen State kamen, bleibt sie
+    # unangetastet. In jedem anderen Fall wurde sie oben direkt
+    # nach dem Erstellen einer neuen Nachricht gespeichert.
 
     print("")
     print(
