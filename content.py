@@ -26,9 +26,6 @@ WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
 EARLY_ACCESS_OUTPUT = "early_access_card.png"
 GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
 
-EARLY_ACCESS_COMPACT_TEST_OUTPUT = "early_access_compact_test.png"
-GLOBAL_LAUNCH_COMPACT_TEST_OUTPUT = "global_launch_compact_test.png"
-
 
 # ============================================================
 # KARTENFORMAT
@@ -391,8 +388,20 @@ COMPACT_STATUS_SIZE = 28
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
 
+# Temporärer separater Compact-Test.
+# True = zwei zusätzliche Test-Nachrichten unter den echten Headern.
+# Die produktiven Early-/Global-Nachrichten bleiben davon unberührt.
+TEST_COMPACT_PREVIEW = True
+
+EARLY_COMPACT_PREVIEW_OUTPUT = "early_access_compact_preview.png"
+GLOBAL_COMPACT_PREVIEW_OUTPUT = "global_launch_compact_preview.png"
+
 COMPACT_CROP_CENTER = {
+    # Kugel: optische Mitte des Masters.
     "early_access": 0.50,
+
+    # Global: Ausschnitt höher im Master, damit die Köpfe
+    # im fertigen 220px-Balken weiter unten sitzen.
     "global_launch": 0.30,
 }
 
@@ -1743,93 +1752,6 @@ def draw_global_title_line(
 
 
 # ============================================================
-# KOMPAKTE TITEL
-#
-# Gleicher Schrift-/Farblook wie bei den Vierzeilern,
-# aber die Effekte sind für 270 px Karten feiner eingestellt.
-#
-# Wichtig:
-# Global Compact hat bewusst KEINEN Goldrand.
-# ============================================================
-
-def draw_early_compact_title(
-    image,
-    text,
-    font,
-    center_x,
-    y,
-    spacing,
-):
-
-    return draw_gradient_title(
-        image=image,
-        text=text,
-        font=font,
-        center_x=center_x,
-        y=y,
-        spacing=spacing,
-
-        shadow_offset_x=1,
-        shadow_offset_y=2,
-        shadow_blur=1.5,
-        shadow_color=EARLY_TITLE_SHADOW,
-
-        glow_blur=1.4,
-        glow_color=EARLY_TITLE_GLOW,
-
-        outline_color=EARLY_READABILITY_OUTLINE,
-        outline_width=1,
-
-        top_color=EARLY_TITLE_TOP_COLOR,
-        upper_color=EARLY_TITLE_UPPER_COLOR,
-        mid_color=EARLY_TITLE_MID_COLOR,
-        bottom_color=EARLY_TITLE_BOTTOM_COLOR,
-
-        shine_color=EARLY_TITLE_SHINE,
-        edge_dark_color=EARLY_TITLE_EDGE_DARK,
-    )
-
-
-def draw_global_compact_title(
-    image,
-    text,
-    font,
-    center_x,
-    y,
-    spacing,
-):
-
-    return draw_gradient_title(
-        image=image,
-        text=text,
-        font=font,
-        center_x=center_x,
-        y=y,
-        spacing=spacing,
-
-        shadow_offset_x=1,
-        shadow_offset_y=2,
-        shadow_blur=1.4,
-        shadow_color=GLOBAL_TITLE_SHADOW,
-
-        glow_blur=1.3,
-        glow_color=GLOBAL_TITLE_GLOW,
-
-        # KEIN Goldrand im Zweizeiler.
-        outline_color=None,
-        outline_width=0,
-
-        top_color=GLOBAL_TITLE_TOP_COLOR,
-        upper_color=GLOBAL_TITLE_UPPER_COLOR,
-        mid_color=GLOBAL_TITLE_MID_COLOR,
-        bottom_color=GLOBAL_TITLE_BOTTOM_COLOR,
-
-        shine_color=GLOBAL_TITLE_SHINE,
-        edge_dark_color=GLOBAL_TITLE_EDGE_DARK,
-    )
-
-
-# ============================================================
 # TRENNER
 # ============================================================
 
@@ -2924,7 +2846,6 @@ def create_compact_card(
         milestone["key"],
     )
 
-    # Gleiche Schriftfamilie / gleiche Gewichtung wie im Vierzeiler.
     if milestone["key"] == "global_launch":
 
         title_font = load_font(
@@ -2937,7 +2858,7 @@ def create_compact_card(
 
         title_font = load_font(
             COMPACT_TITLE_SIZE,
-            bold=EARLY_TITLE_BOLD,
+            bold=True,
         )
 
     status_font = load_font(
@@ -3023,19 +2944,20 @@ def create_compact_card(
 
     if milestone["key"] == "global_launch":
 
-        # Beim Vierzeiler werden GLOBAL und LAUNCH jeweils
-        # auf dieselbe Zielbreite gebracht.
-        # Im Zweizeiler bleibt "GLOBAL LAUNCH" eine Zeile,
-        # aber mit demselben Serif-Bold-Look.
-        title_spacing = COMPACT_TITLE_SPACING
+        global_spacing = spacing_for_target_width(
+            probe,
+            title_text,
+            title_font,
+            470,
+        )
 
-        image = draw_global_compact_title(
+        image = draw_global_title_line(
             image,
             title_text,
             title_font,
             CARD_WIDTH / 2,
             title_y,
-            title_spacing,
+            global_spacing,
         )
 
         image = draw_soft_centered_text(
@@ -3048,9 +2970,9 @@ def create_compact_card(
                 255,
                 255,
                 255,
-                115,
+                135,
             ),
-            shadow_blur=1.2,
+            shadow_blur=1.7,
             shadow_offset=1,
         )
 
@@ -3068,7 +2990,7 @@ def create_compact_card(
             440,
         )
 
-        image = draw_early_compact_title(
+        image = draw_early_title(
             image,
             title_text,
             title_font,
@@ -3087,14 +3009,12 @@ def create_compact_card(
                 0,
                 0,
                 0,
-                140,
+                175,
             ),
-            shadow_blur=1.5,
+            shadow_blur=2.5,
             shadow_offset=1,
-
             stroke_width=
                 EARLY_LOWER_READABILITY_STROKE_WIDTH,
-
             stroke_fill=
                 EARLY_LOWER_READABILITY_OUTLINE,
         )
@@ -3102,6 +3022,7 @@ def create_compact_card(
     return image.convert(
         "RGB"
     )
+
 
 # ============================================================
 # MILESTONE RENDERN
@@ -3170,15 +3091,7 @@ def save_milestone_card(
     return filename
 
 
-# ============================================================
-# KOMPAKTE TESTKARTEN SPEICHERN
-#
-# Diese beiden Dateien werden nur zusätzlich für den
-# Zweizeiler-Test erzeugt. Die normalen Vierzeiler bleiben
-# vollständig unverändert.
-# ============================================================
-
-def save_compact_test_card(
+def save_compact_preview_card(
     milestone
 ):
 
@@ -3188,20 +3101,16 @@ def save_compact_test_card(
 
     if milestone["key"] == "early_access":
 
-        filename = (
-            EARLY_ACCESS_COMPACT_TEST_OUTPUT
-        )
+        filename = EARLY_COMPACT_PREVIEW_OUTPUT
 
     elif milestone["key"] == "global_launch":
 
-        filename = (
-            GLOBAL_LAUNCH_COMPACT_TEST_OUTPUT
-        )
+        filename = GLOBAL_COMPACT_PREVIEW_OUTPUT
 
     else:
 
         filename = (
-            f"{milestone['key']}_compact_test.png"
+            f"{milestone['key']}_compact_preview.png"
         )
 
     image.save(
@@ -3500,11 +3409,46 @@ def update_or_create_discord_image(
     return True
 
 
+def send_compact_previews_to_discord(
+    early_access_file,
+    global_launch_file,
+):
+
+    print("")
+    print(
+        "Compact-Test: zwei separate Testnachrichten "
+        "werden unter den echten Headern gepostet ..."
+    )
+
+    early_preview_id = post_discord_image(
+        early_access_file,
+        "early_access_compact_preview.png",
+    )
+
+    print(
+        "Early Access Compact-Test erstellt. "
+        f"Message-ID: {early_preview_id}"
+    )
+
+    global_preview_id = post_discord_image(
+        global_launch_file,
+        "global_launch_compact_preview.png",
+    )
+
+    print(
+        "Global Launch Compact-Test erstellt. "
+        f"Message-ID: {global_preview_id}"
+    )
+
+    print(
+        "Die beiden Testnachrichten können danach "
+        "in Discord einfach gelöscht werden."
+    )
+
+
 def send_content_to_discord(
     early_access_file,
     global_launch_file,
-    early_access_compact_test_file,
-    global_launch_compact_test_file,
 ):
 
     if not WEBHOOK_URL:
@@ -3516,10 +3460,6 @@ def send_content_to_discord(
     state = load_message_state()
 
     print("")
-
-    # --------------------------------------------------------
-    # 1. EARLY ACCESS – normaler Vierzeiler
-    # --------------------------------------------------------
 
     early_changed = update_or_create_discord_image(
         state=state,
@@ -3537,10 +3477,6 @@ def send_content_to_discord(
 
     print("")
 
-    # --------------------------------------------------------
-    # 2. GLOBAL LAUNCH – normaler Vierzeiler
-    # --------------------------------------------------------
-
     global_changed = update_or_create_discord_image(
         state=state,
         state_key="global_launch_message_id",
@@ -3555,57 +3491,22 @@ def send_content_to_discord(
             state
         )
 
-    print("")
-
-    # --------------------------------------------------------
-    # 3. EARLY ACCESS – zusätzlicher Zweizeiler-Test
-    # --------------------------------------------------------
-
-    early_compact_changed = update_or_create_discord_image(
-        state=state,
-        state_key="early_access_compact_test_message_id",
-        image_file=early_access_compact_test_file,
-        discord_filename="early_access_compact_test.png",
-        label="Early Access Compact-Test",
-    )
-
-    if early_compact_changed:
-
-        save_message_state(
-            state
-        )
-
-    print("")
-
-    # --------------------------------------------------------
-    # 4. GLOBAL LAUNCH – zusätzlicher Zweizeiler-Test
-    # --------------------------------------------------------
-
-    global_compact_changed = update_or_create_discord_image(
-        state=state,
-        state_key="global_launch_compact_test_message_id",
-        image_file=global_launch_compact_test_file,
-        discord_filename="global_launch_compact_test.png",
-        label="Global Launch Compact-Test",
-    )
-
-    if global_compact_changed:
-
-        save_message_state(
-            state
-        )
+    # Falls die Datei bisher noch nicht existierte und beide IDs
+    # bereits aus einem vorhandenen State kamen, bleibt sie
+    # unangetastet. In jedem anderen Fall wurde sie oben direkt
+    # nach dem Erstellen einer neuen Nachricht gespeichert.
 
     print("")
     print(
         "========================================"
     )
     print(
-        "CONTENT-NACHRICHTEN + COMPACT-TESTS "
-        "AKTUALISIERT"
+        "CONTENT-NACHRICHTEN AKTUALISIERT"
     )
     print(
         "========================================"
     )
+
 
 # ============================================================
 # STATUSAUSGABE
@@ -3680,7 +3581,7 @@ def main():
     }
 
     rendered_files = {}
-    compact_test_files = {}
+    milestone_by_key = {}
 
     for milestone in (
         content_state["milestones"]
@@ -3690,6 +3591,10 @@ def main():
 
             continue
 
+        milestone_by_key[
+            milestone["key"]
+        ] = milestone
+
         filename = save_milestone_card(
             milestone
         )
@@ -3697,14 +3602,6 @@ def main():
         rendered_files[
             milestone["key"]
         ] = filename
-
-        compact_test_filename = save_compact_test_card(
-            milestone
-        )
-
-        compact_test_files[
-            milestone["key"]
-        ] = compact_test_filename
 
     missing = (
         wanted_keys
@@ -3730,13 +3627,26 @@ def main():
         rendered_files[
             "global_launch"
         ],
-        compact_test_files[
-            "early_access"
-        ],
-        compact_test_files[
-            "global_launch"
-        ],
     )
+
+    if TEST_COMPACT_PREVIEW:
+
+        early_preview = save_compact_preview_card(
+            milestone_by_key[
+                "early_access"
+            ]
+        )
+
+        global_preview = save_compact_preview_card(
+            milestone_by_key[
+                "global_launch"
+            ]
+        )
+
+        send_compact_previews_to_discord(
+            early_preview,
+            global_preview,
+        )
 
 
 if __name__ == "__main__":
