@@ -2566,8 +2566,8 @@ def main():
 
     payload = {
         "content":
-            "ℹ️ *Übersetzungen werden noch ergänzt · "
-            "Zeiten gegebenenfalls angepasst.*",
+            "ℹ️ **Übersetzungen werden noch ergänzt · "
+            "Zeiten gegebenenfalls angepasst.**",
 
         "embeds":
             embeds,
