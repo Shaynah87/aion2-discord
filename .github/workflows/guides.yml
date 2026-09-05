@@ -1,0 +1,25 @@
+name: Guides
+
+on:
+  workflow_dispatch:
+
+jobs:
+  post-guides:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Run Guides
+        env:
+          GUIDES_WEBHOOK_URL: ${{ secrets.GUIDES_WEBHOOK }}
+        run: python Guides/guides.py
