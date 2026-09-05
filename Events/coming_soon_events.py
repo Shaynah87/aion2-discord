@@ -1,7 +1,9 @@
 import os
 import requests
 
-WEBHOOK_URL = os.environ["EVENTS_WEBHOOK_URL"] "https://raw.githubusercontent.com/Shaynah87/aion2-discord/main/Events/coming_soon_e.png"
+WEBHOOK_URL = os.environ["EVENTS_WEBHOOK_URL"]
+
+IMAGE_URL = "https://raw.githubusercontent.com/Shaynah87/aion2-discord/main/Events/coming_soon_e.png"
 
 payload = {
     "username": "Nyerk24 · Events",
