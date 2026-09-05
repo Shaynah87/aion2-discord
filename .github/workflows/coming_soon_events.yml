@@ -1,0 +1,25 @@
+name: Coming Soon Events
+
+on:
+  workflow_dispatch:
+
+jobs:
+  post-coming-soon:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Run Coming Soon Events
+        env:
+          EVENTS_WEBHOOK_URL: ${{ secrets.EVENTS_WEBHOOK_URL }}
+        run: python Events/coming_soon_events.py
