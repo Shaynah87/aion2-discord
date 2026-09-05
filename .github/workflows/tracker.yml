@@ -1,4 +1,4 @@
-name: AION 2 Tracker
+name: Tracker
 
 on:
   workflow_dispatch:
