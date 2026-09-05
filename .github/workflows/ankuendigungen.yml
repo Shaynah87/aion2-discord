@@ -1,4 +1,4 @@
-name: AION 2 Ankündigungen
+name: Ankündigungen
 
 on:
   workflow_dispatch:
