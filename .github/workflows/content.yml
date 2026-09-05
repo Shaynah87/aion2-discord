@@ -1,4 +1,4 @@
-name: AION 2 Content
+name: Content
 
 on:
   workflow_dispatch:
