@@ -19,7 +19,7 @@ jobs:
       - name: Install requests
         run: pip install requests
 
-      - name: Run Coming Soon Events
+      - name: Run Events
         env:
           EVENTS_WEBHOOK_URL: ${{ secrets.EVENTS_WEBHOOK }}
-        run: python Events/coming_soon_events.py
+        run: python Events/events.py
