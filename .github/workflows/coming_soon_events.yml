@@ -1,4 +1,4 @@
-name: Coming Soon Events
+name: Events
 
 on:
   workflow_dispatch:
