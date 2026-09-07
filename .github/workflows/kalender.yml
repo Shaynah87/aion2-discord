@@ -9,10 +9,10 @@ jobs:
 
     steps:
       - name: Repository auschecken
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Python einrichten
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -25,5 +25,5 @@ jobs:
       - name: Kalenderbild hochladen
         uses: actions/upload-artifact@v4
         with:
-          name: kalender-test
-          path: Kalender/kalender_test.png
+          name: kalender
+          path: Kalender/kalender.png
