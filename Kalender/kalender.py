@@ -50,8 +50,9 @@ PANEL = (23, 25, 31)
 GRID = (49, 52, 62)
 TEXT = (239, 241, 246)
 TEXT_MUTED = (153, 158, 171)
-WEEKEND_BG = (28, 30, 38)
-TODAY_BORDER = (223, 187, 92)
+WEEKEND_BG = (24, 38, 42)
+WEEKEND_HEADER = (31, 50, 54)
+TODAY_BORDER = (65, 205, 194)
 
 ABSENCE = (132, 94, 194)
 MAINTENANCE = (78, 126, 186)
@@ -246,7 +247,18 @@ def draw_identity(draw, y, row_h, name, initials, special=False):
 def bar_x(day_index: int) -> int:
     return MARGIN_X + NAME_COL_W + day_index * DAY_COL_W
 
-def draw_bar(draw, row_y, row_h, start_day, end_day, label, color):
+def slot_positions(row_y, row_h, count):
+    """Return vertical centers for 1, 2 or 3 compact entries."""
+    count = max(1, min(3, count))
+    center = row_y + row_h / 2
+    gap = 17
+    if count == 1:
+        return [center]
+    if count == 2:
+        return [center - gap, center]
+    return [center - gap, center, center + gap]
+
+def draw_bar(draw, row_y, row_h, start_day, end_day, label, color, slot_center=None):
     start_day = max(0, min(6, start_day))
     end_day = max(0, min(6, end_day))
     if end_day < start_day:
@@ -255,18 +267,22 @@ def draw_bar(draw, row_y, row_h, start_day, end_day, label, color):
     x1 = bar_x(start_day) + 8
     x2 = bar_x(end_day + 1) - 8
 
-    bar_h = 26
-    y1 = row_y + (row_h - bar_h) // 2
+    bar_h = 14
+    center_y = slot_center if slot_center is not None else row_y + row_h / 2
+    y1 = int(center_y - bar_h / 2)
     y2 = y1 + bar_h
 
-    rounded_rect(draw, (x1, y1, x2, y2), 8, color)
+    rounded_rect(draw, (x1, y1, x2, y2), 6, color)
 
-    max_w = max(0, x2 - x1 - 18)
+    max_w = max(0, x2 - x1 - 12)
     visible = ellipsize(draw, label, FONT_BAR, max_w)
     if max_w >= 25:
-        draw.text((x1 + 9, y1 + 5), visible, font=FONT_BAR, fill=(255, 255, 255))
+        # Small font is vertically centered inside the compact bar.
+        bbox = draw.textbbox((0, 0), visible, font=FONT_BAR)
+        th = bbox[3] - bbox[1]
+        draw.text((x1 + 6, center_y - th / 2 - 1), visible, font=FONT_BAR, fill=(255, 255, 255))
 
-def draw_absence_bar(draw, row_y, row_h, week_start, absence):
+def draw_absence_bar(draw, row_y, row_h, week_start, absence, slot_center=None):
     start_dt = week_start + timedelta(days=absence["start_offset"])
     end_dt = week_start + timedelta(days=absence["end_offset"])
 
@@ -283,36 +299,38 @@ def draw_absence_bar(draw, row_y, row_h, week_start, absence):
 
     x1 = bar_x(start_day) + 8
     x2 = bar_x(end_day + 1) - 8
-    bar_h = 24
-    y1 = row_y + (row_h - bar_h) // 2
+    bar_h = 14
+    center_y = slot_center if slot_center is not None else row_y + row_h / 2
+    y1 = int(center_y - bar_h / 2)
     y2 = y1 + bar_h
 
-    rounded_rect(draw, (x1, y1, x2, y2), 8, ABSENCE)
+    rounded_rect(draw, (x1, y1, x2, y2), 6, ABSENCE)
 
-    # Fortsetzungsmarker, falls Abwesenheit außerhalb der sichtbaren Woche weiterläuft.
     if start_dt < week_start:
         draw.polygon(
-            [(x1 + 5, (y1 + y2) // 2),
-             (x1 + 12, y1 + 5),
-             (x1 + 12, y2 - 5)],
+            [(x1 + 4, int(center_y)),
+             (x1 + 9, y1 + 3),
+             (x1 + 9, y2 - 3)],
             fill=(255, 255, 255)
         )
     if end_dt > week_start + timedelta(days=6):
         draw.polygon(
-            [(x2 - 5, (y1 + y2) // 2),
-             (x2 - 12, y1 + 5),
-             (x2 - 12, y2 - 5)],
+            [(x2 - 4, int(center_y)),
+             (x2 - 9, y1 + 3),
+             (x2 - 9, y2 - 3)],
             fill=(255, 255, 255)
         )
 
-    text_pad_left = 18 if start_dt < week_start else 9
-    text_pad_right = 18 if end_dt > week_start + timedelta(days=6) else 9
+    text_pad_left = 13 if start_dt < week_start else 6
+    text_pad_right = 13 if end_dt > week_start + timedelta(days=6) else 6
     max_w = max(0, x2 - x1 - text_pad_left - text_pad_right)
     visible = ellipsize(draw, label, FONT_BAR, max_w)
 
     if max_w >= 25:
+        bbox = draw.textbbox((0, 0), visible, font=FONT_BAR)
+        th = bbox[3] - bbox[1]
         draw.text(
-            (x1 + text_pad_left, y1 + 4),
+            (x1 + text_pad_left, center_y - th / 2 - 1),
             visible,
             font=FONT_BAR,
             fill=(255, 255, 255)
@@ -360,16 +378,19 @@ def render_calendar():
         PANEL
     )
 
-    # Wochenend-Hinterlegung
+    # Tag-Kopf beginnt oberhalb des Rasters.
+    header_y = grid_top - 70
+
+    # Wochenend-Hinterlegung: sichtbar, aber weiterhin dunkel.
+    # Sie reicht bis in den Tageskopf, damit SA/SO als Einheit erkennbar sind.
     for day in (5, 6):
         x1 = bar_x(day)
         x2 = x1 + DAY_COL_W
+        draw.rectangle((x1, header_y - 8, x2, grid_top - 8), fill=WEEKEND_HEADER)
         draw.rectangle((x1, grid_top - 8, x2, grid_bottom + 8), fill=WEEKEND_BG)
 
     # Tag-Kopf
     day_names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
-    header_y = grid_top - 70
-
     for i, day_name in enumerate(day_names):
         day_dt = week_start + timedelta(days=i)
         x = bar_x(i)
@@ -387,17 +408,6 @@ def render_calendar():
         x = MARGIN_X + NAME_COL_W + i * DAY_COL_W
         draw.line((x, grid_top - 8, x, grid_bottom + 8), fill=GRID, width=1)
 
-    # Aktueller Tag: Rahmen über die komplette sichtbare Kalenderfläche
-    if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
-        today_idx = now.weekday()
-        x1 = bar_x(today_idx) + 2
-        x2 = x1 + DAY_COL_W - 4
-        draw.rounded_rectangle(
-            (x1, grid_top - 8, x2, grid_bottom + 8),
-            radius=9,
-            outline=TODAY_BORDER,
-            width=3
-        )
 
     # AION 2 + GILDE
     y = grid_top
@@ -411,7 +421,9 @@ def render_calendar():
             special=True
         )
 
-        for item in row["items"]:
+        items = row["items"][:3]
+        centers = slot_positions(y, SPECIAL_ROW_H, len(items))
+        for item, center_y in zip(items, centers):
             draw_bar(
                 draw,
                 y,
@@ -420,6 +432,7 @@ def render_calendar():
                 item["end_day"],
                 item["label"],
                 TYPE_COLORS[item["type"]],
+                slot_center=center_y,
             )
 
         draw.line(
@@ -449,12 +462,14 @@ def render_calendar():
         )
 
         if member.get("absence"):
+            centers = slot_positions(y, ROW_H, 1)
             draw_absence_bar(
                 draw,
                 y,
                 ROW_H,
                 week_start,
-                member["absence"]
+                member["absence"],
+                slot_center=centers[0]
             )
 
         draw.line(
@@ -463,6 +478,50 @@ def render_calendar():
             width=1
         )
         y += ROW_H
+
+    # HEUTE-Rahmen ganz zum Schluss zeichnen:
+    # Rasterlinien verschwinden darunter; Termin-/Abwesenheitsbalken werden
+    # anschließend in kleinen Bereichen wieder darübergelegt.
+    if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
+        today_idx = now.weekday()
+        x1 = bar_x(today_idx) + 2
+        x2 = x1 + DAY_COL_W - 4
+        draw.rounded_rectangle(
+            (x1, grid_top - 8, x2, grid_bottom + 8),
+            radius=9,
+            outline=TODAY_BORDER,
+            width=2
+        )
+
+        # Die Balken der heutigen Spalte noch einmal zeichnen, damit nur Termine
+        # den Rahmen überlagern dürfen.
+        y2 = grid_top
+        for row in SPECIAL_ROWS:
+            items = row["items"][:3]
+            centers = slot_positions(y2, SPECIAL_ROW_H, len(items))
+            for item, center_y in zip(items, centers):
+                if item["start_day"] <= today_idx <= item["end_day"]:
+                    draw_bar(
+                        draw, y2, SPECIAL_ROW_H,
+                        item["start_day"], item["end_day"],
+                        item["label"], TYPE_COLORS[item["type"]],
+                        slot_center=center_y
+                    )
+            y2 += SPECIAL_ROW_H
+
+        y2 = member_top
+        for member in MEMBERS:
+            absence = member.get("absence")
+            if absence:
+                start_dt = week_start + timedelta(days=absence["start_offset"])
+                end_dt = week_start + timedelta(days=absence["end_offset"])
+                today_dt = week_start + timedelta(days=today_idx)
+                if start_dt.date() <= today_dt.date() <= end_dt.date():
+                    draw_absence_bar(
+                        draw, y2, ROW_H, week_start, absence,
+                        slot_center=slot_positions(y2, ROW_H, 1)[0]
+                    )
+            y2 += ROW_H
 
     image.save(OUTPUT_FILE, quality=95)
     print(f"Kalender erstellt: {OUTPUT_FILE}")
