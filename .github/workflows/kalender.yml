@@ -14,16 +14,12 @@ jobs:
       - name: Python einrichten
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Pillow installieren
         run: pip install pillow
 
       - name: Kalender erstellen
+        env:
+          KALENDER_WEBHOOK: ${{ secrets.KALENDER_WEBHOOK }}
         run: python Kalender/kalender.py
-
-      - name: Kalenderbild hochladen
-        uses: actions/upload-artifact@v4
-        with:
-          name: kalender
-          path: Kalender/kalender.png
