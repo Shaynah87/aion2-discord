@@ -1123,9 +1123,106 @@ def post_or_update():
     )
 
 # ============================================================
+# Vergleichsmodus
+# Rendert BEIDE Varianten in einem Lauf und setzt sie
+# direkt untereinander in EIN Discord-Bild.
+# ============================================================
+
+def render_comparison():
+    global LAYOUT_MODE, OUTPUT_FILE
+
+    final_output = BASE_DIR / "kalender.png"
+    stacked_output = BASE_DIR / "_kalender_stacked_tmp.png"
+    columns_output = BASE_DIR / "_kalender_columns_tmp.png"
+
+    # Variante A: alles untereinander
+    LAYOUT_MODE = "stacked"
+    OUTPUT_FILE = stacked_output
+    render_calendar()
+
+    # Variante B: Termine + Abwesenheiten nebeneinander
+    LAYOUT_MODE = "columns"
+    OUTPUT_FILE = columns_output
+    render_calendar()
+
+    stacked = Image.open(stacked_output).convert("RGB")
+    columns = Image.open(columns_output).convert("RGB")
+
+    label_h = 54
+    gap = 28
+    outer_pad = 18
+
+    canvas_w = max(stacked.width, columns.width)
+    canvas_h = (
+        outer_pad
+        + label_h
+        + stacked.height
+        + gap
+        + label_h
+        + columns.height
+        + outer_pad
+    )
+
+    canvas = Image.new(
+        "RGB",
+        (canvas_w, canvas_h),
+        BG,
+    )
+
+    draw = ImageDraw.Draw(canvas)
+
+    # Überschrift Variante A
+    draw.text(
+        (24, outer_pad + 12),
+        "VARIANTE A · UNTEREINANDER",
+        font=ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            20
+        ) if Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf").exists()
+        else ImageFont.load_default(),
+        fill=TEXT,
+    )
+
+    y_a = outer_pad + label_h
+    canvas.paste(stacked, (0, y_a))
+
+    # Überschrift Variante B
+    y_b_label = y_a + stacked.height + gap
+
+    draw.text(
+        (24, y_b_label + 12),
+        "VARIANTE B · ZWEISPALTIG",
+        font=ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            20
+        ) if Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf").exists()
+        else ImageFont.load_default(),
+        fill=TEXT,
+    )
+
+    y_b = y_b_label + label_h
+    canvas.paste(columns, (0, y_b))
+
+    OUTPUT_FILE = final_output
+    canvas.save(
+        OUTPUT_FILE,
+        optimize=True,
+    )
+
+    # Temporäre Einzelbilder löschen
+    try:
+        stacked_output.unlink(missing_ok=True)
+        columns_output.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+    print(f"Vergleichsbild erstellt: {OUTPUT_FILE}")
+
+
+# ============================================================
 # Main
 # ============================================================
 
 if __name__ == "__main__":
-    render_calendar()
+    render_comparison()
     post_or_update()
