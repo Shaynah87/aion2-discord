@@ -1,879 +1,590 @@
 import os
+import io
 import json
 import uuid
+import urllib.error
 import urllib.request
-
 from pathlib import Path
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw, ImageFont
 
-
 # ============================================================
-# GRUNDEINSTELLUNGEN
+# Nyerk24 · Kalender
+# Kompakte Wochenübersicht für Discord
 # ============================================================
-
-WEBHOOK_URL = os.environ.get("KALENDER_WEBHOOK")
 
 BASE_DIR = Path(__file__).resolve().parent
-
 OUTPUT_FILE = BASE_DIR / "kalender.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
 
+WEBHOOK_URL = os.environ.get("KALENDER_WEBHOOK", "").strip()
 TIMEZONE = ZoneInfo("Europe/Berlin")
 
+# ----------------------------
+# Layout
+# ----------------------------
+WIDTH = 1500
+MARGIN_X = 48
+TOP = 42
+HEADER_H = 132
+
+NAME_COL_W = 265
+DAY_COL_W = (WIDTH - (MARGIN_X * 2) - NAME_COL_W) // 7
+
+ROW_H = 58
+SPECIAL_ROW_H = 64
+SECTION_GAP = 18
+BOTTOM_PAD = 42
+
+AVATAR_SIZE = 34
+AVATAR_GAP = 12
+
+# ----------------------------
+# Farben
+# Farbe = Bedeutung, nicht Person
+# ----------------------------
+BG = (17, 18, 23)
+PANEL = (23, 25, 31)
+GRID = (49, 52, 62)
+TEXT = (239, 241, 246)
+TEXT_MUTED = (153, 158, 171)
+WEEKEND_BG = (28, 30, 38)
+TODAY_BORDER = (223, 187, 92)
+
+ABSENCE = (132, 94, 194)
+MAINTENANCE = (78, 126, 186)
+RAID = (184, 72, 86)
+MEETING = (184, 139, 65)
+EVENT = (68, 149, 131)
+
+AVATAR_BG = (63, 67, 78)
+SPECIAL_ICON_BG = (47, 51, 62)
+
+# ----------------------------
+# Fonts
+# ----------------------------
+def font(size: int, bold: bool = False):
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+FONT_TITLE = font(30, True)
+FONT_SUBTITLE = font(18, False)
+FONT_DAY = font(18, True)
+FONT_DATE = font(14, False)
+FONT_NAME = font(18, True)
+FONT_SMALL = font(14, False)
+FONT_BAR = font(13, True)
+FONT_ICON = font(14, True)
 
 # ============================================================
 # TESTDATEN
-#
-# Diese Daten sind nur dafür da, unser Layout im Discord
-# anzuschauen.
-#
-# start / end:
-# 0 = Montag
-# 1 = Dienstag
-# ...
-# 6 = Sonntag
+# Später werden diese Daten aus Discord / JSON / Bot-Befehlen
+# gespeist. Für den Design-Test bleiben sie bewusst statisch.
 # ============================================================
 
-MEMBERS = [
+SPECIAL_ROWS = [
     {
-        "name": "Laura",
-        "start": 0,
-        "end": 3,
+        "name": "AION 2",
+        "icon": "A2",
+        "items": [
+            {
+                "type": "maintenance",
+                "label": "WARTUNG · 08:00–12:00",
+                "start_day": 2,   # Mittwoch
+                "end_day": 2,
+            },
+        ],
     },
     {
-        "name": "Tom",
-        "start": 2,
-        "end": 5,
-    },
-    {
-        "name": "Patrick",
-        "start": 4,
-        "end": 6,
+        "name": "GILDE",
+        "icon": "G",
+        "items": [
+            {
+                "type": "raid",
+                "label": "RAID · 20:00",
+                "start_day": 4,   # Freitag
+                "end_day": 4,
+            },
+            {
+                "type": "meeting",
+                "label": "TREFFEN · 19:30",
+                "start_day": 6,   # Sonntag
+                "end_day": 6,
+            },
+        ],
     },
 ]
 
+MEMBERS = [
+    {
+        "name": "Shaynah | Laura",
+        "initials": "SL",
+        "absence": {
+            # bewusst länger als die sichtbare Woche:
+            # im Balken steht immer der echte Gesamtzeitraum.
+            "start_offset": -7,
+            "end_offset": 32,
+        },
+    },
+    {
+        "name": "Tom",
+        "initials": "T",
+        "absence": {
+            "start_offset": 1,
+            "end_offset": 3,
+        },
+    },
+    {
+        "name": "Patrick",
+        "initials": "P",
+        "absence": {
+            "start_offset": 4,
+            "end_offset": 6,
+        },
+    },
+    {
+        "name": "EinSehrLangerDiscordNameZumTesten",
+        "initials": "ED",
+        "absence": None,
+    },
+]
+
+TYPE_COLORS = {
+    "maintenance": MAINTENANCE,
+    "raid": RAID,
+    "meeting": MEETING,
+    "event": EVENT,
+    "absence": ABSENCE,
+}
 
 # ============================================================
-# BILDGRÖSSE
+# Hilfsfunktionen
 # ============================================================
 
-WIDTH = 1500
-HEIGHT = 760
+def monday_of_week(dt: datetime) -> datetime:
+    return (dt - timedelta(days=dt.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
-LEFT = 260
-RIGHT = 70
-TOP = 205
+def fmt_date(dt: datetime) -> str:
+    return dt.strftime("%d.%m.")
 
-DAY_WIDTH = (WIDTH - LEFT - RIGHT) / 7
-ROW_HEIGHT = 125
+def week_title(monday: datetime) -> str:
+    sunday = monday + timedelta(days=6)
+    months = [
+        "JANUAR", "FEBRUAR", "MÄRZ", "APRIL", "MAI", "JUNI",
+        "JULI", "AUGUST", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DEZEMBER"
+    ]
+    if monday.month == sunday.month:
+        return f"{monday.day:02d}.–{sunday.day:02d}. {months[monday.month - 1]} {monday.year}"
+    return (
+        f"{monday.day:02d}. {months[monday.month - 1]} – "
+        f"{sunday.day:02d}. {months[sunday.month - 1]} {sunday.year}"
+    )
 
+def text_width(draw: ImageDraw.ImageDraw, text: str, fnt) -> int:
+    box = draw.textbbox((0, 0), text, font=fnt)
+    return box[2] - box[0]
+
+def ellipsize(draw: ImageDraw.ImageDraw, text: str, fnt, max_width: int) -> str:
+    if text_width(draw, text, fnt) <= max_width:
+        return text
+
+    suffix = "…"
+    lo, hi = 0, len(text)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        candidate = text[:mid].rstrip() + suffix
+        if text_width(draw, candidate, fnt) <= max_width:
+            lo = mid
+        else:
+            hi = mid - 1
+    return text[:lo].rstrip() + suffix
+
+def rounded_rect(draw, xy, radius, fill, outline=None, width=1):
+    draw.rounded_rectangle(xy, radius=radius, fill=fill, outline=outline, width=width)
+
+def draw_identity(draw, y, row_h, name, initials, special=False):
+    icon_x = MARGIN_X + 14
+    icon_y = y + (row_h - AVATAR_SIZE) // 2
+    icon_fill = SPECIAL_ICON_BG if special else AVATAR_BG
+
+    draw.ellipse(
+        (icon_x, icon_y, icon_x + AVATAR_SIZE, icon_y + AVATAR_SIZE),
+        fill=icon_fill
+    )
+
+    tw = text_width(draw, initials, FONT_ICON)
+    draw.text(
+        (icon_x + (AVATAR_SIZE - tw) / 2, icon_y + 8),
+        initials,
+        font=FONT_ICON,
+        fill=TEXT
+    )
+
+    name_x = icon_x + AVATAR_SIZE + AVATAR_GAP
+    max_name_w = NAME_COL_W - (name_x - MARGIN_X) - 18
+    visible_name = ellipsize(draw, name, FONT_NAME, max_name_w)
+
+    box = draw.textbbox((0, 0), visible_name, font=FONT_NAME)
+    th = box[3] - box[1]
+    draw.text(
+        (name_x, y + (row_h - th) / 2 - 2),
+        visible_name,
+        font=FONT_NAME,
+        fill=TEXT
+    )
+
+def bar_x(day_index: int) -> int:
+    return MARGIN_X + NAME_COL_W + day_index * DAY_COL_W
+
+def draw_bar(draw, row_y, row_h, start_day, end_day, label, color):
+    start_day = max(0, min(6, start_day))
+    end_day = max(0, min(6, end_day))
+    if end_day < start_day:
+        return
+
+    x1 = bar_x(start_day) + 8
+    x2 = bar_x(end_day + 1) - 8
+
+    bar_h = 26
+    y1 = row_y + (row_h - bar_h) // 2
+    y2 = y1 + bar_h
+
+    rounded_rect(draw, (x1, y1, x2, y2), 8, color)
+
+    max_w = max(0, x2 - x1 - 18)
+    visible = ellipsize(draw, label, FONT_BAR, max_w)
+    if max_w >= 25:
+        draw.text((x1 + 9, y1 + 5), visible, font=FONT_BAR, fill=(255, 255, 255))
+
+def draw_absence_bar(draw, row_y, row_h, week_start, absence):
+    start_dt = week_start + timedelta(days=absence["start_offset"])
+    end_dt = week_start + timedelta(days=absence["end_offset"])
+
+    visible_start = max(start_dt, week_start)
+    visible_end = min(end_dt, week_start + timedelta(days=6))
+
+    if visible_end < week_start or visible_start > week_start + timedelta(days=6):
+        return
+
+    start_day = (visible_start.date() - week_start.date()).days
+    end_day = (visible_end.date() - week_start.date()).days
+
+    label = f"ABWESEND · {fmt_date(start_dt)} – {fmt_date(end_dt)}"
+
+    x1 = bar_x(start_day) + 8
+    x2 = bar_x(end_day + 1) - 8
+    bar_h = 24
+    y1 = row_y + (row_h - bar_h) // 2
+    y2 = y1 + bar_h
+
+    rounded_rect(draw, (x1, y1, x2, y2), 8, ABSENCE)
+
+    # Fortsetzungsmarker, falls Abwesenheit außerhalb der sichtbaren Woche weiterläuft.
+    if start_dt < week_start:
+        draw.polygon(
+            [(x1 + 5, (y1 + y2) // 2),
+             (x1 + 12, y1 + 5),
+             (x1 + 12, y2 - 5)],
+            fill=(255, 255, 255)
+        )
+    if end_dt > week_start + timedelta(days=6):
+        draw.polygon(
+            [(x2 - 5, (y1 + y2) // 2),
+             (x2 - 12, y1 + 5),
+             (x2 - 12, y2 - 5)],
+            fill=(255, 255, 255)
+        )
+
+    text_pad_left = 18 if start_dt < week_start else 9
+    text_pad_right = 18 if end_dt > week_start + timedelta(days=6) else 9
+    max_w = max(0, x2 - x1 - text_pad_left - text_pad_right)
+    visible = ellipsize(draw, label, FONT_BAR, max_w)
+
+    if max_w >= 25:
+        draw.text(
+            (x1 + text_pad_left, y1 + 4),
+            visible,
+            font=FONT_BAR,
+            fill=(255, 255, 255)
+        )
 
 # ============================================================
-# FARBEN
+# Rendering
 # ============================================================
 
-BG = (17, 18, 22)
-PANEL = (24, 25, 31)
+def render_calendar():
+    now = datetime.now(TIMEZONE)
+    week_start = monday_of_week(now)
 
-TEXT = (242, 242, 244)
-TEXT_MUTED = (145, 148, 158)
+    total_h = (
+        TOP
+        + HEADER_H
+        + (2 * SPECIAL_ROW_H)
+        + SECTION_GAP
+        + (len(MEMBERS) * ROW_H)
+        + BOTTOM_PAD
+    )
 
-GRID = (53, 55, 64)
-WEEKEND = (29, 30, 37)
+    image = Image.new("RGB", (WIDTH, total_h), BG)
+    draw = ImageDraw.Draw(image)
 
-GOLD = (214, 170, 79)
+    # Header
+    draw.text((MARGIN_X, TOP), "WOCHENÜBERSICHT", font=FONT_TITLE, fill=TEXT)
+    draw.text(
+        (MARGIN_X, TOP + 42),
+        week_title(week_start),
+        font=FONT_SUBTITLE,
+        fill=TEXT_MUTED
+    )
 
-BAR = (105, 82, 156)
-BAR_BORDER = (147, 120, 204)
+    grid_top = TOP + HEADER_H
+    special_h_total = len(SPECIAL_ROWS) * SPECIAL_ROW_H
+    member_top = grid_top + special_h_total + SECTION_GAP
+    grid_bottom = member_top + len(MEMBERS) * ROW_H
 
-COUNT_BG = (34, 35, 42)
-COUNT_ACTIVE = (73, 57, 103)
+    # Hintergrund-Panel
+    rounded_rect(
+        draw,
+        (MARGIN_X, grid_top - 8, WIDTH - MARGIN_X, grid_bottom + 8),
+        16,
+        PANEL
+    )
 
+    # Wochenend-Hinterlegung
+    for day in (5, 6):
+        x1 = bar_x(day)
+        x2 = x1 + DAY_COL_W
+        draw.rectangle((x1, grid_top - 8, x2, grid_bottom + 8), fill=WEEKEND_BG)
 
-# ============================================================
-# SCHRIFTEN
-# ============================================================
+    # Tag-Kopf
+    day_names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
+    header_y = grid_top - 70
 
-def load_font(size, bold=False):
+    for i, day_name in enumerate(day_names):
+        day_dt = week_start + timedelta(days=i)
+        x = bar_x(i)
+        cx = x + DAY_COL_W / 2
 
-    if bold:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        ]
+        dw = text_width(draw, day_name, FONT_DAY)
+        date_txt = day_dt.strftime("%d.%m.")
+        date_w = text_width(draw, date_txt, FONT_DATE)
 
-    else:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        ]
+        draw.text((cx - dw / 2, header_y), day_name, font=FONT_DAY, fill=TEXT)
+        draw.text((cx - date_w / 2, header_y + 27), date_txt, font=FONT_DATE, fill=TEXT_MUTED)
 
-    for path in paths:
+    # Vertikale Tageslinien
+    for i in range(8):
+        x = MARGIN_X + NAME_COL_W + i * DAY_COL_W
+        draw.line((x, grid_top - 8, x, grid_bottom + 8), fill=GRID, width=1)
 
-        if os.path.exists(path):
-            return ImageFont.truetype(
-                path,
-                size=size,
+    # Aktueller Tag: Rahmen über die komplette sichtbare Kalenderfläche
+    if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
+        today_idx = now.weekday()
+        x1 = bar_x(today_idx) + 2
+        x2 = x1 + DAY_COL_W - 4
+        draw.rounded_rectangle(
+            (x1, grid_top - 8, x2, grid_bottom + 8),
+            radius=9,
+            outline=TODAY_BORDER,
+            width=3
+        )
+
+    # AION 2 + GILDE
+    y = grid_top
+    for row in SPECIAL_ROWS:
+        draw_identity(
+            draw,
+            y,
+            SPECIAL_ROW_H,
+            row["name"],
+            row["icon"],
+            special=True
+        )
+
+        for item in row["items"]:
+            draw_bar(
+                draw,
+                y,
+                SPECIAL_ROW_H,
+                item["start_day"],
+                item["end_day"],
+                item["label"],
+                TYPE_COLORS[item["type"]],
             )
 
-    return ImageFont.load_default()
+        draw.line(
+            (MARGIN_X, y + SPECIAL_ROW_H, WIDTH - MARGIN_X, y + SPECIAL_ROW_H),
+            fill=GRID,
+            width=1
+        )
+        y += SPECIAL_ROW_H
 
+    # Bereichstrenner
+    draw.line(
+        (MARGIN_X, y + SECTION_GAP // 2, WIDTH - MARGIN_X, y + SECTION_GAP // 2),
+        fill=GRID,
+        width=1
+    )
 
-FONT_TITLE = load_font(42, True)
-FONT_SUBTITLE = load_font(20)
-FONT_DAY = load_font(19, True)
-FONT_DATE = load_font(34, True)
-FONT_NAME = load_font(27, True)
-FONT_BAR = load_font(18, True)
-FONT_COUNT = load_font(17, True)
+    # Member / Abwesenheiten
+    y = member_top
+    for member in MEMBERS:
+        draw_identity(
+            draw,
+            y,
+            ROW_H,
+            member["name"],
+            member["initials"],
+            special=False
+        )
 
+        if member.get("absence"):
+            draw_absence_bar(
+                draw,
+                y,
+                ROW_H,
+                week_start,
+                member["absence"]
+            )
+
+        draw.line(
+            (MARGIN_X, y + ROW_H, WIDTH - MARGIN_X, y + ROW_H),
+            fill=GRID,
+            width=1
+        )
+        y += ROW_H
+
+    image.save(OUTPUT_FILE, quality=95)
+    print(f"Kalender erstellt: {OUTPUT_FILE}")
 
 # ============================================================
-# STATE
+# Discord Webhook
 # ============================================================
 
 def load_state():
-
+    if not STATE_FILE.exists():
+        return {}
     try:
-
-        with open(
-            STATE_FILE,
-            "r",
-            encoding="utf-8",
-        ) as file:
-
-            return json.load(file)
-
-    except FileNotFoundError:
-
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except Exception:
         return {}
 
-
 def save_state(data):
-
-    with open(
-        STATE_FILE,
-        "w",
-        encoding="utf-8",
-    ) as file:
-
-        json.dump(
-            data,
-            file,
-            indent=2,
-        )
-
-
-# ============================================================
-# HILFSFUNKTIONEN
-# ============================================================
-
-def centered_text(
-    draw,
-    x,
-    y,
-    text,
-    font,
-    fill,
-):
-
-    box = draw.textbbox(
-        (0, 0),
-        text,
-        font=font,
+    STATE_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8"
     )
 
-    text_width = (
-        box[2] - box[0]
-    )
-
-    draw.text(
-        (
-            x - text_width / 2,
-            y,
-        ),
-        text,
-        font=font,
-        fill=fill,
-    )
-
-
-def rounded(
-    draw,
-    box,
-    radius,
-    fill,
-    outline=None,
-    width=1,
-):
-
-    draw.rounded_rectangle(
-        box,
-        radius=radius,
-        fill=fill,
-        outline=outline,
-        width=width,
-    )
-
-
-# ============================================================
-# AKTUELLE WOCHE
-# ============================================================
-
-def get_current_week():
-
-    now = datetime.now(
-        TIMEZONE
-    )
-
-    monday = (
-        now
-        - timedelta(
-            days=now.weekday()
-        )
-    )
-
-    days = []
-
-    labels = [
-        "MO",
-        "DI",
-        "MI",
-        "DO",
-        "FR",
-        "SA",
-        "SO",
-    ]
-
-    for index in range(7):
-
-        date = (
-            monday
-            + timedelta(
-                days=index
-            )
-        )
-
-        days.append(
-            {
-                "label": labels[index],
-                "date": date,
-            }
-        )
-
-    return days
-
-
-# ============================================================
-# WOCHENKARTE ERSTELLEN
-# ============================================================
-
-def create_calendar():
-
-    days = get_current_week()
-
-    image = Image.new(
-        "RGB",
-        (
-            WIDTH,
-            HEIGHT,
-        ),
-        BG,
-    )
-
-    draw = ImageDraw.Draw(
-        image
-    )
-
-    # --------------------------------------------------------
-    # HEADER
-    # --------------------------------------------------------
-
-    draw.text(
-        (
-            70,
-            55,
-        ),
-        "WOCHENÜBERSICHT",
-        font=FONT_TITLE,
-        fill=TEXT,
-    )
-
-    first_day = (
-        days[0]["date"]
-    )
-
-    last_day = (
-        days[-1]["date"]
-    )
-
-    month_names = {
-        1: "JANUAR",
-        2: "FEBRUAR",
-        3: "MÄRZ",
-        4: "APRIL",
-        5: "MAI",
-        6: "JUNI",
-        7: "JULI",
-        8: "AUGUST",
-        9: "SEPTEMBER",
-        10: "OKTOBER",
-        11: "NOVEMBER",
-        12: "DEZEMBER",
-    }
-
-    if (
-        first_day.month
-        == last_day.month
-    ):
-
-        date_text = (
-            f"{first_day.day:02d}.–"
-            f"{last_day.day:02d}. "
-            f"{month_names[first_day.month]} "
-            f"{last_day.year}"
-        )
-
-    else:
-
-        date_text = (
-            f"{first_day.day:02d}. "
-            f"{month_names[first_day.month]} – "
-            f"{last_day.day:02d}. "
-            f"{month_names[last_day.month]} "
-            f"{last_day.year}"
-        )
-
-    draw.text(
-        (
-            72,
-            112,
-        ),
-        date_text,
-        font=FONT_SUBTITLE,
-        fill=GOLD,
-    )
-
-    draw.text(
-        (
-            72,
-            148,
-        ),
-        "Abwesenheiten der Gildenmitglieder",
-        font=FONT_SUBTITLE,
-        fill=TEXT_MUTED,
-    )
-
-    # --------------------------------------------------------
-    # PANEL
-    # --------------------------------------------------------
-
-    panel_top = (
-        TOP - 20
-    )
-
-    panel_bottom = (
-        TOP
-        + len(MEMBERS) * ROW_HEIGHT
-        + 105
-    )
-
-    rounded(
-        draw,
-        (
-            55,
-            panel_top,
-            WIDTH - 55,
-            panel_bottom,
-        ),
-        24,
-        PANEL,
-    )
-
-    # --------------------------------------------------------
-    # TAGE
-    # --------------------------------------------------------
-
-    for index, day in enumerate(
-        days
-    ):
-
-        x1 = (
-            LEFT
-            + index * DAY_WIDTH
-        )
-
-        x2 = (
-            x1
-            + DAY_WIDTH
-        )
-
-        # Wochenende abdunkeln
-        if index >= 5:
-
-            draw.rectangle(
-                (
-                    x1,
-                    panel_top + 1,
-                    x2,
-                    panel_bottom - 1,
-                ),
-                fill=WEEKEND,
-            )
-
-        center_x = (
-            x1
-            + DAY_WIDTH / 2
-        )
-
-        centered_text(
-            draw,
-            center_x,
-            TOP + 5,
-            day["label"],
-            FONT_DAY,
-            TEXT_MUTED,
-        )
-
-        centered_text(
-            draw,
-            center_x,
-            TOP + 34,
-            f"{day['date'].day:02d}",
-            FONT_DATE,
-            TEXT,
-        )
-
-        if index > 0:
-
-            draw.line(
-                (
-                    x1,
-                    TOP,
-                    x1,
-                    panel_bottom - 70,
-                ),
-                fill=GRID,
-                width=1,
-            )
-
-    # Linie unter Tagen
-    draw.line(
-        (
-            75,
-            TOP + 92,
-            WIDTH - 75,
-            TOP + 92,
-        ),
-        fill=GRID,
-        width=2,
-    )
-
-    # --------------------------------------------------------
-    # MITGLIEDER
-    # --------------------------------------------------------
-
-    for row, member in enumerate(
-        MEMBERS
-    ):
-
-        row_y = (
-            TOP
-            + 110
-            + row * ROW_HEIGHT
-        )
-
-        draw.text(
-            (
-                85,
-                row_y + 29,
-            ),
-            member["name"],
-            font=FONT_NAME,
-            fill=TEXT,
-        )
-
-        if row > 0:
-
-            draw.line(
-                (
-                    75,
-                    row_y - 12,
-                    WIDTH - 75,
-                    row_y - 12,
-                ),
-                fill=GRID,
-                width=1,
-            )
-
-        start_x = (
-            LEFT
-            + member["start"] * DAY_WIDTH
-            + 12
-        )
-
-        end_x = (
-            LEFT
-            + (member["end"] + 1) * DAY_WIDTH
-            - 12
-        )
-
-        bar_y1 = (
-            row_y + 20
-        )
-
-        bar_y2 = (
-            row_y + 78
-        )
-
-        rounded(
-            draw,
-            (
-                start_x,
-                bar_y1,
-                end_x,
-                bar_y2,
-            ),
-            18,
-            BAR,
-            BAR_BORDER,
-            2,
-        )
-
-        bar_width = (
-            end_x - start_x
-        )
-
-        if bar_width > 190:
-
-            centered_text(
-                draw,
-                (
-                    start_x
-                    + end_x
-                ) / 2,
-                bar_y1 + 18,
-                "ABWESEND",
-                FONT_BAR,
-                TEXT,
-            )
-
-    # --------------------------------------------------------
-    # ANZAHL ABWESEND PRO TAG
-    # --------------------------------------------------------
-
-    counts = []
-
-    for day_index in range(7):
-
-        count = sum(
-            1
-            for member in MEMBERS
-            if (
-                member["start"]
-                <= day_index
-                <= member["end"]
-            )
-        )
-
-        counts.append(
-            count
-        )
-
-    count_y = (
-        panel_bottom - 52
-    )
-
-    draw.text(
-        (
-            85,
-            count_y + 5,
-        ),
-        "Abwesend",
-        font=FONT_COUNT,
-        fill=TEXT_MUTED,
-    )
-
-    for index, count in enumerate(
-        counts
-    ):
-
-        center_x = (
-            LEFT
-            + index * DAY_WIDTH
-            + DAY_WIDTH / 2
-        )
-
-        box_width = 80
-        box_height = 36
-
-        if count >= 2:
-            fill = COUNT_ACTIVE
-
-        else:
-            fill = COUNT_BG
-
-        rounded(
-            draw,
-            (
-                center_x - box_width / 2,
-                count_y,
-                center_x + box_width / 2,
-                count_y + box_height,
-            ),
-            13,
-            fill,
-        )
-
-        centered_text(
-            draw,
-            center_x,
-            count_y + 8,
-            str(count),
-            FONT_COUNT,
-            TEXT if count else TEXT_MUTED,
-        )
-
-    # --------------------------------------------------------
-    # SPEICHERN
-    # --------------------------------------------------------
-
-    image.save(
-        OUTPUT_FILE,
-        "PNG",
-        optimize=True,
-    )
-
-    print(
-        f"Kalender erstellt: "
-        f"{OUTPUT_FILE}"
-    )
-
-
-# ============================================================
-# DISCORD MULTIPART REQUEST
-# ============================================================
-
-def webhook_request_with_file(
-    url,
-    payload,
-    file_path,
-    method="POST",
-):
-
-    boundary = (
-        "----Nyerk24CalendarBoundary"
-        + uuid.uuid4().hex
-    )
-
-    body = bytearray()
-
-    # payload_json
-    body.extend(
-        (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; '
-            f'name="payload_json"\r\n'
-            f"Content-Type: application/json\r\n\r\n"
-        ).encode(
-            "utf-8"
-        )
-    )
-
-    body.extend(
-        json.dumps(
-            payload
-        ).encode(
-            "utf-8"
-        )
-    )
-
-    body.extend(
-        b"\r\n"
-    )
-
-    # Datei
-    with open(
-        file_path,
-        "rb",
-    ) as file:
-
-        file_data = (
-            file.read()
-        )
-
-    body.extend(
-        (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; '
-            f'name="files[0]"; '
-            f'filename="{file_path.name}"\r\n'
-            f"Content-Type: image/png\r\n\r\n"
-        ).encode(
-            "utf-8"
-        )
-    )
-
-    body.extend(
-        file_data
-    )
-
-    body.extend(
-        b"\r\n"
-    )
-
-    body.extend(
-        (
-            f"--{boundary}--\r\n"
-        ).encode(
-            "utf-8"
-        )
-    )
-
-    request = urllib.request.Request(
-        url,
-        data=bytes(
-            body
-        ),
-        method=method,
-        headers={
-            "Content-Type":
-                f"multipart/form-data; "
-                f"boundary={boundary}",
-
-            "User-Agent":
-                "Nyerk24-Calendar",
+def multipart_body(payload_json, image_bytes):
+    boundary = f"----Nyerk24Boundary{uuid.uuid4().hex}"
+    body = io.BytesIO()
+
+    def write_part(headers, content):
+        body.write(f"--{boundary}\r\n".encode())
+        for key, value in headers.items():
+            body.write(f"{key}: {value}\r\n".encode())
+        body.write(b"\r\n")
+        body.write(content)
+        body.write(b"\r\n")
+
+    write_part(
+        {
+            "Content-Disposition": 'form-data; name="payload_json"',
+            "Content-Type": "application/json",
         },
+        json.dumps(payload_json).encode("utf-8")
     )
 
-    with urllib.request.urlopen(
-        request,
-        timeout=60,
-    ) as response:
+    write_part(
+        {
+            "Content-Disposition": 'form-data; name="files[0]"; filename="kalender.png"',
+            "Content-Type": "image/png",
+        },
+        image_bytes
+    )
 
-        response_data = (
-            response.read()
-        )
+    body.write(f"--{boundary}--\r\n".encode())
+    return body.getvalue(), boundary
 
-        if not response_data:
-            return {}
-
-        return json.loads(
-            response_data.decode(
-                "utf-8"
-            )
-        )
-
-
-# ============================================================
-# DISCORD PAYLOAD
-# ============================================================
-
-def build_payload():
-
-    return {
+def webhook_request(url, method="POST"):
+    payload = {
+        "content": "",
         "embeds": [
             {
-                "color": 8027525,
-
                 "image": {
-                    "url":
-                        "attachment://kalender.png"
-                },
+                    "url": "attachment://kalender.png"
+                }
             }
         ],
-
         "attachments": [
             {
                 "id": 0,
-                "filename":
-                    OUTPUT_FILE.name,
+                "filename": "kalender.png"
             }
-        ],
+        ]
     }
 
+    image_bytes = OUTPUT_FILE.read_bytes()
+    body, boundary = multipart_body(payload, image_bytes)
 
-# ============================================================
-# HAUPTPROGRAMM
-# ============================================================
-
-def main():
-
-    if not WEBHOOK_URL:
-
-        raise RuntimeError(
-            "KALENDER_WEBHOOK fehlt."
-        )
-
-    # Kalenderbild erzeugen
-    create_calendar()
-
-    # gespeicherte Discord-Nachricht laden
-    state = load_state()
-
-    message_id = state.get(
-        "message_id"
+    request = urllib.request.Request(
+        url,
+        data=body,
+        method=method,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "Nyerk24-Kalender/1.0",
+        },
     )
 
-    payload = build_payload()
+    with urllib.request.urlopen(request, timeout=30) as response:
+        raw = response.read().decode("utf-8")
+        if raw:
+            return json.loads(raw)
+        return {}
 
-    # --------------------------------------------------------
-    # BESTEHENDE NACHRICHT AKTUALISIEREN
-    # --------------------------------------------------------
+def post_or_update():
+    if not WEBHOOK_URL:
+        raise RuntimeError("KALENDER_WEBHOOK ist nicht gesetzt.")
+
+    state = load_state()
+    message_id = state.get("message_id")
 
     if message_id:
+        edit_url = f"{WEBHOOK_URL}/messages/{message_id}"
+        try:
+            webhook_request(edit_url, method="PATCH")
+            print(f"Discord-Kalender aktualisiert: {message_id}")
+            return
+        except urllib.error.HTTPError as exc:
+            # Wenn die Nachricht manuell in Discord gelöscht wurde,
+            # legen wir automatisch eine neue an.
+            if exc.code != 404:
+                raise
+            print("Gespeicherte Discord-Nachricht existiert nicht mehr. Erstelle neue Nachricht.")
 
-        edit_url = (
-            f"{WEBHOOK_URL}"
-            f"/messages/{message_id}"
-        )
+    result = webhook_request(f"{WEBHOOK_URL}?wait=true", method="POST")
+    new_id = result.get("id")
+    if not new_id:
+        raise RuntimeError("Discord hat keine message_id zurückgegeben.")
 
-        webhook_request_with_file(
-            edit_url,
-            payload,
-            OUTPUT_FILE,
-            method="PATCH",
-        )
+    save_state({"message_id": new_id})
+    print(f"Neue Discord-Kalendernachricht erstellt: {new_id}")
 
-        print(
-            "Bestehende Kalender-Nachricht "
-            "aktualisiert."
-        )
-
-    # --------------------------------------------------------
-    # ERSTE NACHRICHT ERSTELLEN
-    # --------------------------------------------------------
-
-    else:
-
-        create_url = (
-            f"{WEBHOOK_URL}"
-            f"?wait=true"
-        )
-
-        result = (
-            webhook_request_with_file(
-                create_url,
-                payload,
-                OUTPUT_FILE,
-                method="POST",
-            )
-        )
-
-        save_state(
-            {
-                "message_id":
-                    result["id"]
-            }
-        )
-
-        print(
-            "Neue Kalender-Nachricht erstellt."
-        )
-
+# ============================================================
+# Main
+# ============================================================
 
 if __name__ == "__main__":
-    main()
+    render_calendar()
+    post_or_update()
