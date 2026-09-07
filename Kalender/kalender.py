@@ -11,8 +11,8 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont
 
 # ============================================================
-# Nyerk24 · Kalender
-# Kompakte Wochenübersicht für Discord
+# Nyerk24 · Kalender V4
+# Mobile-optimierte kompakte Wochenübersicht
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -22,36 +22,46 @@ STATE_FILE = BASE_DIR / "kalender_message.json"
 WEBHOOK_URL = os.environ.get("KALENDER_WEBHOOK", "").strip()
 TIMEZONE = ZoneInfo("Europe/Berlin")
 
-# ----------------------------
-# Layout
-# ----------------------------
-WIDTH = 1500
-MARGIN_X = 48
-TOP = 42
-HEADER_H = 132
+# ------------------------------------------------------------
+# Logische Zielgröße
+# Intern wird mit 2x Auflösung gerendert und anschließend sauber
+# auf Zielgröße verkleinert -> deutlich schärfere Kanten/Schrift.
+# ------------------------------------------------------------
 
-NAME_COL_W = 265
+SCALE = 2
+
+WIDTH = 980
+MARGIN_X = 24
+TOP = 28
+HEADER_H = 104
+
+NAME_COL_W = 174
 DAY_COL_W = (WIDTH - (MARGIN_X * 2) - NAME_COL_W) // 7
 
-ROW_H = 58
-SPECIAL_ROW_H = 64
-SECTION_GAP = 18
-BOTTOM_PAD = 42
+ROW_H = 54
+SPECIAL_ROW_H = 58
+SECTION_GAP = 14
+BOTTOM_PAD = 28
 
-AVATAR_SIZE = 34
-AVATAR_GAP = 12
+ICON_SIZE = 28
+ICON_GAP = 8
 
-# ----------------------------
+def S(value):
+    return int(round(value * SCALE))
+
+# ------------------------------------------------------------
 # Farben
-# Farbe = Bedeutung, nicht Person
-# ----------------------------
+# ------------------------------------------------------------
+
 BG = (17, 18, 23)
 PANEL = (23, 25, 31)
 GRID = (49, 52, 62)
 TEXT = (239, 241, 246)
 TEXT_MUTED = (153, 158, 171)
+
 WEEKEND_BG = (24, 38, 42)
 WEEKEND_HEADER = (31, 50, 54)
+
 TODAY_BORDER = (65, 205, 194)
 
 ABSENCE = (132, 94, 194)
@@ -60,35 +70,38 @@ RAID = (184, 72, 86)
 MEETING = (184, 139, 65)
 EVENT = (68, 149, 131)
 
-AVATAR_BG = (63, 67, 78)
+ICON_BG = (63, 67, 78)
 SPECIAL_ICON_BG = (47, 51, 62)
 
-# ----------------------------
+# ------------------------------------------------------------
 # Fonts
-# ----------------------------
+# ------------------------------------------------------------
+
 def font(size: int, bold: bool = False):
     candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold else
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
+        if bold else
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     ]
     for path in candidates:
         if Path(path).exists():
-            return ImageFont.truetype(path, size)
+            return ImageFont.truetype(path, S(size))
     return ImageFont.load_default()
 
-FONT_TITLE = font(30, True)
-FONT_SUBTITLE = font(18, False)
-FONT_DAY = font(18, True)
-FONT_DATE = font(14, False)
-FONT_NAME = font(18, True)
-FONT_SMALL = font(14, False)
-FONT_BAR = font(13, True)
-FONT_ICON = font(14, True)
+FONT_TITLE = font(26, True)
+FONT_SUBTITLE = font(15, False)
+FONT_DAY = font(16, True)
+FONT_DATE = font(12, False)
+FONT_NAME = font(16, True)
+FONT_BAR = font(11, True)
+FONT_ICON = font(11, True)
 
 # ============================================================
 # TESTDATEN
-# Später werden diese Daten aus Discord / JSON / Bot-Befehlen
-# gespeist. Für den Design-Test bleiben sie bewusst statisch.
 # ============================================================
 
 SPECIAL_ROWS = [
@@ -98,8 +111,8 @@ SPECIAL_ROWS = [
         "items": [
             {
                 "type": "maintenance",
-                "label": "WARTUNG · 08:00–12:00",
-                "start_day": 2,   # Mittwoch
+                "label": "WARTUNG · 08–12",
+                "start_day": 2,
                 "end_day": 2,
             },
         ],
@@ -111,13 +124,13 @@ SPECIAL_ROWS = [
             {
                 "type": "raid",
                 "label": "RAID · 20:00",
-                "start_day": 4,   # Freitag
+                "start_day": 4,
                 "end_day": 4,
             },
             {
                 "type": "meeting",
                 "label": "TREFFEN · 19:30",
-                "start_day": 6,   # Sonntag
+                "start_day": 6,
                 "end_day": 6,
             },
         ],
@@ -128,33 +141,40 @@ MEMBERS = [
     {
         "name": "Shaynah | Laura",
         "initials": "SL",
-        "absence": {
-            # bewusst länger als die sichtbare Woche:
-            # im Balken steht immer der echte Gesamtzeitraum.
-            "start_offset": -7,
-            "end_offset": 32,
-        },
+        "items": [
+            {
+                "type": "absence",
+                "start_offset": -7,
+                "end_offset": 32,
+            }
+        ],
     },
     {
         "name": "Tom",
         "initials": "T",
-        "absence": {
-            "start_offset": 1,
-            "end_offset": 3,
-        },
+        "items": [
+            {
+                "type": "absence",
+                "start_offset": 1,
+                "end_offset": 3,
+            }
+        ],
     },
     {
         "name": "Patrick",
         "initials": "P",
-        "absence": {
-            "start_offset": 4,
-            "end_offset": 6,
-        },
+        "items": [
+            {
+                "type": "absence",
+                "start_offset": 4,
+                "end_offset": 6,
+            }
+        ],
     },
     {
         "name": "EinSehrLangerDiscordNameZumTesten",
         "initials": "ED",
-        "absence": None,
+        "items": [],
     },
 ]
 
@@ -191,11 +211,12 @@ def week_title(monday: datetime) -> str:
         f"{sunday.day:02d}. {months[sunday.month - 1]} {sunday.year}"
     )
 
-def text_width(draw: ImageDraw.ImageDraw, text: str, fnt) -> int:
+def text_width(draw, text, fnt):
     box = draw.textbbox((0, 0), text, font=fnt)
     return box[2] - box[0]
 
-def ellipsize(draw: ImageDraw.ImageDraw, text: str, fnt, max_width: int) -> str:
+def ellipsize(draw, text, fnt, max_width_logical):
+    max_width = S(max_width_logical)
     if text_width(draw, text, fnt) <= max_width:
         return text
 
@@ -210,81 +231,107 @@ def ellipsize(draw: ImageDraw.ImageDraw, text: str, fnt, max_width: int) -> str:
             hi = mid - 1
     return text[:lo].rstrip() + suffix
 
-def rounded_rect(draw, xy, radius, fill, outline=None, width=1):
-    draw.rounded_rectangle(xy, radius=radius, fill=fill, outline=outline, width=width)
-
-def draw_identity(draw, y, row_h, name, initials, special=False):
-    icon_x = MARGIN_X + 14
-    icon_y = y + (row_h - AVATAR_SIZE) // 2
-    icon_fill = SPECIAL_ICON_BG if special else AVATAR_BG
-
-    draw.ellipse(
-        (icon_x, icon_y, icon_x + AVATAR_SIZE, icon_y + AVATAR_SIZE),
-        fill=icon_fill
-    )
-
-    tw = text_width(draw, initials, FONT_ICON)
-    draw.text(
-        (icon_x + (AVATAR_SIZE - tw) / 2, icon_y + 8),
-        initials,
-        font=FONT_ICON,
-        fill=TEXT
-    )
-
-    name_x = icon_x + AVATAR_SIZE + AVATAR_GAP
-    max_name_w = NAME_COL_W - (name_x - MARGIN_X) - 18
-    visible_name = ellipsize(draw, name, FONT_NAME, max_name_w)
-
-    box = draw.textbbox((0, 0), visible_name, font=FONT_NAME)
-    th = box[3] - box[1]
-    draw.text(
-        (name_x, y + (row_h - th) / 2 - 2),
-        visible_name,
-        font=FONT_NAME,
-        fill=TEXT
-    )
-
-def bar_x(day_index: int) -> int:
+def bar_x(day_index):
     return MARGIN_X + NAME_COL_W + day_index * DAY_COL_W
 
-def slot_positions(row_y, row_h, count):
-    """Return vertical centers for 1, 2 or 3 compact entries."""
+def slot_centers(row_y, row_h, count):
+    # gewünschtes Verhalten:
+    # 1 = Mitte
+    # 2 = oben + Mitte
+    # 3 = oben + Mitte + unten
     count = max(1, min(3, count))
     center = row_y + row_h / 2
-    gap = 17
+    gap = 15
+
     if count == 1:
         return [center]
     if count == 2:
         return [center - gap, center]
     return [center - gap, center, center + gap]
 
-def draw_bar(draw, row_y, row_h, start_day, end_day, label, color, slot_center=None):
+def rounded_rect(draw, xy, radius, fill, outline=None, width=1):
+    draw.rounded_rectangle(
+        tuple(S(v) for v in xy),
+        radius=S(radius),
+        fill=fill,
+        outline=outline,
+        width=S(width)
+    )
+
+def draw_line(draw, xy, fill, width=1):
+    draw.line(tuple(S(v) for v in xy), fill=fill, width=S(width))
+
+def draw_identity(draw, y, row_h, name, initials, special=False):
+    icon_x = MARGIN_X + 10
+    icon_y = y + (row_h - ICON_SIZE) / 2
+    icon_fill = SPECIAL_ICON_BG if special else ICON_BG
+
+    draw.ellipse(
+        (S(icon_x), S(icon_y), S(icon_x + ICON_SIZE), S(icon_y + ICON_SIZE)),
+        fill=icon_fill
+    )
+
+    tw = text_width(draw, initials, FONT_ICON)
+    bbox = draw.textbbox((0, 0), initials, font=FONT_ICON)
+    th = bbox[3] - bbox[1]
+
+    draw.text(
+        (S(icon_x + ICON_SIZE / 2) - tw / 2,
+         S(icon_y + ICON_SIZE / 2) - th / 2 - S(1)),
+        initials,
+        font=FONT_ICON,
+        fill=TEXT
+    )
+
+    name_x = icon_x + ICON_SIZE + ICON_GAP
+    max_name_w = NAME_COL_W - (name_x - MARGIN_X) - 10
+    visible_name = ellipsize(draw, name, FONT_NAME, max_name_w)
+
+    bbox = draw.textbbox((0, 0), visible_name, font=FONT_NAME)
+    th = bbox[3] - bbox[1]
+
+    draw.text(
+        (S(name_x), S(y + row_h / 2) - th / 2 - S(1)),
+        visible_name,
+        font=FONT_NAME,
+        fill=TEXT
+    )
+
+def draw_bar(draw, row_y, row_h, start_day, end_day, label, color, slot_center):
     start_day = max(0, min(6, start_day))
     end_day = max(0, min(6, end_day))
     if end_day < start_day:
         return
 
-    x1 = bar_x(start_day) + 8
-    x2 = bar_x(end_day + 1) - 8
+    x1 = bar_x(start_day) + 5
+    x2 = bar_x(end_day + 1) - 5
 
-    bar_h = 14
-    center_y = slot_center if slot_center is not None else row_y + row_h / 2
-    y1 = int(center_y - bar_h / 2)
-    y2 = y1 + bar_h
+    bar_h = 12
+    y1 = slot_center - bar_h / 2
+    y2 = slot_center + bar_h / 2
 
-    rounded_rect(draw, (x1, y1, x2, y2), 6, color)
+    rounded_rect(draw, (x1, y1, x2, y2), 5, color)
 
-    max_w = max(0, x2 - x1 - 12)
+    max_w = max(0, x2 - x1 - 8)
     visible = ellipsize(draw, label, FONT_BAR, max_w)
-    if max_w >= 25:
-        # Small font is vertically centered inside the compact bar.
+
+    if max_w >= 20:
         bbox = draw.textbbox((0, 0), visible, font=FONT_BAR)
         th = bbox[3] - bbox[1]
-        draw.text((x1 + 6, center_y - th / 2 - 1), visible, font=FONT_BAR, fill=(255, 255, 255))
+        draw.text(
+            (S(x1 + 4), S(slot_center) - th / 2 - S(1)),
+            visible,
+            font=FONT_BAR,
+            fill=(255, 255, 255)
+        )
 
-def draw_absence_bar(draw, row_y, row_h, week_start, absence, slot_center=None):
-    start_dt = week_start + timedelta(days=absence["start_offset"])
-    end_dt = week_start + timedelta(days=absence["end_offset"])
+def absence_dates(week_start, item):
+    start_dt = week_start + timedelta(days=item["start_offset"])
+    end_dt = week_start + timedelta(days=item["end_offset"])
+    return start_dt, end_dt
+
+def draw_absence(draw, row_y, row_h, week_start, item, slot_center):
+    start_dt, end_dt = absence_dates(week_start, item)
 
     visible_start = max(start_dt, week_start)
     visible_end = min(end_dt, week_start + timedelta(days=6))
@@ -295,42 +342,50 @@ def draw_absence_bar(draw, row_y, row_h, week_start, absence, slot_center=None):
     start_day = (visible_start.date() - week_start.date()).days
     end_day = (visible_end.date() - week_start.date()).days
 
-    label = f"ABWESEND · {fmt_date(start_dt)} – {fmt_date(end_dt)}"
+    x1 = bar_x(start_day) + 5
+    x2 = bar_x(end_day + 1) - 5
 
-    x1 = bar_x(start_day) + 8
-    x2 = bar_x(end_day + 1) - 8
-    bar_h = 14
-    center_y = slot_center if slot_center is not None else row_y + row_h / 2
-    y1 = int(center_y - bar_h / 2)
-    y2 = y1 + bar_h
+    bar_h = 12
+    y1 = slot_center - bar_h / 2
+    y2 = slot_center + bar_h / 2
 
-    rounded_rect(draw, (x1, y1, x2, y2), 6, ABSENCE)
+    rounded_rect(draw, (x1, y1, x2, y2), 5, ABSENCE)
 
-    if start_dt < week_start:
+    continued_left = start_dt < week_start
+    continued_right = end_dt > week_start + timedelta(days=6)
+
+    if continued_left:
         draw.polygon(
-            [(x1 + 4, int(center_y)),
-             (x1 + 9, y1 + 3),
-             (x1 + 9, y2 - 3)],
-            fill=(255, 255, 255)
-        )
-    if end_dt > week_start + timedelta(days=6):
-        draw.polygon(
-            [(x2 - 4, int(center_y)),
-             (x2 - 9, y1 + 3),
-             (x2 - 9, y2 - 3)],
+            [
+                (S(x1 + 3), S(slot_center)),
+                (S(x1 + 7), S(y1 + 2)),
+                (S(x1 + 7), S(y2 - 2)),
+            ],
             fill=(255, 255, 255)
         )
 
-    text_pad_left = 13 if start_dt < week_start else 6
-    text_pad_right = 13 if end_dt > week_start + timedelta(days=6) else 6
-    max_w = max(0, x2 - x1 - text_pad_left - text_pad_right)
+    if continued_right:
+        draw.polygon(
+            [
+                (S(x2 - 3), S(slot_center)),
+                (S(x2 - 7), S(y1 + 2)),
+                (S(x2 - 7), S(y2 - 2)),
+            ],
+            fill=(255, 255, 255)
+        )
+
+    label = f"ABWESEND · {fmt_date(start_dt)}–{fmt_date(end_dt)}"
+
+    left_pad = 10 if continued_left else 4
+    right_pad = 10 if continued_right else 4
+    max_w = max(0, x2 - x1 - left_pad - right_pad)
     visible = ellipsize(draw, label, FONT_BAR, max_w)
 
-    if max_w >= 25:
+    if max_w >= 20:
         bbox = draw.textbbox((0, 0), visible, font=FONT_BAR)
         th = bbox[3] - bbox[1]
         draw.text(
-            (x1 + text_pad_left, center_y - th / 2 - 1),
+            (S(x1 + left_pad), S(slot_center) - th / 2 - S(1)),
             visible,
             font=FONT_BAR,
             fill=(255, 255, 255)
@@ -347,19 +402,18 @@ def render_calendar():
     total_h = (
         TOP
         + HEADER_H
-        + (2 * SPECIAL_ROW_H)
+        + (len(SPECIAL_ROWS) * SPECIAL_ROW_H)
         + SECTION_GAP
         + (len(MEMBERS) * ROW_H)
         + BOTTOM_PAD
     )
 
-    image = Image.new("RGB", (WIDTH, total_h), BG)
+    image = Image.new("RGB", (S(WIDTH), S(total_h)), BG)
     draw = ImageDraw.Draw(image)
 
-    # Header
-    draw.text((MARGIN_X, TOP), "WOCHENÜBERSICHT", font=FONT_TITLE, fill=TEXT)
+    draw.text((S(MARGIN_X), S(TOP)), "WOCHENÜBERSICHT", font=FONT_TITLE, fill=TEXT)
     draw.text(
-        (MARGIN_X, TOP + 42),
+        (S(MARGIN_X), S(TOP + 34)),
         week_title(week_start),
         font=FONT_SUBTITLE,
         fill=TEXT_MUTED
@@ -369,28 +423,31 @@ def render_calendar():
     special_h_total = len(SPECIAL_ROWS) * SPECIAL_ROW_H
     member_top = grid_top + special_h_total + SECTION_GAP
     grid_bottom = member_top + len(MEMBERS) * ROW_H
+    header_y = grid_top - 54
 
-    # Hintergrund-Panel
     rounded_rect(
         draw,
-        (MARGIN_X, grid_top - 8, WIDTH - MARGIN_X, grid_bottom + 8),
-        16,
+        (MARGIN_X, grid_top - 6, WIDTH - MARGIN_X, grid_bottom + 6),
+        13,
         PANEL
     )
 
-    # Tag-Kopf beginnt oberhalb des Rasters.
-    header_y = grid_top - 70
-
-    # Wochenend-Hinterlegung: sichtbar, aber weiterhin dunkel.
-    # Sie reicht bis in den Tageskopf, damit SA/SO als Einheit erkennbar sind.
+    # Wochenende bis in den Kopf hinein markieren
     for day in (5, 6):
         x1 = bar_x(day)
         x2 = x1 + DAY_COL_W
-        draw.rectangle((x1, header_y - 8, x2, grid_top - 8), fill=WEEKEND_HEADER)
-        draw.rectangle((x1, grid_top - 8, x2, grid_bottom + 8), fill=WEEKEND_BG)
+        draw.rectangle(
+            (S(x1), S(header_y - 6), S(x2), S(grid_top - 6)),
+            fill=WEEKEND_HEADER
+        )
+        draw.rectangle(
+            (S(x1), S(grid_top - 6), S(x2), S(grid_bottom + 6)),
+            fill=WEEKEND_BG
+        )
 
-    # Tag-Kopf
+    # Tageskopf
     day_names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
+
     for i, day_name in enumerate(day_names):
         day_dt = week_start + timedelta(days=i)
         x = bar_x(i)
@@ -400,30 +457,33 @@ def render_calendar():
         date_txt = day_dt.strftime("%d.%m.")
         date_w = text_width(draw, date_txt, FONT_DATE)
 
-        draw.text((cx - dw / 2, header_y), day_name, font=FONT_DAY, fill=TEXT)
-        draw.text((cx - date_w / 2, header_y + 27), date_txt, font=FONT_DATE, fill=TEXT_MUTED)
+        draw.text(
+            (S(cx) - dw / 2, S(header_y)),
+            day_name,
+            font=FONT_DAY,
+            fill=TEXT
+        )
+        draw.text(
+            (S(cx) - date_w / 2, S(header_y + 22)),
+            date_txt,
+            font=FONT_DATE,
+            fill=TEXT_MUTED
+        )
 
-    # Vertikale Tageslinien
+    # Tageslinien
     for i in range(8):
         x = MARGIN_X + NAME_COL_W + i * DAY_COL_W
-        draw.line((x, grid_top - 8, x, grid_bottom + 8), fill=GRID, width=1)
-
+        draw_line(draw, (x, grid_top - 6, x, grid_bottom + 6), GRID, 1)
 
     # AION 2 + GILDE
     y = grid_top
     for row in SPECIAL_ROWS:
-        draw_identity(
-            draw,
-            y,
-            SPECIAL_ROW_H,
-            row["name"],
-            row["icon"],
-            special=True
-        )
+        draw_identity(draw, y, SPECIAL_ROW_H, row["name"], row["icon"], special=True)
 
         items = row["items"][:3]
-        centers = slot_positions(y, SPECIAL_ROW_H, len(items))
-        for item, center_y in zip(items, centers):
+        centers = slot_centers(y, SPECIAL_ROW_H, len(items))
+
+        for item, center in zip(items, centers):
             draw_bar(
                 draw,
                 y,
@@ -432,102 +492,125 @@ def render_calendar():
                 item["end_day"],
                 item["label"],
                 TYPE_COLORS[item["type"]],
-                slot_center=center_y,
+                center
             )
 
-        draw.line(
+        draw_line(
+            draw,
             (MARGIN_X, y + SPECIAL_ROW_H, WIDTH - MARGIN_X, y + SPECIAL_ROW_H),
-            fill=GRID,
-            width=1
+            GRID,
+            1
         )
         y += SPECIAL_ROW_H
 
-    # Bereichstrenner
-    draw.line(
-        (MARGIN_X, y + SECTION_GAP // 2, WIDTH - MARGIN_X, y + SECTION_GAP // 2),
-        fill=GRID,
-        width=1
+    # Trenner
+    draw_line(
+        draw,
+        (MARGIN_X, y + SECTION_GAP / 2, WIDTH - MARGIN_X, y + SECTION_GAP / 2),
+        GRID,
+        1
     )
 
-    # Member / Abwesenheiten
+    # Member
     y = member_top
     for member in MEMBERS:
-        draw_identity(
+        draw_identity(draw, y, ROW_H, member["name"], member["initials"], special=False)
+
+        items = member.get("items", [])[:3]
+        centers = slot_centers(y, ROW_H, len(items) if items else 1)
+
+        for item, center in zip(items, centers):
+            if item["type"] == "absence":
+                draw_absence(draw, y, ROW_H, week_start, item, center)
+            else:
+                draw_bar(
+                    draw,
+                    y,
+                    ROW_H,
+                    item["start_day"],
+                    item["end_day"],
+                    item["label"],
+                    TYPE_COLORS[item["type"]],
+                    center
+                )
+
+        draw_line(
             draw,
-            y,
-            ROW_H,
-            member["name"],
-            member["initials"],
-            special=False
-        )
-
-        if member.get("absence"):
-            centers = slot_positions(y, ROW_H, 1)
-            draw_absence_bar(
-                draw,
-                y,
-                ROW_H,
-                week_start,
-                member["absence"],
-                slot_center=centers[0]
-            )
-
-        draw.line(
             (MARGIN_X, y + ROW_H, WIDTH - MARGIN_X, y + ROW_H),
-            fill=GRID,
-            width=1
+            GRID,
+            1
         )
         y += ROW_H
 
-    # HEUTE-Rahmen ganz zum Schluss zeichnen:
-    # Rasterlinien verschwinden darunter; Termin-/Abwesenheitsbalken werden
-    # anschließend in kleinen Bereichen wieder darübergelegt.
+    # HEUTE-Rahmen ganz zum Schluss über Rasterlinien
     if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
         today_idx = now.weekday()
-        x1 = bar_x(today_idx) + 2
-        x2 = x1 + DAY_COL_W - 4
+        x1 = bar_x(today_idx) + 1
+        x2 = x1 + DAY_COL_W - 2
+
         draw.rounded_rectangle(
-            (x1, grid_top - 8, x2, grid_bottom + 8),
-            radius=9,
+            (S(x1), S(grid_top - 6), S(x2), S(grid_bottom + 6)),
+            radius=S(7),
             outline=TODAY_BORDER,
-            width=2
+            width=S(2)
         )
 
-        # Die Balken der heutigen Spalte noch einmal zeichnen, damit nur Termine
-        # den Rahmen überlagern dürfen.
+        # Nur Balken des heutigen Tages nochmals darüberzeichnen
         y2 = grid_top
         for row in SPECIAL_ROWS:
             items = row["items"][:3]
-            centers = slot_positions(y2, SPECIAL_ROW_H, len(items))
-            for item, center_y in zip(items, centers):
+            centers = slot_centers(y2, SPECIAL_ROW_H, len(items))
+            for item, center in zip(items, centers):
                 if item["start_day"] <= today_idx <= item["end_day"]:
                     draw_bar(
-                        draw, y2, SPECIAL_ROW_H,
-                        item["start_day"], item["end_day"],
-                        item["label"], TYPE_COLORS[item["type"]],
-                        slot_center=center_y
+                        draw,
+                        y2,
+                        SPECIAL_ROW_H,
+                        item["start_day"],
+                        item["end_day"],
+                        item["label"],
+                        TYPE_COLORS[item["type"]],
+                        center
                     )
             y2 += SPECIAL_ROW_H
 
         y2 = member_top
+        today_dt = week_start + timedelta(days=today_idx)
+
         for member in MEMBERS:
-            absence = member.get("absence")
-            if absence:
-                start_dt = week_start + timedelta(days=absence["start_offset"])
-                end_dt = week_start + timedelta(days=absence["end_offset"])
-                today_dt = week_start + timedelta(days=today_idx)
-                if start_dt.date() <= today_dt.date() <= end_dt.date():
-                    draw_absence_bar(
-                        draw, y2, ROW_H, week_start, absence,
-                        slot_center=slot_positions(y2, ROW_H, 1)[0]
-                    )
+            items = member.get("items", [])[:3]
+            centers = slot_centers(y2, ROW_H, len(items) if items else 1)
+
+            for item, center in zip(items, centers):
+                if item["type"] == "absence":
+                    start_dt, end_dt = absence_dates(week_start, item)
+                    if start_dt.date() <= today_dt.date() <= end_dt.date():
+                        draw_absence(draw, y2, ROW_H, week_start, item, center)
+                else:
+                    if item["start_day"] <= today_idx <= item["end_day"]:
+                        draw_bar(
+                            draw,
+                            y2,
+                            ROW_H,
+                            item["start_day"],
+                            item["end_day"],
+                            item["label"],
+                            TYPE_COLORS[item["type"]],
+                            center
+                        )
             y2 += ROW_H
 
-    image.save(OUTPUT_FILE, quality=95)
+    # echtes 2x-Supersampling -> Zielgröße
+    image = image.resize(
+        (WIDTH, total_h),
+        Image.Resampling.LANCZOS
+    )
+
+    image.save(OUTPUT_FILE, optimize=True)
     print(f"Kalender erstellt: {OUTPUT_FILE}")
 
 # ============================================================
-# Discord Webhook
+# Discord Webhook / State
 # ============================================================
 
 def load_state():
@@ -626,8 +709,6 @@ def post_or_update():
             print(f"Discord-Kalender aktualisiert: {message_id}")
             return
         except urllib.error.HTTPError as exc:
-            # Wenn die Nachricht manuell in Discord gelöscht wurde,
-            # legen wir automatisch eine neue an.
             if exc.code != 404:
                 raise
             print("Gespeicherte Discord-Nachricht existiert nicht mehr. Erstelle neue Nachricht.")
@@ -639,10 +720,6 @@ def post_or_update():
 
     save_state({"message_id": new_id})
     print(f"Neue Discord-Kalendernachricht erstellt: {new_id}")
-
-# ============================================================
-# Main
-# ============================================================
 
 if __name__ == "__main__":
     render_calendar()
