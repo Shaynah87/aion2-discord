@@ -1,0 +1,29 @@
+name: Nyerk24 Kalender
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-kalender:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Pillow installieren
+        run: pip install pillow
+
+      - name: Kalender erstellen
+        run: python Kalender/kalender.py
+
+      - name: Kalenderbild hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: kalender-test
+          path: Kalender/kalender_test.png
