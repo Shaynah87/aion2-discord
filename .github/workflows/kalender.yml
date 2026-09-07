@@ -3,6 +3,9 @@ name: Kalender
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-kalender:
     runs-on: ubuntu-latest
@@ -19,7 +22,21 @@ jobs:
       - name: Pillow installieren
         run: pip install pillow
 
-      - name: Kalender erstellen
+      - name: Kalender erstellen und Discord aktualisieren
         env:
           KALENDER_WEBHOOK: ${{ secrets.KALENDER_WEBHOOK }}
         run: python Kalender/kalender.py
+
+      - name: Kalender-State speichern
+        run: |
+          if git diff --quiet -- Kalender/kalender_message.json; then
+            echo "Keine Änderung am Kalender-State."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add Kalender/kalender_message.json
+          git commit -m "Update Kalender message state"
+          git push
