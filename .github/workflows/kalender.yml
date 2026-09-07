@@ -1,4 +1,4 @@
-name: Nyerk24 Kalender
+name: Kalender
 
 on:
   workflow_dispatch:
