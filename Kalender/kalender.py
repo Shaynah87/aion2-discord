@@ -11,8 +11,8 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont
 
 # ============================================================
-# Nyerk24 · Kalender V4
-# Mobile-optimierte kompakte Wochenübersicht
+# Nyerk24 · Kalender V5
+# Desktop-first Wochenübersicht mit guter Mobile-Tauglichkeit
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -30,21 +30,21 @@ TIMEZONE = ZoneInfo("Europe/Berlin")
 
 SCALE = 2
 
-WIDTH = 980
-MARGIN_X = 24
-TOP = 28
-HEADER_H = 104
+WIDTH = 1200
+MARGIN_X = 34
+TOP = 34
+HEADER_H = 116
 
-NAME_COL_W = 174
+NAME_COL_W = 220
 DAY_COL_W = (WIDTH - (MARGIN_X * 2) - NAME_COL_W) // 7
 
-ROW_H = 54
-SPECIAL_ROW_H = 58
-SECTION_GAP = 14
-BOTTOM_PAD = 28
+ROW_H = 56
+SPECIAL_ROW_H = 60
+SECTION_GAP = 16
+BOTTOM_PAD = 34
 
-ICON_SIZE = 28
-ICON_GAP = 8
+ICON_SIZE = 30
+ICON_GAP = 10
 
 def S(value):
     return int(round(value * SCALE))
@@ -92,13 +92,13 @@ def font(size: int, bold: bool = False):
             return ImageFont.truetype(path, S(size))
     return ImageFont.load_default()
 
-FONT_TITLE = font(26, True)
-FONT_SUBTITLE = font(15, False)
-FONT_DAY = font(16, True)
-FONT_DATE = font(12, False)
-FONT_NAME = font(16, True)
-FONT_BAR = font(11, True)
-FONT_ICON = font(11, True)
+FONT_TITLE = font(28, True)
+FONT_SUBTITLE = font(16, False)
+FONT_DAY = font(17, True)
+FONT_DATE = font(13, False)
+FONT_NAME = font(17, True)
+FONT_BAR = font(12, True)
+FONT_ICON = font(12, True)
 
 # ============================================================
 # TESTDATEN
@@ -306,7 +306,7 @@ def draw_bar(draw, row_y, row_h, start_day, end_day, label, color, slot_center):
     x1 = bar_x(start_day) + 5
     x2 = bar_x(end_day + 1) - 5
 
-    bar_h = 12
+    bar_h = 14
     y1 = slot_center - bar_h / 2
     y2 = slot_center + bar_h / 2
 
@@ -345,7 +345,7 @@ def draw_absence(draw, row_y, row_h, week_start, item, slot_center):
     x1 = bar_x(start_day) + 5
     x2 = bar_x(end_day + 1) - 5
 
-    bar_h = 12
+    bar_h = 14
     y1 = slot_center - bar_h / 2
     y2 = slot_center + bar_h / 2
 
