@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V7 HiDPI / Tracker-Rendering
+# Nyerk24 · Kalender V7 · 3 Karten / Tracker-Stil
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -31,11 +31,19 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_FILE = BASE_DIR / "kalender.png"
+WEEK_FILE = BASE_DIR / "kalender_woche.png"
+EVENTS_FILE = BASE_DIR / "kalender_termine.png"
+ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
 
 WEBHOOK_URL = os.environ.get("KALENDER_WEBHOOK", "").strip()
 TIMEZONE = ZoneInfo("Europe/Berlin")
+
+TRACKER_OVERVIEW_BACKGROUND_URL = (
+    "https://raw.githubusercontent.com/"
+    "Shaynah87/aion2-discord/main/Tracker/event_overview.png"
+)
+
 
 # ------------------------------------------------------------
 # Layout-Schalter
@@ -53,7 +61,7 @@ LAYOUT_MODE = "stacked"
 # Rendering / Größe
 # ------------------------------------------------------------
 
-SCALE = 2
+SCALE = 1
 WIDTH = 1200
 
 MARGIN_X = 38
@@ -811,149 +819,153 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
 
     return height
 
+
 # ============================================================
-# Haupt-Rendering
+# TRACKER-HINTERGRUND FÜR DIE DREI KALENDERKARTEN
 # ============================================================
 
-def calculate_total_height(week_start):
-    week_overview_h = WEEK_HEADER_H + WEEK_CELL_H
-
-    content_top = (
-        TOP
-        + TITLE_H
-        + week_overview_h
-        + SECTION_GAP
+def load_tracker_background():
+    request = urllib.request.Request(
+        TRACKER_OVERVIEW_BACKGROUND_URL,
+        headers={"User-Agent": "Nyerk24-Kalender/2.0"},
     )
 
-    if LAYOUT_MODE == "columns":
-        lower_h = max(
-            event_list_height(),
-            absence_block_height(week_start),
-        )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return Image.open(io.BytesIO(response.read())).convert("RGBA")
+    except Exception as exc:
+        print(f"Tracker-Hintergrund konnte nicht geladen werden: {exc}")
+        return None
+
+
+def crop_and_resize_background(image, width, height):
+    if image is None:
+        return create_background(width, height).convert("RGBA")
+
+    sw, sh = image.size
+    target_ratio = width / height
+    source_ratio = sw / sh
+
+    if source_ratio > target_ratio:
+        new_w = int(sh * target_ratio)
+        left = (sw - new_w) // 2
+        image = image.crop((left, 0, left + new_w, sh))
     else:
-        lower_h = (
-            event_list_height()
-            + SECTION_GAP
-            + absence_block_height(week_start)
-        )
+        new_h = int(sw / target_ratio)
+        top = (sh - new_h) // 2
+        image = image.crop((0, top, sw, top + new_h))
 
-    return content_top + lower_h + BOTTOM_PAD
+    image = image.resize((width, height), Image.Resampling.LANCZOS)
 
-def render_calendar():
-    now = datetime.now(TIMEZONE)
-    week_start = monday_of_week(now)
+    dark = Image.new("RGBA", image.size, (5, 6, 9, 130))
+    return Image.alpha_composite(image, dark)
 
-    total_h = calculate_total_height(week_start)
 
-    image = create_background(WIDTH, total_h)
+def card_canvas(width, height, background_source):
+    image = crop_and_resize_background(
+        background_source.copy() if background_source is not None else None,
+        width,
+        height,
+    )
+
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+
+    fade_end = int(width * 0.72)
+    for x in range(fade_end):
+        progress = x / max(1, fade_end - 1)
+        alpha = int(70 * ((1.0 - progress) ** 1.5))
+        od.line((x, 0, x, height), fill=(0, 0, 0, alpha))
+
+    return Image.alpha_composite(image, overlay).convert("RGB")
+
+
+# ============================================================
+# DREI EINZELNE KALENDERKARTEN
+# ============================================================
+
+def render_week_card(week_start, now, background_source):
+    week_h = WEEK_HEADER_H + WEEK_CELL_H
+    height = TOP + TITLE_H + week_h + BOTTOM_PAD
+
+    image = card_canvas(WIDTH, height, background_source)
     draw = ImageDraw.Draw(image)
 
-    # --------------------------------------------------------
-    # Titel
-    # --------------------------------------------------------
-
     draw.text(
-        (S(MARGIN_X), S(TOP)),
+        (MARGIN_X, TOP),
         "WOCHENÜBERSICHT",
         font=FONT_TITLE,
         fill=TEXT,
     )
 
     draw.text(
-        (S(MARGIN_X), S(TOP + 36)),
+        (MARGIN_X, TOP + 36),
         week_title(week_start),
         font=FONT_SUBTITLE,
         fill=TEXT_MUTED,
     )
 
-    # --------------------------------------------------------
-    # Wochenübersicht
-    # --------------------------------------------------------
-
-    week_y = TOP + TITLE_H
-    content_width = WIDTH - 2 * MARGIN_X
-
-    week_h = draw_week_overview(
+    draw_week_overview(
         draw,
         week_start,
         now,
         MARGIN_X,
-        week_y,
-        content_width,
+        TOP + TITLE_H,
+        WIDTH - 2 * MARGIN_X,
     )
 
-    lower_y = week_y + week_h + SECTION_GAP
+    image.save(WEEK_FILE, "PNG", optimize=True)
+    print(f"Wochenkarte erstellt: {WEEK_FILE}")
 
-    # --------------------------------------------------------
-    # Untere Blöcke
-    # --------------------------------------------------------
 
-    if LAYOUT_MODE == "columns":
-        gap = 18
+def render_events_card(week_start, background_source):
+    block_h = event_list_height()
+    height = TOP + block_h + BOTTOM_PAD
 
-        # Termine bekommen etwas mehr Breite als Abwesenheiten.
-        left_w = int(content_width * 0.60)
-        right_w = content_width - left_w - gap
+    image = card_canvas(WIDTH, height, background_source)
+    draw = ImageDraw.Draw(image)
 
-        left_h = event_list_height()
-        right_h = absence_block_height(week_start)
-        shared_h = max(left_h, right_h)
-
-        draw_events_block(
-            draw,
-            week_start,
-            MARGIN_X,
-            lower_y,
-            left_w,
-        )
-
-        draw_absences_block(
-            draw,
-            week_start,
-            MARGIN_X + left_w + gap,
-            lower_y,
-            right_w,
-            forced_height=shared_h,
-        )
-
-    else:
-        events_h = draw_events_block(
-            draw,
-            week_start,
-            MARGIN_X,
-            lower_y,
-            content_width,
-        )
-
-        abs_y = lower_y + events_h + SECTION_GAP
-
-        draw_absences_block(
-            draw,
-            week_start,
-            MARGIN_X,
-            abs_y,
-            content_width,
-        )
-
-    # --------------------------------------------------------
-    # HiDPI-Ausgabe für Discord
-    #
-    # Der Kalender wird intern mit SCALE=2 gezeichnet:
-    # 1200 logische Pixel = 2400 echte Bildpixel.
-    #
-    # WICHTIG:
-    # Anders als vorher wird das Bild NICHT wieder auf 1200 px
-    # heruntergerechnet. Dadurch bleiben Schrift, Linien und Symbole
-    # in der breiten Discord-Darstellung deutlich schärfer.
-    # --------------------------------------------------------
-
-    image.save(
-        OUTPUT_FILE,
-        optimize=True,
+    draw_events_block(
+        draw,
+        week_start,
+        MARGIN_X,
+        TOP,
+        WIDTH - 2 * MARGIN_X,
     )
 
-    print(f"Kalender erstellt: {OUTPUT_FILE}")
-    print(f"Layout: {LAYOUT_MODE}")
+    image.save(EVENTS_FILE, "PNG", optimize=True)
+    print(f"Terminkarte erstellt: {EVENTS_FILE}")
+
+
+def render_absences_card(week_start, background_source):
+    block_h = absence_block_height(week_start)
+    height = TOP + block_h + BOTTOM_PAD
+
+    image = card_canvas(WIDTH, height, background_source)
+    draw = ImageDraw.Draw(image)
+
+    draw_absences_block(
+        draw,
+        week_start,
+        MARGIN_X,
+        TOP,
+        WIDTH - 2 * MARGIN_X,
+    )
+
+    image.save(ABSENCES_FILE, "PNG", optimize=True)
+    print(f"Abwesenheitskarte erstellt: {ABSENCES_FILE}")
+
+
+def render_calendar_cards():
+    now = datetime.now(TIMEZONE)
+    week_start = monday_of_week(now)
+
+    background_source = load_tracker_background()
+
+    render_week_card(week_start, now, background_source)
+    render_events_card(week_start, background_source)
+    render_absences_card(week_start, background_source)
+
 
 # ============================================================
 # Discord Webhook / State
@@ -964,23 +976,19 @@ def load_state():
         return {}
 
     try:
-        return json.loads(
-            STATE_FILE.read_text(encoding="utf-8")
-        )
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
+
 def save_state(data):
     STATE_FILE.write_text(
-        json.dumps(
-            data,
-            ensure_ascii=False,
-            indent=2,
-        ),
+        json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
-def multipart_body(payload_json, image_bytes):
+
+def multipart_body(payload_json, file_paths):
     boundary = f"----Nyerk24Boundary{uuid.uuid4().hex}"
     body = io.BytesIO()
 
@@ -988,9 +996,7 @@ def multipart_body(payload_json, image_bytes):
         body.write(f"--{boundary}\r\n".encode())
 
         for key, value in headers.items():
-            body.write(
-                f"{key}: {value}\r\n".encode()
-            )
+            body.write(f"{key}: {value}\r\n".encode())
 
         body.write(b"\r\n")
         body.write(content)
@@ -1004,92 +1010,76 @@ def multipart_body(payload_json, image_bytes):
         json.dumps(payload_json).encode("utf-8"),
     )
 
-    write_part(
-        {
-            "Content-Disposition": 'form-data; name="files[0]"; filename="kalender.png"',
-            "Content-Type": "image/png",
-        },
-        image_bytes,
-    )
+    for index, file_path in enumerate(file_paths):
+        write_part(
+            {
+                "Content-Disposition": (
+                    f'form-data; name="files[{index}]"; '
+                    f'filename="{file_path.name}"'
+                ),
+                "Content-Type": "image/png",
+            },
+            file_path.read_bytes(),
+        )
 
-    body.write(
-        f"--{boundary}--\r\n".encode()
-    )
+    body.write(f"--{boundary}--\r\n".encode())
 
     return body.getvalue(), boundary
 
+
 def webhook_request(url, method="POST"):
+    files = [
+        WEEK_FILE,
+        EVENTS_FILE,
+        ABSENCES_FILE,
+    ]
+
     payload = {
         "content": "",
         "embeds": [
-            {
-                "image": {
-                    "url": "attachment://kalender.png"
-                }
-            }
+            {"image": {"url": f"attachment://{WEEK_FILE.name}"}},
+            {"image": {"url": f"attachment://{EVENTS_FILE.name}"}},
+            {"image": {"url": f"attachment://{ABSENCES_FILE.name}"}},
         ],
         "attachments": [
             {
-                "id": 0,
-                "filename": "kalender.png"
+                "id": index,
+                "filename": file_path.name,
             }
+            for index, file_path in enumerate(files)
         ],
     }
 
-    image_bytes = OUTPUT_FILE.read_bytes()
-
-    body, boundary = multipart_body(
-        payload,
-        image_bytes,
-    )
+    body, boundary = multipart_body(payload, files)
 
     request = urllib.request.Request(
         url,
         data=body,
         method=method,
         headers={
-            "Content-Type": (
-                f"multipart/form-data; boundary={boundary}"
-            ),
-            "User-Agent": "Nyerk24-Kalender/1.0",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "Nyerk24-Kalender/2.0",
         },
     )
 
-    with urllib.request.urlopen(
-        request,
-        timeout=30,
-    ) as response:
+    with urllib.request.urlopen(request, timeout=60) as response:
         raw = response.read().decode("utf-8")
+        return json.loads(raw) if raw else {}
 
-        if raw:
-            return json.loads(raw)
-
-        return {}
 
 def post_or_update():
     if not WEBHOOK_URL:
-        raise RuntimeError(
-            "KALENDER_WEBHOOK ist nicht gesetzt."
-        )
+        raise RuntimeError("KALENDER_WEBHOOK ist nicht gesetzt.")
 
     state = load_state()
     message_id = state.get("message_id")
 
     if message_id:
-        edit_url = (
-            f"{WEBHOOK_URL}/messages/{message_id}"
-        )
+        edit_url = f"{WEBHOOK_URL}/messages/{message_id}"
 
         try:
-            webhook_request(
-                edit_url,
-                method="PATCH",
-            )
-
-            print(
-                f"Discord-Kalender aktualisiert: "
-                f"{message_id}"
-            )
+            webhook_request(edit_url, method="PATCH")
+            print(f"Discord-Kalender aktualisiert: {message_id}")
             return
 
         except urllib.error.HTTPError as exc:
@@ -1097,8 +1087,7 @@ def post_or_update():
                 raise
 
             print(
-                "Gespeicherte Discord-Nachricht "
-                "existiert nicht mehr. "
+                "Gespeicherte Discord-Nachricht existiert nicht mehr. "
                 "Erstelle neue Nachricht."
             )
 
@@ -1110,26 +1099,16 @@ def post_or_update():
     new_id = result.get("id")
 
     if not new_id:
-        raise RuntimeError(
-            "Discord hat keine message_id zurückgegeben."
-        )
+        raise RuntimeError("Discord hat keine message_id zurückgegeben.")
 
-    save_state(
-        {
-            "message_id": new_id
-        }
-    )
+    save_state({"message_id": new_id})
+    print(f"Neue Discord-Kalendernachricht erstellt: {new_id}")
 
-    print(
-        f"Neue Discord-Kalendernachricht erstellt: "
-        f"{new_id}"
-    )
 
 # ============================================================
 # Main
 # ============================================================
 
 if __name__ == "__main__":
-    LAYOUT_MODE = "columns"
-    render_calendar()
+    render_calendar_cards()
     post_or_update()
