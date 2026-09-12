@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V9 · 2 Karten / Wochenübersicht + Terminlegende
+# Nyerk24 · Kalender V11 · Terminname vor Datum/Uhrzeit
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -63,9 +63,9 @@ LAYOUT_MODE = "stacked"
 SCALE = 1
 WIDTH = 1200
 
-MARGIN_X = 38
-TOP = 34
-BOTTOM_PAD = 38
+MARGIN_X = 28
+TOP = 24
+BOTTOM_PAD = 24
 
 TITLE_H = 76
 WEEK_HEADER_H = 62
@@ -675,17 +675,6 @@ def draw_events_block(draw, week_start, x, y, width):
 
         text_x = cell_x + 26
 
-        meta = dt.strftime("%d.%m.")
-        if event.get("time"):
-            meta += f" · {event['time']}"
-
-        draw.text(
-            (S(text_x), S(cell_y + 5)),
-            meta,
-            font=FONT_EVENT_META,
-            fill=TEXT_MUTED,
-        )
-
         title = ellipsize(
             draw,
             event["title"],
@@ -693,11 +682,23 @@ def draw_events_block(draw, week_start, x, y, width):
             col_w - 30,
         )
 
+        # Terminname zuerst, Datum/Uhrzeit darunter.
         draw.text(
-            (S(text_x), S(cell_y + 27)),
+            (S(text_x), S(cell_y + 5)),
             title,
             font=FONT_EVENT,
             fill=TEXT,
+        )
+
+        meta = dt.strftime("%d.%m.")
+        if event.get("time"):
+            meta += f" · {event['time']}"
+
+        draw.text(
+            (S(text_x), S(cell_y + 30)),
+            meta,
+            font=FONT_EVENT_META,
+            fill=TEXT_MUTED,
         )
 
     return height
@@ -831,7 +832,28 @@ def load_tracker_background():
 
 def crop_and_resize_background(image, width, height):
     if image is None:
-        return create_background(width, height).convert("RGBA")
+        return Image.new(
+            "RGBA",
+            (width, height),
+            (10, 11, 14, 255),
+        )
+
+    # Trim a tiny amount from the source edges first so no dark source-border
+    # can become visible after fitting.
+    sw, sh = image.size
+
+    trim_x = max(0, int(sw * 0.012))
+    trim_y = max(0, int(sh * 0.012))
+
+    if trim_x or trim_y:
+        image = image.crop(
+            (
+                trim_x,
+                trim_y,
+                sw - trim_x,
+                sh - trim_y,
+            )
+        )
 
     sw, sh = image.size
     target_ratio = width / height
@@ -840,19 +862,47 @@ def crop_and_resize_background(image, width, height):
     if source_ratio > target_ratio:
         new_w = int(sh * target_ratio)
         left = (sw - new_w) // 2
-        image = image.crop((left, 0, left + new_w, sh))
+        image = image.crop(
+            (
+                left,
+                0,
+                left + new_w,
+                sh,
+            )
+        )
     else:
         new_h = int(sw / target_ratio)
         top = (sh - new_h) // 2
-        image = image.crop((0, top, sw, top + new_h))
+        image = image.crop(
+            (
+                0,
+                top,
+                sw,
+                top + new_h,
+            )
+        )
 
-    image = image.resize((width, height), Image.Resampling.LANCZOS)
+    image = image.resize(
+        (width, height),
+        Image.Resampling.LANCZOS,
+    )
 
-    dark = Image.new("RGBA", image.size, (5, 6, 9, 130))
-    return Image.alpha_composite(image, dark)
+    # Smoke stays visible, but slightly darkened for readable UI text.
+    dark = Image.new(
+        "RGBA",
+        image.size,
+        (5, 6, 9, 105),
+    )
+
+    return Image.alpha_composite(
+        image,
+        dark,
+    )
 
 
 def card_canvas(width, height, background_source):
+    # Smoke fills the COMPLETE image area.
+    # No extra dark/black outer canvas is added around the card.
     image = crop_and_resize_background(
         background_source.copy() if background_source is not None else None,
         width,
@@ -862,13 +912,21 @@ def card_canvas(width, height, background_source):
     overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
 
+    # Very subtle readability gradient only; it does not create a frame.
     fade_end = int(width * 0.72)
+
     for x in range(fade_end):
         progress = x / max(1, fade_end - 1)
-        alpha = int(70 * ((1.0 - progress) ** 1.5))
-        od.line((x, 0, x, height), fill=(0, 0, 0, alpha))
+        alpha = int(54 * ((1.0 - progress) ** 1.5))
+        od.line(
+            (x, 0, x, height),
+            fill=(0, 0, 0, alpha),
+        )
 
-    return Image.alpha_composite(image, overlay).convert("RGB")
+    return Image.alpha_composite(
+        image,
+        overlay,
+    ).convert("RGB")
 
 
 # ============================================================
