@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V17 · Abwesenheit + Icon-Ausrichtung
+# Nyerk24 · Kalender V18 · Hintergrundkante entfernt
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -921,22 +921,27 @@ def crop_and_resize_background(image, width, height):
             (10, 11, 14, 255),
         )
 
-    # Trim a tiny amount from the source edges first so no dark source-border
-    # can become visible after fitting.
+    # Der Tracker-Hintergrund selbst besitzt am unteren Rand eine sehr dunkle
+    # Abschlusskante. Bei der höheren Kalenderkarte wurde diese mit skaliert
+    # und dadurch als schwarzer Streifen sichtbar.
+    #
+    # Deshalb die Quelle bewusst asymmetrisch beschneiden:
+    # seitlich/oben nur minimal, unten deutlich stärker.
     sw, sh = image.size
 
-    trim_x = max(0, int(sw * 0.012))
-    trim_y = max(0, int(sh * 0.012))
+    trim_left = max(0, int(sw * 0.018))
+    trim_right = max(0, int(sw * 0.018))
+    trim_top = max(0, int(sh * 0.018))
+    trim_bottom = max(0, int(sh * 0.065))
 
-    if trim_x or trim_y:
-        image = image.crop(
-            (
-                trim_x,
-                trim_y,
-                sw - trim_x,
-                sh - trim_y,
-            )
+    image = image.crop(
+        (
+            trim_left,
+            trim_top,
+            sw - trim_right,
+            sh - trim_bottom,
         )
+    )
 
     sw, sh = image.size
     target_ratio = width / height
