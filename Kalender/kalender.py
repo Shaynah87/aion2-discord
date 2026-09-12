@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V19 · kompakter Kopf + Abwesenheit
+# Nyerk24 · Kalender V21 · symmetrische Außenränder + 14-Tage-Vermerk
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -68,7 +68,7 @@ MARGIN_X = 28
 TOP = 24
 BOTTOM_PAD = 24
 
-TITLE_H = 48
+TITLE_H = 64
 WEEK_HEADER_H = 56
 WEEK_CELL_H = 104
 NEXT_WEEK_DATE_H = 34
@@ -813,7 +813,10 @@ def relevant_absences(week_start):
 def absence_block_height(week_start):
     count = max(1, len(relevant_absences(week_start)))
     rows = math.ceil(count / 4)
-    return 44 + rows * ABSENCE_ROW_H + 8
+
+    # Nur die tatsächliche Höhe des Abwesenheitsbereichs.
+    # Der äußere untere Rand wird separat exakt mit TOP angesetzt.
+    return 44 + rows * ABSENCE_ROW_H
 
 
 def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
@@ -830,7 +833,7 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
         fill=TEXT,
     )
 
-    start_y = y + 64
+    start_y = y + 44
 
     if not items:
         draw.text(
@@ -1039,6 +1042,7 @@ def render_week_card(week_start, now, background_source):
         + events_h
         + absences_gap
         + absences_h
+        + TOP
     )
 
     image = card_canvas(WIDTH, height, background_source)
@@ -1049,6 +1053,19 @@ def render_week_card(week_start, now, background_source):
         "WOCHENÜBERSICHT",
         font=FONT_TITLE,
         fill=TEXT,
+    )
+
+    # Kleiner Vermerk über den gesamten sichtbaren 14-Tage-Zeitraum.
+    range_end = week_start + timedelta(days=13)
+    range_text = (
+        f"{week_start.strftime('%d.%m.')} – "
+        f"{range_end.strftime('%d.%m.%Y')}"
+    )
+    draw.text(
+        (MARGIN_X, TOP + 34),
+        range_text,
+        font=FONT_SUBTITLE,
+        fill=TEXT_MUTED,
     )
 
     week_y = TOP + TITLE_H
