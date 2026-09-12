@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V13 · kompakte Woche + Vorschauwoche + PIL-Icons
+# Nyerk24 · Kalender V14 · 14-Tage-Block + PIL-Icons
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -650,6 +650,14 @@ def draw_next_week_preview(image, draw, week_start, x, y, width):
     cell_w = width / 7
     total_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
 
+    # Klare horizontale Trennung zwischen aktueller Woche und Folgewoche.
+    draw_line(
+        draw,
+        (x, y, x + width, y),
+        GRID,
+        1,
+    )
+
     for day_index in range(7):
         day_dt = next_start + timedelta(days=day_index)
         x1 = x + day_index * cell_w
@@ -1009,20 +1017,19 @@ def card_canvas(width, height, background_source):
 
 def render_week_card(week_start, now, background_source):
     week_h = WEEK_HEADER_H + WEEK_CELL_H
-    events_h = event_list_height()
     preview_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
+    events_h = event_list_height()
 
+    # Folgewoche sitzt direkt unter der Hauptwoche – ohne Abstand.
     events_gap = 18
-    preview_gap = 16
 
     height = (
         TOP
         + TITLE_H
         + week_h
+        + preview_h
         + events_gap
         + events_h
-        + preview_gap
-        + preview_h
         + BOTTOM_PAD
     )
 
@@ -1045,6 +1052,7 @@ def render_week_card(week_start, now, background_source):
 
     week_y = TOP + TITLE_H
 
+    # Aktuelle Woche
     draw_week_overview(
         image,
         draw,
@@ -1055,20 +1063,9 @@ def render_week_card(week_start, now, background_source):
         WIDTH - 2 * MARGIN_X,
     )
 
-    # Keine Überschrift "Termine diese Woche" mehr.
-    events_y = week_y + week_h + events_gap
-    draw_events_block(
-        image,
-        draw,
-        week_start,
-        MARGIN_X,
-        events_y,
-        WIDTH - 2 * MARGIN_X,
-    )
-
-    # Kleine Folgewoche: keine Überschrift, keine Wochentage,
-    # nur fortlaufende Daten und Icons.
-    preview_y = events_y + events_h + preview_gap
+    # Folgewoche direkt anschließend:
+    # nur Datum + zugehörige Icons, keine erneuten Wochentage, keine Überschrift.
+    preview_y = week_y + week_h
     draw_next_week_preview(
         image,
         draw,
@@ -1078,8 +1075,19 @@ def render_week_card(week_start, now, background_source):
         WIDTH - 2 * MARGIN_X,
     )
 
+    # Terminauflösung erst unter dem kompletten 14-Tage-Block.
+    events_y = preview_y + preview_h + events_gap
+    draw_events_block(
+        image,
+        draw,
+        week_start,
+        MARGIN_X,
+        events_y,
+        WIDTH - 2 * MARGIN_X,
+    )
+
     image.save(WEEK_FILE, "PNG", optimize=True)
-    print(f"Kompakte Wochenkarte mit Folgewoche erstellt: {WEEK_FILE}")
+    print(f"14-Tage-Wochenkarte erstellt: {WEEK_FILE}")
 
 
 def render_absences_card(week_start, background_source):
