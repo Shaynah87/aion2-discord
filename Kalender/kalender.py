@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V15 · alles in einer Karte + 4 Spalten
+# Nyerk24 · Kalender V17 · Abwesenheit + Icon-Ausrichtung
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -753,11 +753,12 @@ def draw_events_block(image, draw, week_start, x, y, width):
         dt = event_date(week_start, event)
         color = TYPE_COLORS.get(event["type"], TEXT)
 
+        # Icon auf Höhe des Termin-Namens.
         draw_event_icon(
             image,
             event["type"],
             cell_x + 11,
-            cell_y + EVENT_ROW_H / 2,
+            cell_y + 14,
             24,
             color,
         )
@@ -824,7 +825,7 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
     # Kein grauer Panel-Hintergrund mehr.
     draw.text(
         (S(x + INNER_PAD), S(y + 18)),
-        "AKTUELLE ABWESENHEITEN",
+        "ABWESENHEIT",
         font=FONT_SECTION,
         fill=TEXT,
     )
@@ -1033,7 +1034,6 @@ def render_week_card(week_start, now, background_source):
         + events_h
         + absences_gap
         + absences_h
-        + BOTTOM_PAD
     )
 
     image = card_canvas(WIDTH, height, background_source)
