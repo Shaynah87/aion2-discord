@@ -25,7 +25,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # - darunter vollständige "Termine diese Woche"
 # - eigener Block "Aktuelle Abwesenheiten"
 # - zwei Layouts testbar:
-#       LAYOUT_MODE = "stacked"
+#       LAYOUT_MODE = "columns"
 #       LAYOUT_MODE = "columns"
 # - Discord Webhook + persistente message_id bleiben erhalten
 # ============================================================
@@ -1224,5 +1224,6 @@ def render_comparison():
 # ============================================================
 
 if __name__ == "__main__":
-    render_comparison()
+    LAYOUT_MODE = "columns"
+    render_calendar()
     post_or_update()
