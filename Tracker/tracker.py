@@ -2,6 +2,8 @@
 import os
 import json
 import urllib.request
+import urllib.error
+import time
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -17,6 +19,15 @@ BASE_DIR = Path(__file__).resolve().parent
 
 DATA_FILE = BASE_DIR / "tracker_data.json"
 STATE_FILE = BASE_DIR / "tracker_message.json"
+
+
+# ============================================================
+# NETZWERK / RETRY
+# ============================================================
+
+MAX_NETWORK_ATTEMPTS = 3
+RETRY_DELAYS = (5, 15)
+
 
 
 # ============================================================
@@ -458,24 +469,103 @@ def build_event_overview(
 
 
 # ============================================================
+# NETZWERK-FALLBACK
+# ============================================================
+
+def run_with_retry(operation, description):
+    """
+    Führt eine Netzwerkaktion bis zu 3-mal aus.
+
+    Wiederholt werden:
+    - kurzzeitige Netzwerk-/Timeout-Fehler
+    - Discord/API 429 (Rate Limit)
+    - Serverfehler 5xx
+
+    Andere HTTP-Fehler (z. B. 401/403/404) werden nicht blind
+    wiederholt, weil ein Retry sie normalerweise nicht behebt.
+    """
+    for attempt in range(1, MAX_NETWORK_ATTEMPTS + 1):
+        try:
+            result = operation()
+
+            if attempt > 1:
+                print(
+                    f"{description}: erfolgreich im Versuch "
+                    f"{attempt}/{MAX_NETWORK_ATTEMPTS}."
+                )
+
+            return result
+
+        except urllib.error.HTTPError as exc:
+            retryable = exc.code == 429 or 500 <= exc.code <= 599
+
+            if not retryable or attempt >= MAX_NETWORK_ATTEMPTS:
+                print(
+                    f"{description}: fehlgeschlagen "
+                    f"(HTTP {exc.code}, Versuch "
+                    f"{attempt}/{MAX_NETWORK_ATTEMPTS})."
+                )
+                raise
+
+            delay = RETRY_DELAYS[attempt - 1]
+
+            retry_after = exc.headers.get("Retry-After")
+            if retry_after:
+                try:
+                    delay = max(delay, float(retry_after))
+                except (TypeError, ValueError):
+                    pass
+
+            print(
+                f"{description}: HTTP {exc.code}. "
+                f"Neuer Versuch in {delay:g} Sekunden "
+                f"({attempt}/{MAX_NETWORK_ATTEMPTS})."
+            )
+            time.sleep(delay)
+
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt >= MAX_NETWORK_ATTEMPTS:
+                print(
+                    f"{description}: nach "
+                    f"{MAX_NETWORK_ATTEMPTS} Versuchen fehlgeschlagen: "
+                    f"{exc}"
+                )
+                raise
+
+            delay = RETRY_DELAYS[attempt - 1]
+
+            print(
+                f"{description}: temporärer Netzwerkfehler: {exc}. "
+                f"Neuer Versuch in {delay:g} Sekunden "
+                f"({attempt}/{MAX_NETWORK_ATTEMPTS})."
+            )
+            time.sleep(delay)
+
+
+# ============================================================
 # HINTERGRÜNDE LADEN
 # ============================================================
 
 def load_image_from_url(url):
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent":
-                "AION2-Schedule-Bot"
-        },
+    def download():
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent":
+                    "AION2-Schedule-Bot"
+            },
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=30,
+        ) as response:
+            return response.read()
+
+    image_data = run_with_retry(
+        download,
+        "Hintergrundbild laden",
     )
-
-    with urllib.request.urlopen(
-        request,
-        timeout=30,
-    ) as response:
-
-        image_data = response.read()
 
     return Image.open(
         BytesIO(image_data)
@@ -2443,7 +2533,7 @@ def build_embeds(data):
 # MULTIPART DISCORD REQUEST
 # ============================================================
 
-def webhook_request_with_files(
+def _webhook_request_with_files_once(
     url,
     payload,
     file_paths,
@@ -2543,6 +2633,23 @@ def webhook_request_with_files(
                 "utf-8"
             )
         )
+
+
+def webhook_request_with_files(
+    url,
+    payload,
+    file_paths,
+    method="POST",
+):
+    return run_with_retry(
+        lambda: _webhook_request_with_files_once(
+            url,
+            payload,
+            file_paths,
+            method=method,
+        ),
+        f"Discord {method}",
+    )
 
 
 # ============================================================
