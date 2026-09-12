@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V7 · 3 Karten / Tracker-Stil
+# Nyerk24 · Kalender V9 · 2 Karten / Wochenübersicht + Terminlegende
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -32,7 +32,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 BASE_DIR = Path(__file__).resolve().parent
 WEEK_FILE = BASE_DIR / "kalender_woche.png"
-EVENTS_FILE = BASE_DIR / "kalender_termine.png"
 ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
 
@@ -76,8 +75,8 @@ SECTION_GAP = 24
 CARD_RADIUS = 15
 INNER_PAD = 22
 
-EVENT_ROW_H = 44
-ABSENCE_ROW_H = 44
+EVENT_ROW_H = 62
+ABSENCE_ROW_H = 62
 
 def S(value):
     return int(round(value * SCALE))
@@ -143,11 +142,11 @@ FONT_SUBTITLE = font(15, False)
 FONT_DAY = font(16, True)
 FONT_DATE = font(13, False)
 
-FONT_SECTION = font(17, True)
-FONT_EVENT = font(15, True)
-FONT_EVENT_META = font(13, False)
-FONT_ABSENCE = font(15, True)
-FONT_ABSENCE_DATE = font(13, False)
+FONT_SECTION = font(22, True)
+FONT_EVENT = font(18, True)
+FONT_EVENT_META = font(14, False)
+FONT_ABSENCE = font(18, True)
+FONT_ABSENCE_DATE = font(14, False)
 
 FONT_SYMBOL_BIG = font(31, True)
 FONT_SYMBOL_SMALL = font(22, True)
@@ -480,17 +479,12 @@ def draw_week_overview(draw, week_start, now, x, y, width):
     cell_w = width / 7
     header_h = WEEK_HEADER_H
     body_h = WEEK_CELL_H
-
     total_h = header_h + body_h
 
-    rounded_rect(
-        draw,
-        (x, y, x + width, y + total_h),
-        CARD_RADIUS,
-        PANEL,
-    )
+    # Kein grauer Gesamt-Container mehr:
+    # Raster, Wochenende und "Heute" liegen direkt auf dem Smoke-Hintergrund.
 
-    # Wochenende
+    # Wochenende dezent markieren.
     for day in (5, 6):
         x1 = x + day * cell_w
         x2 = x1 + cell_w
@@ -515,14 +509,12 @@ def draw_week_overview(draw, week_start, now, x, y, width):
             fill=WEEKEND_BG,
         )
 
-    # Tagesköpfe + Symbole
     for day_index, day_name in enumerate(day_names):
         day_dt = week_start + timedelta(days=day_index)
 
         x1 = x + day_index * cell_w
         cx = x1 + cell_w / 2
 
-        # heute dezent hinterlegen
         if day_dt.date() == now.date():
             draw.rectangle(
                 (
@@ -552,20 +544,15 @@ def draw_week_overview(draw, week_start, now, x, y, width):
             TEXT_MUTED,
         )
 
-        # Symbole
-        symbol_area_y = y + header_h
-        events = events_for_day(day_index)
-
         draw_day_symbols(
             draw,
-            events,
+            events_for_day(day_index),
             x1,
-            symbol_area_y,
+            y + header_h,
             cell_w,
             body_h,
         )
 
-    # Rasterlinien
     draw_line(
         draw,
         (x, y + header_h, x + width, y + header_h),
@@ -582,8 +569,10 @@ def draw_week_overview(draw, week_start, now, x, y, width):
             1,
         )
 
-    # HEUTE-Rahmen ganz zum Schluss,
-    # damit keine Rasterlinie durch den Rahmen läuft.
+    # Dezente obere und untere Begrenzung statt eines grauen Kastens.
+    draw_line(draw, (x, y, x + width, y), GRID, 1)
+    draw_line(draw, (x, y + total_h, x + width, y + total_h), GRID, 1)
+
     if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
         today_idx = now.weekday()
         tx1 = x + today_idx * cell_w + 2
@@ -601,8 +590,6 @@ def draw_week_overview(draw, week_start, now, x, y, width):
             width=S(2),
         )
 
-        # Symbole des heutigen Tages noch einmal über den Rahmen zeichnen.
-        # So darf der Marker bewusst "über" dem Rahmen liegen.
         draw_day_symbols(
             draw,
             events_for_day(today_idx),
@@ -632,18 +619,16 @@ def sorted_events():
     )
 
 def event_list_height():
-    return 58 + max(1, len(EVENTS)) * EVENT_ROW_H + 18
+    count = max(1, len(EVENTS))
+    rows = math.ceil(count / 3)
+    return 72 + rows * EVENT_ROW_H + 22
+
 
 def draw_events_block(draw, week_start, x, y, width):
     height = event_list_height()
 
-    rounded_rect(
-        draw,
-        (x, y, x + width, y + height),
-        CARD_RADIUS,
-        PANEL,
-    )
-
+    # Kein grauer Panel-Hintergrund mehr.
+    # Inhalt liegt direkt auf dem gemeinsamen Smoke-Hintergrund.
     draw.text(
         (S(x + INNER_PAD), S(y + 18)),
         "TERMINE DIESE WOCHE",
@@ -651,69 +636,72 @@ def draw_events_block(draw, week_start, x, y, width):
         fill=TEXT,
     )
 
-    current_y = y + 58
-
     events = sorted_events()
+    start_y = y + 64
 
     if not events:
         draw.text(
-            (S(x + INNER_PAD), S(current_y)),
+            (S(x + INNER_PAD), S(start_y + 8)),
             "Keine besonderen Termine in dieser Woche.",
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
         )
         return height
 
-    for event in events:
+    columns = min(3, len(events))
+    gap = 26
+    usable_w = width - 2 * INNER_PAD
+    col_w = (usable_w - gap * 2) / 3
+
+    for index, event in enumerate(events):
+        row = index // 3
+        col = index % 3
+
+        cell_x = x + INNER_PAD + col * (col_w + gap)
+        cell_y = start_y + row * EVENT_ROW_H
+
         dt = event_date(week_start, event)
         color = TYPE_COLORS.get(event["type"], TEXT)
 
-        symbol_x = x + INNER_PAD + 10
+        symbol_x = cell_x + 8
         centered_text(
             draw,
             symbol_x,
-            current_y + EVENT_ROW_H / 2,
+            cell_y + EVENT_ROW_H / 2,
             event["symbol"],
             FONT_EVENT,
             color,
         )
 
-        date_text = dt.strftime("%d.%m.")
-        meta = date_text
+        text_x = cell_x + 26
 
+        meta = dt.strftime("%d.%m.")
         if event.get("time"):
             meta += f" · {event['time']}"
 
-        meta_x = x + INNER_PAD + 34
-
         draw.text(
-            (S(meta_x), S(current_y + 6)),
+            (S(text_x), S(cell_y + 5)),
             meta,
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
         )
 
-        title_x = meta_x
-        title_y = current_y + 22
-
-        max_title_w = width - (title_x - x) - INNER_PAD
         title = ellipsize(
             draw,
             event["title"],
             FONT_EVENT,
-            max_title_w,
+            col_w - 30,
         )
 
         draw.text(
-            (S(title_x), S(title_y)),
+            (S(text_x), S(cell_y + 27)),
             title,
             font=FONT_EVENT,
             fill=TEXT,
         )
 
-        current_y += EVENT_ROW_H
-
     return height
+
 
 # ============================================================
 # Abwesenheiten
@@ -740,7 +728,9 @@ def relevant_absences(week_start):
 
 def absence_block_height(week_start):
     count = max(1, len(relevant_absences(week_start)))
-    return 58 + count * ABSENCE_ROW_H + 18
+    rows = math.ceil(count / 3)
+    return 72 + rows * ABSENCE_ROW_H + 22
+
 
 def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
     items = relevant_absences(week_start)
@@ -748,13 +738,7 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
     own_height = absence_block_height(week_start)
     height = max(own_height, forced_height or 0)
 
-    rounded_rect(
-        draw,
-        (x, y, x + width, y + height),
-        CARD_RADIUS,
-        PANEL,
-    )
-
+    # Kein grauer Panel-Hintergrund mehr.
     draw.text(
         (S(x + INNER_PAD), S(y + 18)),
         "AKTUELLE ABWESENHEITEN",
@@ -762,23 +746,32 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
         fill=TEXT,
     )
 
-    current_y = y + 58
+    start_y = y + 64
 
     if not items:
         draw.text(
-            (S(x + INNER_PAD), S(current_y + 7)),
+            (S(x + INNER_PAD), S(start_y + 8)),
             "Keine Abwesenheiten gemeldet.",
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
         )
         return height
 
-    for item in items:
+    gap = 26
+    usable_w = width - 2 * INNER_PAD
+    col_w = (usable_w - gap * 2) / 3
+
+    for index, item in enumerate(items):
+        row = index // 3
+        col = index % 3
+
+        cell_x = x + INNER_PAD + col * (col_w + gap)
+        cell_y = start_y + row * ABSENCE_ROW_H
+
         start_dt, end_dt = absence_dates(week_start, item)
 
-        # kleiner violetter Marker
-        marker_x = x + INNER_PAD + 6
-        marker_y = current_y + ABSENCE_ROW_H / 2
+        marker_x = cell_x + 6
+        marker_y = cell_y + 24
 
         draw.ellipse(
             (
@@ -790,17 +783,17 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
             fill=ABSENCE,
         )
 
-        text_x = x + INNER_PAD + 24
+        text_x = cell_x + 22
 
         name = ellipsize(
             draw,
             item["name"],
             FONT_ABSENCE,
-            width - (text_x - x) - INNER_PAD,
+            col_w - 28,
         )
 
         draw.text(
-            (S(text_x), S(current_y + 4)),
+            (S(text_x), S(cell_y + 4)),
             name,
             font=FONT_ABSENCE,
             fill=TEXT,
@@ -809,13 +802,11 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
         date_label = f"{fmt_date(start_dt)} – {fmt_date(end_dt)}"
 
         draw.text(
-            (S(text_x), S(current_y + 23)),
+            (S(text_x), S(cell_y + 29)),
             date_label,
             font=FONT_ABSENCE_DATE,
             fill=TEXT_MUTED,
         )
-
-        current_y += ABSENCE_ROW_H
 
     return height
 
@@ -886,7 +877,20 @@ def card_canvas(width, height, background_source):
 
 def render_week_card(week_start, now, background_source):
     week_h = WEEK_HEADER_H + WEEK_CELL_H
-    height = TOP + TITLE_H + week_h + BOTTOM_PAD
+
+    # Wochenraster bleibt immer gleich groß.
+    # Nur der darunterliegende Termin-/Legendenbereich wächst dynamisch.
+    legend_h = event_list_height()
+    legend_gap = 22
+
+    height = (
+        TOP
+        + TITLE_H
+        + week_h
+        + legend_gap
+        + legend_h
+        + BOTTOM_PAD
+    )
 
     image = card_canvas(WIDTH, height, background_source)
     draw = ImageDraw.Draw(image)
@@ -905,36 +909,44 @@ def render_week_card(week_start, now, background_source):
         fill=TEXT_MUTED,
     )
 
+    week_y = TOP + TITLE_H
+
     draw_week_overview(
         draw,
         week_start,
         now,
         MARGIN_X,
-        TOP + TITLE_H,
+        week_y,
         WIDTH - 2 * MARGIN_X,
     )
 
-    image.save(WEEK_FILE, "PNG", optimize=True)
-    print(f"Wochenkarte erstellt: {WEEK_FILE}")
+    # Dezente Trennlinie zwischen festem Wochenraster und Legende.
+    legend_y = week_y + week_h + legend_gap
 
+    draw_line(
+        draw,
+        (
+            MARGIN_X,
+            legend_y - 10,
+            WIDTH - MARGIN_X,
+            legend_y - 10,
+        ),
+        GRID,
+        1,
+    )
 
-def render_events_card(week_start, background_source):
-    block_h = event_list_height()
-    height = TOP + block_h + BOTTOM_PAD
-
-    image = card_canvas(WIDTH, height, background_source)
-    draw = ImageDraw.Draw(image)
-
+    # Die Terminliste ist gleichzeitig die Legende für die Symbole oben.
+    # Maximal drei Termine nebeneinander, danach nächste Zeile.
     draw_events_block(
         draw,
         week_start,
         MARGIN_X,
-        TOP,
+        legend_y,
         WIDTH - 2 * MARGIN_X,
     )
 
-    image.save(EVENTS_FILE, "PNG", optimize=True)
-    print(f"Terminkarte erstellt: {EVENTS_FILE}")
+    image.save(WEEK_FILE, "PNG", optimize=True)
+    print(f"Wochenkarte inkl. Terminlegende erstellt: {WEEK_FILE}")
 
 
 def render_absences_card(week_start, background_source):
@@ -963,7 +975,6 @@ def render_calendar_cards():
     background_source = load_tracker_background()
 
     render_week_card(week_start, now, background_source)
-    render_events_card(week_start, background_source)
     render_absences_card(week_start, background_source)
 
 
@@ -1030,7 +1041,6 @@ def multipart_body(payload_json, file_paths):
 def webhook_request(url, method="POST"):
     files = [
         WEEK_FILE,
-        EVENTS_FILE,
         ABSENCES_FILE,
     ]
 
@@ -1038,7 +1048,6 @@ def webhook_request(url, method="POST"):
         "content": "",
         "embeds": [
             {"image": {"url": f"attachment://{WEEK_FILE.name}"}},
-            {"image": {"url": f"attachment://{EVENTS_FILE.name}"}},
             {"image": {"url": f"attachment://{ABSENCES_FILE.name}"}},
         ],
         "attachments": [
