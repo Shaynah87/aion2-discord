@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V11 · Terminname vor Datum/Uhrzeit
+# Nyerk24 · Kalender V13 · kompakte Woche + Vorschauwoche + PIL-Icons
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -22,7 +22,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # - 3 Symbole = Dreieck (2 oben, 1 unten)
 # - 4 Symbole = 2x2
 # - bei 2/3/4 immer gleiche Symbolgröße
-# - darunter vollständige "Termine diese Woche"
+# - darunter Terminauflösung ohne zusätzliche Überschrift
+# - darunter kleine Vorschau der Folgewoche nur mit Datum + Icons
 # - eigener Block "Aktuelle Abwesenheiten"
 # - zwei Layouts testbar:
 #       LAYOUT_MODE = "columns"
@@ -67,15 +68,17 @@ MARGIN_X = 28
 TOP = 24
 BOTTOM_PAD = 24
 
-TITLE_H = 76
-WEEK_HEADER_H = 62
-WEEK_CELL_H = 132
-SECTION_GAP = 24
+TITLE_H = 72
+WEEK_HEADER_H = 56
+WEEK_CELL_H = 104
+NEXT_WEEK_DATE_H = 34
+NEXT_WEEK_ICON_H = 62
+SECTION_GAP = 18
 
 CARD_RADIUS = 15
 INNER_PAD = 22
 
-EVENT_ROW_H = 62
+EVENT_ROW_H = 58
 ABSENCE_ROW_H = 62
 
 def S(value):
@@ -148,8 +151,6 @@ FONT_EVENT_META = font(14, False)
 FONT_ABSENCE = font(18, True)
 FONT_ABSENCE_DATE = font(14, False)
 
-FONT_SYMBOL_BIG = font(31, True)
-FONT_SYMBOL_SMALL = font(22, True)
 
 # ============================================================
 # TESTDATEN
@@ -167,6 +168,7 @@ FONT_SYMBOL_SMALL = font(22, True)
 #   4 Termine an einem Tag
 #
 # So kann die neue Symbollogik sofort geprüft werden.
+# Optional: week_offset=1 legt einen Termin in die Folgewoche.
 # ============================================================
 
 EVENTS = [
@@ -390,90 +392,200 @@ def create_background(width, height):
     return image.convert("RGB")
 
 # ============================================================
-# EVENT-SYMBOLLOGIK 1–4
+# SAUBERE PIL-ICONS + SYMBOLLOGIK 1–4
 # ============================================================
 
+ICON_RENDER_SCALE = 4
+
+
+def _icon_canvas(size):
+    px = max(24, int(size * ICON_RENDER_SCALE))
+    return Image.new("RGBA", (px, px), (0, 0, 0, 0)), px, ICON_RENDER_SCALE
+
+
+def _pt(value, scale):
+    return int(round(value * scale))
+
+
+def make_event_icon(event_type, size, color):
+    image, px, sc = _icon_canvas(size)
+    d = ImageDraw.Draw(image)
+    c = tuple(color) + (255,)
+    w = max(2, _pt(size * 0.075, sc))
+    cx = px / 2
+    cy = px / 2
+
+    if event_type == "release":
+        body = [
+            (_pt(size * 0.50, sc), _pt(size * 0.10, sc)),
+            (_pt(size * 0.70, sc), _pt(size * 0.32, sc)),
+            (_pt(size * 0.60, sc), _pt(size * 0.62, sc)),
+            (_pt(size * 0.38, sc), _pt(size * 0.76, sc)),
+            (_pt(size * 0.24, sc), _pt(size * 0.62, sc)),
+            (_pt(size * 0.38, sc), _pt(size * 0.40, sc)),
+        ]
+        d.line(body + [body[0]], fill=c, width=w, joint="curve")
+        d.ellipse(
+            (
+                _pt(size * 0.47, sc), _pt(size * 0.27, sc),
+                _pt(size * 0.57, sc), _pt(size * 0.37, sc),
+            ),
+            outline=c, width=w,
+        )
+        d.line(
+            (
+                _pt(size * 0.28, sc), _pt(size * 0.70, sc),
+                _pt(size * 0.15, sc), _pt(size * 0.84, sc),
+            ),
+            fill=c, width=w,
+        )
+        d.line(
+            (
+                _pt(size * 0.35, sc), _pt(size * 0.77, sc),
+                _pt(size * 0.26, sc), _pt(size * 0.90, sc),
+            ),
+            fill=c, width=w,
+        )
+
+    elif event_type == "season":
+        pts = [
+            (_pt(size * 0.16, sc), _pt(size * 0.34, sc)),
+            (_pt(size * 0.32, sc), _pt(size * 0.58, sc)),
+            (_pt(size * 0.50, sc), _pt(size * 0.28, sc)),
+            (_pt(size * 0.68, sc), _pt(size * 0.58, sc)),
+            (_pt(size * 0.84, sc), _pt(size * 0.34, sc)),
+            (_pt(size * 0.76, sc), _pt(size * 0.72, sc)),
+            (_pt(size * 0.24, sc), _pt(size * 0.72, sc)),
+        ]
+        d.line(pts + [pts[0]], fill=c, width=w, joint="curve")
+        d.line(
+            (
+                _pt(size * 0.24, sc), _pt(size * 0.78, sc),
+                _pt(size * 0.76, sc), _pt(size * 0.78, sc),
+            ),
+            fill=c, width=w,
+        )
+
+    elif event_type == "raid":
+        d.line(
+            (
+                _pt(size * 0.24, sc), _pt(size * 0.18, sc),
+                _pt(size * 0.76, sc), _pt(size * 0.78, sc),
+            ),
+            fill=c, width=w,
+        )
+        d.line(
+            (
+                _pt(size * 0.76, sc), _pt(size * 0.18, sc),
+                _pt(size * 0.24, sc), _pt(size * 0.78, sc),
+            ),
+            fill=c, width=w,
+        )
+        d.line(
+            (
+                _pt(size * 0.20, sc), _pt(size * 0.67, sc),
+                _pt(size * 0.40, sc), _pt(size * 0.67, sc),
+            ),
+            fill=c, width=w,
+        )
+        d.line(
+            (
+                _pt(size * 0.60, sc), _pt(size * 0.67, sc),
+                _pt(size * 0.80, sc), _pt(size * 0.67, sc),
+            ),
+            fill=c, width=w,
+        )
+
+    elif event_type == "guild":
+        pts = [
+            (_pt(size * 0.50, sc), _pt(size * 0.12, sc)),
+            (_pt(size * 0.78, sc), _pt(size * 0.24, sc)),
+            (_pt(size * 0.72, sc), _pt(size * 0.60, sc)),
+            (_pt(size * 0.50, sc), _pt(size * 0.84, sc)),
+            (_pt(size * 0.28, sc), _pt(size * 0.60, sc)),
+            (_pt(size * 0.22, sc), _pt(size * 0.24, sc)),
+        ]
+        d.line(pts + [pts[0]], fill=c, width=w, joint="curve")
+        d.line(
+            (
+                _pt(size * 0.50, sc), _pt(size * 0.25, sc),
+                _pt(size * 0.50, sc), _pt(size * 0.68, sc),
+            ),
+            fill=c, width=max(1, w - 1),
+        )
+
+    else:
+        pts = []
+        for i in range(16):
+            angle = -math.pi / 2 + i * math.pi / 8
+            r = size * (0.36 if i % 2 == 0 else 0.15) * sc
+            pts.append((cx + math.cos(angle) * r, cy + math.sin(angle) * r))
+        d.polygon(pts, outline=c)
+
+    return image.resize((int(size), int(size)), Image.Resampling.LANCZOS)
+
+
+def draw_event_icon(base_image, event_type, center_x, center_y, size, color):
+    icon = make_event_icon(event_type, size, color)
+    x = int(round(center_x - icon.width / 2))
+    y = int(round(center_y - icon.height / 2))
+    base_image.paste(icon, (x, y), icon)
+
+
 def get_symbol_layout(cell_x, cell_y, cell_w, cell_h, count):
-    """
-    1 Termin:
-        ein großes Symbol exakt mittig
-
-    2 Termine:
-        zwei gleich große Symbole links / rechts
-
-    3 Termine:
-        Dreieck -> zwei oben, eins unten
-
-    4 Termine:
-        2x2
-
-    Wichtig:
-        2 / 3 / 4 verwenden exakt dieselbe Symbolgröße.
-    """
-
     if count <= 0:
-        return [], FONT_SYMBOL_SMALL
+        return [], 0
 
     cx = cell_x + cell_w / 2
     cy = cell_y + cell_h / 2
 
     if count == 1:
-        return [(cx, cy)], FONT_SYMBOL_BIG
+        return [(cx, cy)], 38
 
     dx = cell_w * 0.20
-    dy = cell_h * 0.19
+    dy = cell_h * 0.20
+    icon_size = 27
 
     if count == 2:
-        positions = [
-            (cx - dx, cy),
-            (cx + dx, cy),
-        ]
-
+        positions = [(cx - dx, cy), (cx + dx, cy)]
     elif count == 3:
-        positions = [
-            (cx - dx, cy - dy),
-            (cx + dx, cy - dy),
-            (cx, cy + dy),
-        ]
-
+        positions = [(cx - dx, cy - dy), (cx + dx, cy - dy), (cx, cy + dy)]
     else:
         positions = [
-            (cx - dx, cy - dy),
-            (cx + dx, cy - dy),
-            (cx - dx, cy + dy),
-            (cx + dx, cy + dy),
+            (cx - dx, cy - dy), (cx + dx, cy - dy),
+            (cx - dx, cy + dy), (cx + dx, cy + dy),
         ]
 
-    return positions, FONT_SYMBOL_SMALL
+    return positions, icon_size
 
-def events_for_day(day_index):
-    return [event for event in EVENTS if event["day"] == day_index][:4]
 
-def draw_day_symbols(draw, events, cell_x, cell_y, cell_w, cell_h):
-    positions, symbol_font = get_symbol_layout(
-        cell_x,
-        cell_y,
-        cell_w,
-        cell_h,
-        len(events),
+def events_for_day(day_index, week_offset=0):
+    return [
+        event for event in EVENTS
+        if event["day"] == day_index and event.get("week_offset", 0) == week_offset
+    ][:4]
+
+
+def draw_day_symbols(image, events, cell_x, cell_y, cell_w, cell_h, preview=False):
+    positions, icon_size = get_symbol_layout(
+        cell_x, cell_y, cell_w, cell_h, len(events)
     )
+
+    if preview and len(events) == 1:
+        icon_size = 30
+    elif preview and len(events) > 1:
+        icon_size = 23
 
     for event, (cx, cy) in zip(events, positions):
         color = TYPE_COLORS.get(event["type"], TEXT)
-        centered_text(
-            draw,
-            cx,
-            cy,
-            event["symbol"],
-            symbol_font,
-            color,
-        )
+        draw_event_icon(image, event["type"], cx, cy, icon_size, color)
+
 
 # ============================================================
 # Wochenübersicht
 # ============================================================
 
-def draw_week_overview(draw, week_start, now, x, y, width):
+def draw_week_overview(image, draw, week_start, now, x, y, width):
     day_names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
 
     cell_w = width / 7
@@ -481,125 +593,106 @@ def draw_week_overview(draw, week_start, now, x, y, width):
     body_h = WEEK_CELL_H
     total_h = header_h + body_h
 
-    # Kein grauer Gesamt-Container mehr:
-    # Raster, Wochenende und "Heute" liegen direkt auf dem Smoke-Hintergrund.
-
-    # Wochenende dezent markieren.
     for day in (5, 6):
         x1 = x + day * cell_w
         x2 = x1 + cell_w
-
-        draw.rectangle(
-            (
-                S(x1),
-                S(y),
-                S(x2),
-                S(y + header_h),
-            ),
-            fill=WEEKEND_HEADER,
-        )
-
-        draw.rectangle(
-            (
-                S(x1),
-                S(y + header_h),
-                S(x2),
-                S(y + total_h),
-            ),
-            fill=WEEKEND_BG,
-        )
+        draw.rectangle((S(x1), S(y), S(x2), S(y + header_h)), fill=WEEKEND_HEADER)
+        draw.rectangle((S(x1), S(y + header_h), S(x2), S(y + total_h)), fill=WEEKEND_BG)
 
     for day_index, day_name in enumerate(day_names):
         day_dt = week_start + timedelta(days=day_index)
-
         x1 = x + day_index * cell_w
         cx = x1 + cell_w / 2
 
         if day_dt.date() == now.date():
             draw.rectangle(
                 (
-                    S(x1 + 1),
-                    S(y + 1),
-                    S(x1 + cell_w - 1),
-                    S(y + total_h - 1),
+                    S(x1 + 1), S(y + 1),
+                    S(x1 + cell_w - 1), S(y + total_h - 1),
                 ),
                 fill=TODAY_FILL,
             )
 
-        centered_text(
-            draw,
-            cx,
-            y + 20,
-            day_name,
-            FONT_DAY,
-            TEXT,
-        )
-
-        centered_text(
-            draw,
-            cx,
-            y + 43,
-            day_dt.strftime("%d.%m."),
-            FONT_DATE,
-            TEXT_MUTED,
-        )
+        centered_text(draw, cx, y + 18, day_name, FONT_DAY, TEXT)
+        centered_text(draw, cx, y + 39, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
 
         draw_day_symbols(
-            draw,
-            events_for_day(day_index),
-            x1,
-            y + header_h,
-            cell_w,
-            body_h,
+            image,
+            events_for_day(day_index, week_offset=0),
+            x1, y + header_h, cell_w, body_h,
         )
 
-    draw_line(
-        draw,
-        (x, y + header_h, x + width, y + header_h),
-        GRID,
-        1,
-    )
+    draw_line(draw, (x, y + header_h, x + width, y + header_h), GRID, 1)
 
     for i in range(1, 7):
         lx = x + i * cell_w
-        draw_line(
-            draw,
-            (lx, y, lx, y + total_h),
-            GRID,
-            1,
-        )
-
-    # Dezente obere und untere Begrenzung statt eines grauen Kastens.
-    draw_line(draw, (x, y, x + width, y), GRID, 1)
-    draw_line(draw, (x, y + total_h, x + width, y + total_h), GRID, 1)
+        draw_line(draw, (lx, y, lx, y + total_h), GRID, 1)
 
     if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
         today_idx = now.weekday()
         tx1 = x + today_idx * cell_w + 2
         tx2 = tx1 + cell_w - 4
-
         draw.rounded_rectangle(
             (
-                S(tx1),
-                S(y + 2),
-                S(tx2),
-                S(y + total_h - 2),
+                S(tx1), S(y + 2),
+                S(tx2), S(y + total_h - 2),
             ),
             radius=S(9),
             outline=TODAY_BORDER,
             width=S(2),
         )
 
-        draw_day_symbols(
+    return total_h
+
+
+def draw_next_week_preview(image, draw, week_start, x, y, width):
+    next_start = week_start + timedelta(days=7)
+    cell_w = width / 7
+    total_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
+
+    for day_index in range(7):
+        day_dt = next_start + timedelta(days=day_index)
+        x1 = x + day_index * cell_w
+        cx = x1 + cell_w / 2
+
+        if day_index in (5, 6):
+            draw.rectangle(
+                (S(x1), S(y), S(x1 + cell_w), S(y + total_h)),
+                fill=WEEKEND_BG,
+            )
+
+        centered_text(
             draw,
-            events_for_day(today_idx),
-            x + today_idx * cell_w,
-            y + header_h,
-            cell_w,
-            body_h,
+            cx,
+            y + NEXT_WEEK_DATE_H / 2,
+            day_dt.strftime("%d.%m."),
+            FONT_DATE,
+            TEXT_MUTED,
         )
 
+        draw_day_symbols(
+            image,
+            events_for_day(day_index, week_offset=1),
+            x1,
+            y + NEXT_WEEK_DATE_H,
+            cell_w,
+            NEXT_WEEK_ICON_H,
+            preview=True,
+        )
+
+    draw_line(
+        draw,
+        (x, y + NEXT_WEEK_DATE_H, x + width, y + NEXT_WEEK_DATE_H),
+        GRID,
+        1,
+    )
+
+    for i in range(1, 7):
+        lx = x + i * cell_w
+        draw_line(draw, (lx, y, lx, y + total_h), GRID, 1)
+
     return total_h
+
 
 # ============================================================
 # Terminliste
@@ -608,9 +701,9 @@ def draw_week_overview(draw, week_start, now, x, y, width):
 def event_date(week_start, event):
     return week_start + timedelta(days=event["day"])
 
-def sorted_events():
+def sorted_events(week_offset=0):
     return sorted(
-        EVENTS,
+        [e for e in EVENTS if e.get("week_offset", 0) == week_offset],
         key=lambda e: (
             e["day"],
             e.get("time", ""),
@@ -619,25 +712,15 @@ def sorted_events():
     )
 
 def event_list_height():
-    count = max(1, len(EVENTS))
+    count = max(1, len(sorted_events(week_offset=0)))
     rows = math.ceil(count / 3)
-    return 72 + rows * EVENT_ROW_H + 22
+    return rows * EVENT_ROW_H + 10
 
 
-def draw_events_block(draw, week_start, x, y, width):
+def draw_events_block(image, draw, week_start, x, y, width):
     height = event_list_height()
-
-    # Kein grauer Panel-Hintergrund mehr.
-    # Inhalt liegt direkt auf dem gemeinsamen Smoke-Hintergrund.
-    draw.text(
-        (S(x + INNER_PAD), S(y + 18)),
-        "TERMINE DIESE WOCHE",
-        font=FONT_SECTION,
-        fill=TEXT,
-    )
-
-    events = sorted_events()
-    start_y = y + 64
+    events = sorted_events(week_offset=0)
+    start_y = y
 
     if not events:
         draw.text(
@@ -648,7 +731,6 @@ def draw_events_block(draw, week_start, x, y, width):
         )
         return height
 
-    columns = min(3, len(events))
     gap = 26
     usable_w = width - 2 * INNER_PAD
     col_w = (usable_w - gap * 2) / 3
@@ -663,28 +745,20 @@ def draw_events_block(draw, week_start, x, y, width):
         dt = event_date(week_start, event)
         color = TYPE_COLORS.get(event["type"], TEXT)
 
-        symbol_x = cell_x + 8
-        centered_text(
-            draw,
-            symbol_x,
+        draw_event_icon(
+            image,
+            event["type"],
+            cell_x + 11,
             cell_y + EVENT_ROW_H / 2,
-            event["symbol"],
-            FONT_EVENT,
+            24,
             color,
         )
 
-        text_x = cell_x + 26
+        text_x = cell_x + 30
+        title = ellipsize(draw, event["title"], FONT_EVENT, col_w - 34)
 
-        title = ellipsize(
-            draw,
-            event["title"],
-            FONT_EVENT,
-            col_w - 30,
-        )
-
-        # Terminname zuerst, Datum/Uhrzeit darunter.
         draw.text(
-            (S(text_x), S(cell_y + 5)),
+            (S(text_x), S(cell_y + 4)),
             title,
             font=FONT_EVENT,
             fill=TEXT,
@@ -695,7 +769,7 @@ def draw_events_block(draw, week_start, x, y, width):
             meta += f" · {event['time']}"
 
         draw.text(
-            (S(text_x), S(cell_y + 30)),
+            (S(text_x), S(cell_y + 29)),
             meta,
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
@@ -935,18 +1009,20 @@ def card_canvas(width, height, background_source):
 
 def render_week_card(week_start, now, background_source):
     week_h = WEEK_HEADER_H + WEEK_CELL_H
+    events_h = event_list_height()
+    preview_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
 
-    # Wochenraster bleibt immer gleich groß.
-    # Nur der darunterliegende Termin-/Legendenbereich wächst dynamisch.
-    legend_h = event_list_height()
-    legend_gap = 22
+    events_gap = 18
+    preview_gap = 16
 
     height = (
         TOP
         + TITLE_H
         + week_h
-        + legend_gap
-        + legend_h
+        + events_gap
+        + events_h
+        + preview_gap
+        + preview_h
         + BOTTOM_PAD
     )
 
@@ -970,6 +1046,7 @@ def render_week_card(week_start, now, background_source):
     week_y = TOP + TITLE_H
 
     draw_week_overview(
+        image,
         draw,
         week_start,
         now,
@@ -978,33 +1055,31 @@ def render_week_card(week_start, now, background_source):
         WIDTH - 2 * MARGIN_X,
     )
 
-    # Dezente Trennlinie zwischen festem Wochenraster und Legende.
-    legend_y = week_y + week_h + legend_gap
-
-    draw_line(
-        draw,
-        (
-            MARGIN_X,
-            legend_y - 10,
-            WIDTH - MARGIN_X,
-            legend_y - 10,
-        ),
-        GRID,
-        1,
-    )
-
-    # Die Terminliste ist gleichzeitig die Legende für die Symbole oben.
-    # Maximal drei Termine nebeneinander, danach nächste Zeile.
+    # Keine Überschrift "Termine diese Woche" mehr.
+    events_y = week_y + week_h + events_gap
     draw_events_block(
+        image,
         draw,
         week_start,
         MARGIN_X,
-        legend_y,
+        events_y,
+        WIDTH - 2 * MARGIN_X,
+    )
+
+    # Kleine Folgewoche: keine Überschrift, keine Wochentage,
+    # nur fortlaufende Daten und Icons.
+    preview_y = events_y + events_h + preview_gap
+    draw_next_week_preview(
+        image,
+        draw,
+        week_start,
+        MARGIN_X,
+        preview_y,
         WIDTH - 2 * MARGIN_X,
     )
 
     image.save(WEEK_FILE, "PNG", optimize=True)
-    print(f"Wochenkarte inkl. Terminlegende erstellt: {WEEK_FILE}")
+    print(f"Kompakte Wochenkarte mit Folgewoche erstellt: {WEEK_FILE}")
 
 
 def render_absences_card(week_start, background_source):
