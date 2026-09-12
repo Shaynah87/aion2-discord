@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V14 · 14-Tage-Block + PIL-Icons
+# Nyerk24 · Kalender V15 · alles in einer Karte + 4 Spalten
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -721,7 +721,7 @@ def sorted_events(week_offset=0):
 
 def event_list_height():
     count = max(1, len(sorted_events(week_offset=0)))
-    rows = math.ceil(count / 3)
+    rows = math.ceil(count / 4)
     return rows * EVENT_ROW_H + 10
 
 
@@ -739,13 +739,13 @@ def draw_events_block(image, draw, week_start, x, y, width):
         )
         return height
 
-    gap = 26
+    gap = 18
     usable_w = width - 2 * INNER_PAD
-    col_w = (usable_w - gap * 2) / 3
+    col_w = (usable_w - gap * 3) / 4
 
     for index, event in enumerate(events):
-        row = index // 3
-        col = index % 3
+        row = index // 4
+        col = index % 4
 
         cell_x = x + INNER_PAD + col * (col_w + gap)
         cell_y = start_y + row * EVENT_ROW_H
@@ -811,8 +811,8 @@ def relevant_absences(week_start):
 
 def absence_block_height(week_start):
     count = max(1, len(relevant_absences(week_start)))
-    rows = math.ceil(count / 3)
-    return 72 + rows * ABSENCE_ROW_H + 22
+    rows = math.ceil(count / 4)
+    return 72 + rows * ABSENCE_ROW_H + 14
 
 
 def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
@@ -840,13 +840,13 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
         )
         return height
 
-    gap = 26
+    gap = 18
     usable_w = width - 2 * INNER_PAD
-    col_w = (usable_w - gap * 2) / 3
+    col_w = (usable_w - gap * 3) / 4
 
     for index, item in enumerate(items):
-        row = index // 3
-        col = index % 3
+        row = index // 4
+        col = index % 4
 
         cell_x = x + INNER_PAD + col * (col_w + gap)
         cell_y = start_y + row * ABSENCE_ROW_H
@@ -1019,9 +1019,10 @@ def render_week_card(week_start, now, background_source):
     week_h = WEEK_HEADER_H + WEEK_CELL_H
     preview_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
     events_h = event_list_height()
+    absences_h = absence_block_height(week_start)
 
-    # Folgewoche sitzt direkt unter der Hauptwoche – ohne Abstand.
     events_gap = 18
+    absences_gap = 14
 
     height = (
         TOP
@@ -1030,6 +1031,8 @@ def render_week_card(week_start, now, background_source):
         + preview_h
         + events_gap
         + events_h
+        + absences_gap
+        + absences_h
         + BOTTOM_PAD
     )
 
@@ -1052,7 +1055,7 @@ def render_week_card(week_start, now, background_source):
 
     week_y = TOP + TITLE_H
 
-    # Aktuelle Woche
+    # Aktuelle Woche.
     draw_week_overview(
         image,
         draw,
@@ -1063,8 +1066,7 @@ def render_week_card(week_start, now, background_source):
         WIDTH - 2 * MARGIN_X,
     )
 
-    # Folgewoche direkt anschließend:
-    # nur Datum + zugehörige Icons, keine erneuten Wochentage, keine Überschrift.
+    # Folgewoche direkt darunter, ohne Abstand.
     preview_y = week_y + week_h
     draw_next_week_preview(
         image,
@@ -1075,7 +1077,7 @@ def render_week_card(week_start, now, background_source):
         WIDTH - 2 * MARGIN_X,
     )
 
-    # Terminauflösung erst unter dem kompletten 14-Tage-Block.
+    # Terminauflösung unter dem kompletten 14-Tage-Block.
     events_y = preview_y + preview_h + events_gap
     draw_events_block(
         image,
@@ -1086,9 +1088,18 @@ def render_week_card(week_start, now, background_source):
         WIDTH - 2 * MARGIN_X,
     )
 
-    image.save(WEEK_FILE, "PNG", optimize=True)
-    print(f"14-Tage-Wochenkarte erstellt: {WEEK_FILE}")
+    # Abwesenheiten direkt unter die Termine.
+    absences_y = events_y + events_h + absences_gap
+    draw_absences_block(
+        draw,
+        week_start,
+        MARGIN_X,
+        absences_y,
+        WIDTH - 2 * MARGIN_X,
+    )
 
+    image.save(WEEK_FILE, "PNG", optimize=True)
+    print(f"Komplette Kalenderkarte erstellt: {WEEK_FILE}")
 
 def render_absences_card(week_start, background_source):
     block_h = absence_block_height(week_start)
@@ -1115,8 +1126,8 @@ def render_calendar_cards():
 
     background_source = load_tracker_background()
 
+    # Kalender, Termine und Abwesenheiten jetzt in EINEM Bild.
     render_week_card(week_start, now, background_source)
-    render_absences_card(week_start, background_source)
 
 
 # ============================================================
@@ -1182,14 +1193,12 @@ def multipart_body(payload_json, file_paths):
 def webhook_request(url, method="POST"):
     files = [
         WEEK_FILE,
-        ABSENCES_FILE,
     ]
 
     payload = {
         "content": "",
         "embeds": [
             {"image": {"url": f"attachment://{WEEK_FILE.name}"}},
-            {"image": {"url": f"attachment://{ABSENCES_FILE.name}"}},
         ],
         "attachments": [
             {
