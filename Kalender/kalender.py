@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V18 · Hintergrundkante entfernt
+# Nyerk24 · Kalender V19 · kompakter Kopf + Abwesenheit
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -68,7 +68,7 @@ MARGIN_X = 28
 TOP = 24
 BOTTOM_PAD = 24
 
-TITLE_H = 72
+TITLE_H = 48
 WEEK_HEADER_H = 56
 WEEK_CELL_H = 104
 NEXT_WEEK_DATE_H = 34
@@ -813,7 +813,7 @@ def relevant_absences(week_start):
 def absence_block_height(week_start):
     count = max(1, len(relevant_absences(week_start)))
     rows = math.ceil(count / 4)
-    return 72 + rows * ABSENCE_ROW_H + 14
+    return 44 + rows * ABSENCE_ROW_H + 8
 
 
 def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
@@ -835,7 +835,7 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
     if not items:
         draw.text(
             (S(x + INNER_PAD), S(start_y + 8)),
-            "Keine Abwesenheiten gemeldet.",
+            "Keine",
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
         )
@@ -1049,13 +1049,6 @@ def render_week_card(week_start, now, background_source):
         "WOCHENÜBERSICHT",
         font=FONT_TITLE,
         fill=TEXT,
-    )
-
-    draw.text(
-        (MARGIN_X, TOP + 36),
-        week_title(week_start),
-        font=FONT_SUBTITLE,
-        fill=TEXT_MUTED,
     )
 
     week_y = TOP + TITLE_H
