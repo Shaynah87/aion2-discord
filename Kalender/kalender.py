@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V6
+# Nyerk24 · Kalender V7 HiDPI / Tracker-Rendering
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -53,7 +53,7 @@ LAYOUT_MODE = "stacked"
 # Rendering / Größe
 # ------------------------------------------------------------
 
-SCALE = 1
+SCALE = 2
 WIDTH = 1200
 
 MARGIN_X = 38
@@ -936,10 +936,15 @@ def render_calendar():
         )
 
     # --------------------------------------------------------
-    # Direkt in Discord-Zielauflösung speichern
+    # HiDPI-Ausgabe für Discord
     #
-    # Kein nachträgliches LANCZOS-Downscaling:
-    # dadurch bleiben besonders kleine Schriften und Linien schärfer.
+    # Der Kalender wird intern mit SCALE=2 gezeichnet:
+    # 1200 logische Pixel = 2400 echte Bildpixel.
+    #
+    # WICHTIG:
+    # Anders als vorher wird das Bild NICHT wieder auf 1200 px
+    # heruntergerechnet. Dadurch bleiben Schrift, Linien und Symbole
+    # in der breiten Discord-Darstellung deutlich schärfer.
     # --------------------------------------------------------
 
     image.save(
