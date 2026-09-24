@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
 # ============================================================
 # Nyerk24 · Kalender V29 · Rollierende 14 Tage + Special Launch Days
@@ -664,7 +664,19 @@ def draw_special_day_background(image, box, kind):
         )
         left = max(0, (resized.width - w) // 2)
         top = max(0, (resized.height - h) // 2)
-        art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
+        art = resized.crop((left, top, left + w, top + h)).convert("RGB")
+
+        # Motive bewusst sichtbar halten: Global Launch braucht vor allem mehr
+        # Kontrast/Farbe, damit die Figuren nicht im grauen Kalender verschwinden.
+        if kind == "global":
+            art = ImageEnhance.Contrast(art).enhance(1.30)
+            art = ImageEnhance.Color(art).enhance(1.22)
+            art = ImageEnhance.Brightness(art).enhance(1.08)
+        else:
+            art = ImageEnhance.Contrast(art).enhance(1.16)
+            art = ImageEnhance.Color(art).enhance(1.14)
+            art = ImageEnhance.Brightness(art).enhance(1.06)
+        art = art.convert("RGBA")
 
         # Kein "Sticker": Motiv weich in den vorhandenen Kalender einblenden.
         # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
@@ -672,7 +684,7 @@ def draw_special_day_background(image, box, kind):
         px = mask.load()
         feather_x = max(18, int(w * 0.24))
         feather_y = max(14, int(h * 0.22))
-        max_alpha = 205
+        max_alpha = 235
         for yy in range(h):
             fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
             fy = max(0.0, fy)
@@ -685,7 +697,7 @@ def draw_special_day_background(image, box, kind):
         merged = Image.composite(art, base, mask)
 
         # Leichte dunkle Lesefläche ohne das Motiv zuzukleben.
-        shade = Image.new("RGBA", (w, h), (6, 8, 12, 18))
+        shade = Image.new("RGBA", (w, h), (6, 8, 12, 6))
         merged = Image.alpha_composite(merged, shade)
         image.paste(merged.convert("RGB"), (x1, y1))
     except Exception as exc:
@@ -717,19 +729,13 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         special = special_launch_kind(day_dt, day_events)
         if special:
             draw_special_day_background(image, (x1, y, x1 + cell_w, y + row_h), special)
-        if day_dt == now_date:
-            # Bei Special Days das Motiv nicht mit einer Vollfläche überdecken.
-            if not special:
-                draw.rounded_rectangle(
-                    (S(x1 + 2), S(y + 2), S(x1 + cell_w - 2), S(y + row_h - 2)),
-                    radius=S(8), fill=TODAY_FILL,
-                )
 
     for idx in range(7):
         day_dt = start_date + timedelta(days=idx)
         x1 = x + idx * cell_w
         cx = x1 + cell_w / 2
-        centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, TEXT)
+        day_name_color = (151, 187, 190) if day_dt.weekday() >= 5 else TEXT
+        centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, day_name_color)
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
 
         ev_y = y + DAY_HEADER_H + 7
@@ -787,18 +793,6 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     draw_line(draw, (x, y, x + width, y), GRID, 1)
     draw_line(draw, (x, y + DAY_HEADER_H, x + width, y + DAY_HEADER_H), GRID, 1)
 
-    # Wochenende nur im Kopf kennzeichnen – keine flächige Tönung der Tageszelle.
-    for i in range(7):
-        day_dt = start_date + timedelta(days=i)
-        if day_dt.weekday() >= 5:
-            x1 = x + i * cell_w
-            accent_y = y + DAY_HEADER_H - 2
-            draw_line(
-                draw,
-                (x1 + 10, accent_y, x1 + cell_w - 10, accent_y),
-                (83, 119, 122),
-                2,
-            )
     draw_line(draw, (x, y + row_h, x + width, y + row_h), GRID, 1)
     for i in range(1, 7):
         lx = x + i * cell_w
