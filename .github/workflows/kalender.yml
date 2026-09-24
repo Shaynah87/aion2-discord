@@ -25,6 +25,7 @@ jobs:
       - name: Kalender erstellen und Discord aktualisieren
         env:
           KALENDER_WEBHOOK: ${{ secrets.KALENDER_WEBHOOK }}
+          KALENDER_API_KEY: ${{ secrets.KALENDER_API_KEY }}
         run: python Kalender/kalender.py
 
       - name: Kalender-State speichern
