@@ -609,8 +609,18 @@ def rolling_row_height(draw, start_date, width):
         day_date = start_date + timedelta(days=i)
         events = list(events_for_date(day_date))
         special = special_launch_kind(day_date, events)
-        if special == "global" and not any("global launch" in str(e.get("title") or "").casefold() for e in events):
-            events.append({"title": "Global Launch", "time": "", "type": "release"})
+        if special in ("early", "global"):
+            # Special-Text wird separat mittig gerendert; für die Mindesthöhe trotzdem berücksichtigen.
+            events = [
+                e for e in events
+                if "early access" not in str(e.get("title") or "").casefold()
+                and "global launch" not in str(e.get("title") or "").casefold()
+            ]
+            events.append({
+                "title": "Early Access" if special == "early" else "Global Launch",
+                "time": "15:00",
+                "type": "release",
+            })
         if not events:
             continue
         heights = [event_block_height(draw, event, cell_w - 20) for event in events]
@@ -662,7 +672,7 @@ def draw_special_day_background(image, box, kind):
         px = mask.load()
         feather_x = max(18, int(w * 0.24))
         feather_y = max(14, int(h * 0.22))
-        max_alpha = 145
+        max_alpha = 205
         for yy in range(h):
             fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
             fy = max(0.0, fy)
@@ -675,7 +685,7 @@ def draw_special_day_background(image, box, kind):
         merged = Image.composite(art, base, mask)
 
         # Leichte dunkle Lesefläche ohne das Motiv zuzukleben.
-        shade = Image.new("RGBA", (w, h), (6, 8, 12, 52))
+        shade = Image.new("RGBA", (w, h), (6, 8, 12, 18))
         merged = Image.alpha_composite(merged, shade)
         image.paste(merged.convert("RGB"), (x1, y1))
     except Exception as exc:
@@ -704,13 +714,6 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         day_dt = start_date + timedelta(days=idx)
         day_events = events_for_date(day_dt)
         x1 = x + idx * cell_w
-        if day_dt.weekday() >= 5:
-            # Nur eine transparente Tönung: Hintergrund/Nebel bleibt sichtbar.
-            wx1, wy1 = S(x1), S(y)
-            wx2, wy2 = S(x1 + cell_w), S(y + row_h)
-            overlay = Image.new("RGBA", (max(1, wx2-wx1), max(1, wy2-wy1)), (28, 45, 48, 38))
-            base = image.crop((wx1, wy1, wx2, wy2)).convert("RGBA")
-            image.paste(Image.alpha_composite(base, overlay).convert("RGB"), (wx1, wy1))
         special = special_launch_kind(day_dt, day_events)
         if special:
             draw_special_day_background(image, (x1, y, x1 + cell_w, y + row_h), special)
@@ -733,10 +736,47 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         day_events = events_for_date(day_dt)
         special = special_launch_kind(day_dt, day_events)
 
-        # Global Launch soll am 05.10. sichtbar sein, auch ohne separaten D1-Eintrag.
         display_events = list(day_events)
-        if special == "global" and not any("global launch" in str(e.get("title") or "").casefold() for e in display_events):
-            display_events.append({"title": "Global Launch", "time": "", "type": "release"})
+
+        # Einmalige Special Days sind vollständig unabhängig von D1.
+        if special in ("early", "global"):
+            # Eventuelle alte D1-Einträge dieser beiden Specials nicht doppelt anzeigen.
+            display_events = [
+                e for e in display_events
+                if "early access" not in str(e.get("title") or "").casefold()
+                and "global launch" not in str(e.get("title") or "").casefold()
+            ]
+
+            special_title = "Early Access" if special == "early" else "Global Launch"
+            special_time = "15:00"
+
+            title_font = FONT_EVENT_TITLE
+            time_font = FONT_EVENT_META
+            title_box = draw.textbbox((0, 0), special_title, font=title_font)
+            title_w = title_box[2] - title_box[0]
+            title_h = title_box[3] - title_box[1]
+            time_box = draw.textbbox((0, 0), special_time, font=time_font)
+            time_w = time_box[2] - time_box[0]
+            time_h = time_box[3] - time_box[1]
+
+            content_top = y + DAY_HEADER_H
+            content_h = row_h - DAY_HEADER_H
+            gap = 4
+            total_h = title_h + gap + time_h
+            special_y = content_top + max(5, (content_h - total_h) / 2)
+
+            draw.text(
+                (S(x1 + (cell_w - title_w) / 2), S(special_y)),
+                special_title,
+                font=title_font,
+                fill=TEXT_PRIMARY,
+            )
+            draw.text(
+                (S(x1 + (cell_w - time_w) / 2), S(special_y + title_h + gap)),
+                special_time,
+                font=time_font,
+                fill=TEXT_MUTED,
+            )
 
         for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
@@ -746,6 +786,19 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     # Eigene obere Linie pro Reihe: dadurch kann die zweite Reihe die Trennlinie nicht mehr übermalen.
     draw_line(draw, (x, y, x + width, y), GRID, 1)
     draw_line(draw, (x, y + DAY_HEADER_H, x + width, y + DAY_HEADER_H), GRID, 1)
+
+    # Wochenende nur im Kopf kennzeichnen – keine flächige Tönung der Tageszelle.
+    for i in range(7):
+        day_dt = start_date + timedelta(days=i)
+        if day_dt.weekday() >= 5:
+            x1 = x + i * cell_w
+            accent_y = y + DAY_HEADER_H - 2
+            draw_line(
+                draw,
+                (x1 + 10, accent_y, x1 + cell_w - 10, accent_y),
+                (83, 119, 122),
+                2,
+            )
     draw_line(draw, (x, y + row_h, x + width, y + row_h), GRID, 1)
     for i in range(1, 7):
         lx = x + i * cell_w
