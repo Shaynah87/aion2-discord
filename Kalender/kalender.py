@@ -657,16 +657,23 @@ def draw_special_day_background(image, box, kind):
         x1, y1, x2, y2 = [S(v) for v in box]
         w, h = max(1, x2 - x1), max(1, y2 - y1)
 
-        scale = max(w / src.width, h / src.height)
-        resized = src.resize(
-            (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-        left = max(0, (resized.width - w) // 2)
-        top = max(0, (resized.height - h) // 2)
-        # Originalmotiv bewusst natürlich lassen:
-        # kein künstlicher Kontrast, keine Sättigung, keine Aufhellung.
-        art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
+        if kind == "global":
+            scale = min(w / src.width, h / src.height)
+            resized = src.resize(
+                (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
+                Image.Resampling.LANCZOS,
+            ).convert("RGBA")
+            art = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            art.alpha_composite(resized, ((w - resized.width) // 2, (h - resized.height) // 2))
+        else:
+            scale = max(w / src.width, h / src.height)
+            resized = src.resize(
+                (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+            left = max(0, (resized.width - w) // 2)
+            top = max(0, (resized.height - h) // 2)
+            art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
 
         # Nur die Außenkanten weich in den vorhandenen Kalender einblenden.
         # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
@@ -727,8 +734,9 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         # Wochenende nur über SA/SO markieren:
         # fast das Türkis des HEUTE-Rahmens, aber leicht abgeschwächt.
         day_name_color = (48, 205, 201) if day_dt.weekday() >= 5 else TEXT
+        day_date_color = (83, 156, 156) if day_dt.weekday() >= 5 else TEXT_MUTED
         centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, day_name_color)
-        centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
+        centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, day_date_color)
 
         ev_y = y + DAY_HEADER_H + 7
         day_events = events_for_date(day_dt)
@@ -763,17 +771,46 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             total_h = title_h + gap + time_h
             special_y = content_top + max(5, (content_h - total_h) / 2)
 
+            title_x = x1 + (cell_w - title_w) / 2
+            time_x = x1 + (cell_w - time_w) / 2
+            time_y = special_y + title_h + gap
+
+            # Das Bild bleibt Hintergrund; Schrift bekommt nur einen weichen,
+            # unsichtbar auslaufenden dunklen Halo statt einer Box.
+            halo_pad_x, halo_pad_y = 11, 6
+            hx1 = min(title_x, time_x) - halo_pad_x
+            hx2 = max(title_x + title_w, time_x + time_w) + halo_pad_x
+            hy1 = special_y - halo_pad_y
+            hy2 = time_y + time_h + halo_pad_y
+            halo = Image.new(
+                "RGBA",
+                (max(1, S(hx2 - hx1)), max(1, S(hy2 - hy1))),
+                (0, 0, 0, 0),
+            )
+            hd = ImageDraw.Draw(halo)
+            hd.rounded_rectangle(
+                (0, 0, halo.width - 1, halo.height - 1),
+                radius=max(1, S(8)),
+                fill=(0, 0, 0, 145),
+            )
+            halo = halo.filter(ImageFilter.GaussianBlur(max(1, S(6))))
+            image.paste(halo, (S(hx1), S(hy1)), halo)
+
             draw.text(
-                (S(x1 + (cell_w - title_w) / 2), S(special_y)),
+                (S(title_x), S(special_y)),
                 special_title,
                 font=title_font,
-                fill=(238, 241, 244),
+                fill=(248, 250, 252),
+                stroke_width=1,
+                stroke_fill=(10, 12, 15),
             )
             draw.text(
-                (S(x1 + (cell_w - time_w) / 2), S(special_y + title_h + gap)),
+                (S(time_x), S(time_y)),
                 special_time,
                 font=time_font,
-                fill=(166, 173, 181),
+                fill=(220, 226, 231),
+                stroke_width=1,
+                stroke_fill=(10, 12, 15),
             )
 
         for event in display_events:
