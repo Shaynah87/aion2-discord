@@ -183,7 +183,7 @@ def load_calendar_data():
         headers={
             "X-Kalender-Key": kalender_token,
             "Accept": "application/json",
-            "User-Agent": "Nyerk24-Kalender/24.0",
+            "User-Agent": "Nyerk24-Kalender/25.0",
         },
     )
 
@@ -741,17 +741,17 @@ def absence_dates(week_start, item):
     return start_dt, end_dt
 
 def relevant_absences(week_start):
-    week_end = week_start + timedelta(days=6)
+    # Kalenderunabhängig: alle laufenden und zukünftigen Abwesenheiten.
+    today = datetime.now(TZ).date()
     result = []
 
     for absence in ABSENCES:
         start_dt, end_dt = absence_dates(week_start, absence)
-
-        # Relevant, wenn der Zeitraum diese Woche berührt
-        # oder darüber hinaus weiterläuft.
-        if end_dt.date() >= week_start.date() and start_dt.date() <= week_end.date():
+        if end_dt.date() >= today:
             result.append(absence)
 
+    # Nächste Abwesenheit zuerst, unabhängig von der Eintragungsreihenfolge.
+    result.sort(key=lambda item: absence_dates(week_start, item)[0])
     return result
 
 def absence_block_height(week_start):
@@ -830,7 +830,7 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
             fill=TEXT,
         )
 
-        date_label = f"{fmt_date(start_dt)} – {fmt_date(end_dt)}"
+        date_label = f"{start_dt.strftime('%d.%m.%Y')} – {end_dt.strftime('%d.%m.%Y')}"
 
         draw.text(
             (S(text_x), S(cell_y + 29)),
