@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
 # Nyerk24 · Kalender V29 · Rollierende 14 Tage + Special Launch Days
@@ -664,27 +664,17 @@ def draw_special_day_background(image, box, kind):
         )
         left = max(0, (resized.width - w) // 2)
         top = max(0, (resized.height - h) // 2)
-        art = resized.crop((left, top, left + w, top + h)).convert("RGB")
+        # Originalmotiv bewusst natürlich lassen:
+        # kein künstlicher Kontrast, keine Sättigung, keine Aufhellung.
+        art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
 
-        # Motive bewusst sichtbar halten: Global Launch braucht vor allem mehr
-        # Kontrast/Farbe, damit die Figuren nicht im grauen Kalender verschwinden.
-        if kind == "global":
-            art = ImageEnhance.Contrast(art).enhance(1.30)
-            art = ImageEnhance.Color(art).enhance(1.22)
-            art = ImageEnhance.Brightness(art).enhance(1.08)
-        else:
-            art = ImageEnhance.Contrast(art).enhance(1.16)
-            art = ImageEnhance.Color(art).enhance(1.14)
-            art = ImageEnhance.Brightness(art).enhance(1.06)
-        art = art.convert("RGBA")
-
-        # Kein "Sticker": Motiv weich in den vorhandenen Kalender einblenden.
+        # Nur die Außenkanten weich in den vorhandenen Kalender einblenden.
         # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
         mask = Image.new("L", (w, h), 0)
         px = mask.load()
         feather_x = max(18, int(w * 0.24))
         feather_y = max(14, int(h * 0.22))
-        max_alpha = 235
+        max_alpha = 220
         for yy in range(h):
             fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
             fy = max(0.0, fy)
@@ -697,7 +687,7 @@ def draw_special_day_background(image, box, kind):
         merged = Image.composite(art, base, mask)
 
         # Leichte dunkle Lesefläche ohne das Motiv zuzukleben.
-        shade = Image.new("RGBA", (w, h), (6, 8, 12, 6))
+        shade = Image.new("RGBA", (w, h), (6, 8, 12, 0))
         merged = Image.alpha_composite(merged, shade)
         image.paste(merged.convert("RGB"), (x1, y1))
     except Exception as exc:
@@ -734,7 +724,9 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         day_dt = start_date + timedelta(days=idx)
         x1 = x + idx * cell_w
         cx = x1 + cell_w / 2
-        day_name_color = (151, 187, 190) if day_dt.weekday() >= 5 else TEXT
+        # Wochenende nur über SA/SO markieren:
+        # fast das Türkis des HEUTE-Rahmens, aber leicht abgeschwächt.
+        day_name_color = (48, 205, 201) if day_dt.weekday() >= 5 else TEXT
         centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, day_name_color)
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
 
