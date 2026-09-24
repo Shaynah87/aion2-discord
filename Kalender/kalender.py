@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V24 · D1-Livedaten + SHA-256-Authentifizierung
+# Nyerk24 · Kalender V28 · Rollierende 14 Tage + dynamisches Layout
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -155,6 +155,20 @@ FONT_EVENT = font(18, True)
 FONT_EVENT_META = font(14, False)
 FONT_ABSENCE = font(18, True)
 FONT_ABSENCE_DATE = font(14, False)
+FONT_ABSENCE_GROUP = font(14, True)
+FONT_DAY_EVENT = font(13, True)
+FONT_DAY_EVENT_TIME = font(12, False)
+FONT_UPCOMING_DATE = font(13, True)
+
+# V28: kompakt, aber dynamisch wachsend
+ROLLING_DAYS = 14
+DAY_ROW_BASE_H = 92
+DAY_ROW_EVENT_LINE_H = 23
+DAY_ROW_EVENT_GAP = 4
+DAY_HEADER_H = 43
+DAY_ROW_PAD_BOTTOM = 10
+UPCOMING_ROW_H = 38
+
 
 
 # ============================================================
@@ -183,7 +197,7 @@ def load_calendar_data():
         headers={
             "X-Kalender-Key": kalender_token,
             "Accept": "application/json",
-            "User-Agent": "Nyerk24-Kalender/27.0",
+            "User-Agent": "Nyerk24-Kalender/28.0",
         },
     )
 
@@ -206,10 +220,6 @@ def load_calendar_data():
         except (KeyError, TypeError, ValueError):
             continue
 
-        delta = (dt.date() - week_start.date()).days
-        if not 0 <= delta <= 13:
-            continue
-
         raw_type = str(row.get("termin_typ") or "termin").strip().lower()
         type_aliases = {
             "meeting": "besprechung",
@@ -222,8 +232,7 @@ def load_calendar_data():
             event_type = "termin"
 
         events.append({
-            "day": delta % 7,
-            "week_offset": delta // 7,
+            "date": dt.date(),
             "type": event_type,
             "title": str(row.get("titel") or "Termin"),
             "time": str(row.get("uhrzeit") or "")[:5],
@@ -526,209 +535,141 @@ def draw_day_symbols(image, events, cell_x, cell_y, cell_w, cell_h, preview=Fals
 
 
 # ============================================================
-# Wochenübersicht
+# V28 · Rollierende 14-Tage-Übersicht
 # ============================================================
 
-def draw_week_overview(image, draw, week_start, now, x, y, width):
-    day_names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
-
-    cell_w = width / 7
-    header_h = WEEK_HEADER_H
-    body_h = WEEK_CELL_H
-    total_h = header_h + body_h
-
-    for day in (5, 6):
-        x1 = x + day * cell_w
-        x2 = x1 + cell_w
-        draw.rectangle((S(x1), S(y), S(x2), S(y + header_h)), fill=WEEKEND_HEADER)
-        draw.rectangle((S(x1), S(y + header_h), S(x2), S(y + total_h)), fill=WEEKEND_BG)
-
-    for day_index, day_name in enumerate(day_names):
-        day_dt = week_start + timedelta(days=day_index)
-        x1 = x + day_index * cell_w
-        cx = x1 + cell_w / 2
-
-        if day_dt.date() == now.date():
-            draw.rectangle(
-                (
-                    S(x1 + 1), S(y + 1),
-                    S(x1 + cell_w - 1), S(y + total_h - 1),
-                ),
-                fill=TODAY_FILL,
-            )
-
-        centered_text(draw, cx, y + 18, day_name, FONT_DAY, TEXT)
-        centered_text(draw, cx, y + 39, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
-
-        draw_day_symbols(
-            image,
-            events_for_day(day_index, week_offset=0),
-            x1, y + header_h, cell_w, body_h,
-        )
-
-    draw_line(draw, (x, y + header_h, x + width, y + header_h), GRID, 1)
-
-    for i in range(1, 7):
-        lx = x + i * cell_w
-        draw_line(draw, (lx, y, lx, y + total_h), GRID, 1)
-
-    if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
-        today_idx = now.weekday()
-        tx1 = x + today_idx * cell_w + 2
-        tx2 = tx1 + cell_w - 4
-        draw.rounded_rectangle(
-            (
-                S(tx1), S(y + 2),
-                S(tx2), S(y + total_h - 2),
-            ),
-            radius=S(9),
-            outline=TODAY_BORDER,
-            width=S(2),
-        )
-
-    return total_h
+DAY_NAMES = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
 
 
-def draw_next_week_preview(image, draw, week_start, x, y, width):
-    next_start = week_start + timedelta(days=7)
-    cell_w = width / 7
-    total_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
-
-    # Klare horizontale Trennung zwischen aktueller Woche und Folgewoche.
-    draw_line(
-        draw,
-        (x, y, x + width, y),
-        GRID,
-        1,
-    )
-
-    for day_index in range(7):
-        day_dt = next_start + timedelta(days=day_index)
-        x1 = x + day_index * cell_w
-        cx = x1 + cell_w / 2
-
-        if day_index in (5, 6):
-            draw.rectangle(
-                (S(x1), S(y), S(x1 + cell_w), S(y + total_h)),
-                fill=WEEKEND_BG,
-            )
-
-        centered_text(
-            draw,
-            cx,
-            y + NEXT_WEEK_DATE_H / 2,
-            day_dt.strftime("%d.%m."),
-            FONT_DATE,
-            TEXT_MUTED,
-        )
-
-        draw_day_symbols(
-            image,
-            events_for_day(day_index, week_offset=1),
-            x1,
-            y + NEXT_WEEK_DATE_H,
-            cell_w,
-            NEXT_WEEK_ICON_H,
-            preview=True,
-        )
-
-    draw_line(
-        draw,
-        (x, y + NEXT_WEEK_DATE_H, x + width, y + NEXT_WEEK_DATE_H),
-        GRID,
-        1,
-    )
-
-    for i in range(1, 7):
-        lx = x + i * cell_w
-        draw_line(draw, (lx, y, lx, y + total_h), GRID, 1)
-
-    return total_h
-
-
-# ============================================================
-# Terminliste
-# ============================================================
-
-def event_date(week_start, event):
-    return week_start + timedelta(days=event["day"])
-
-def sorted_events(week_offset=0):
+def events_for_date(day_date):
     return sorted(
-        [e for e in EVENTS if e.get("week_offset", 0) == week_offset],
-        key=lambda e: (
-            e["day"],
-            e.get("time", ""),
-            e["title"],
-        ),
+        [e for e in EVENTS if e.get("date") == day_date],
+        key=lambda e: (e.get("time", ""), e.get("title", "")),
     )
 
-def event_list_height():
-    count = max(1, len(sorted_events(week_offset=0)))
-    rows = math.ceil(count / 4)
-    return rows * EVENT_ROW_H + 10
+
+def visible_events(today):
+    end = today + timedelta(days=ROLLING_DAYS - 1)
+    return [e for e in EVENTS if today <= e.get("date", today) <= end]
 
 
-def draw_events_block(image, draw, week_start, x, y, width):
-    height = event_list_height()
-    events = sorted_events(week_offset=0)
-    start_y = y
+def upcoming_events(today):
+    cutoff = today + timedelta(days=ROLLING_DAYS)
+    return sorted(
+        [e for e in EVENTS if e.get("date") and e["date"] >= cutoff],
+        key=lambda e: (e["date"], e.get("time", ""), e.get("title", "")),
+    )
 
+
+def rolling_row_height(start_date):
+    max_events = max(len(events_for_date(start_date + timedelta(days=i))) for i in range(7))
+    if max_events == 0:
+        return DAY_ROW_BASE_H
+    content_h = DAY_HEADER_H + max_events * DAY_ROW_EVENT_LINE_H + max(0, max_events - 1) * DAY_ROW_EVENT_GAP + DAY_ROW_PAD_BOTTOM
+    return max(DAY_ROW_BASE_H, content_h)
+
+
+def draw_compact_event(draw, image, event, x, y, width):
+    color = TYPE_COLORS.get(event.get("type"), APPOINTMENT)
+    # kleiner farbiger Marker statt großer schwebender Symbole
+    draw.ellipse((S(x), S(y + 5), S(x + 7), S(y + 12)), fill=color)
+    text_x = x + 13
+    time_text = event.get("time", "")
+    time_w = text_width(draw, time_text, FONT_DAY_EVENT_TIME) if time_text else 0
+    reserve_for_time = (time_w / S(1) + 9) if time_text else 0
+    title_width = max(20, width - 18 - reserve_for_time)
+    title = ellipsize(draw, event.get("title", "Termin"), FONT_DAY_EVENT, title_width)
+    draw.text((S(text_x), S(y)), title, font=FONT_DAY_EVENT, fill=TEXT)
+    if time_text:
+        draw.text((S(x + width) - time_w, S(y + 1)), time_text, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED)
+
+
+def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
+    cell_w = width / 7
+    row_h = rolling_row_height(start_date)
+
+    # Hintergründe zuerst. Wochenende nur sehr subtil markieren.
+    for idx in range(7):
+        day_dt = start_date + timedelta(days=idx)
+        x1 = x + idx * cell_w
+        if day_dt.weekday() >= 5:
+            draw.rectangle((S(x1), S(y), S(x1 + cell_w), S(y + row_h)), fill=(22, 28, 31))
+        if day_dt == now_date:
+            draw.rounded_rectangle(
+                (S(x1 + 2), S(y + 2), S(x1 + cell_w - 2), S(y + row_h - 2)),
+                radius=S(8), fill=TODAY_FILL,
+            )
+
+    for idx in range(7):
+        day_dt = start_date + timedelta(days=idx)
+        x1 = x + idx * cell_w
+        cx = x1 + cell_w / 2
+        centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, TEXT)
+        centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
+
+        ev_y = y + DAY_HEADER_H + 4
+        for event in events_for_date(day_dt):
+            draw_compact_event(draw, image, event, x1 + 9, ev_y, cell_w - 18)
+            ev_y += DAY_ROW_EVENT_LINE_H + DAY_ROW_EVENT_GAP
+
+    # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende sichtbar bleiben.
+    draw_line(draw, (x, y + DAY_HEADER_H, x + width, y + DAY_HEADER_H), GRID, 1)
+    draw_line(draw, (x, y + row_h, x + width, y + row_h), GRID, 1)
+    for i in range(1, 7):
+        lx = x + i * cell_w
+        draw_line(draw, (lx, y, lx, y + row_h), GRID, 1)
+
+    # Heute-Rahmen ganz zuletzt.
+    if start_date <= now_date <= start_date + timedelta(days=6):
+        idx = (now_date - start_date).days
+        x1 = x + idx * cell_w
+        draw.rounded_rectangle(
+            (S(x1 + 2), S(y + 2), S(x1 + cell_w - 2), S(y + row_h - 2)),
+            radius=S(8), outline=TODAY_BORDER, width=S(2),
+        )
+    return row_h
+
+
+def draw_rolling_calendar(image, draw, today, x, y, width):
+    first_h = draw_rolling_row(image, draw, today, today, x, y, width)
+    second_start = today + timedelta(days=7)
+    second_y = y + first_h
+    second_h = draw_rolling_row(image, draw, second_start, today, x, second_y, width)
+    return first_h + second_h
+
+
+# ============================================================
+# Kommende Termine außerhalb der sichtbaren 14 Tage
+# ============================================================
+
+def upcoming_block_height(today):
+    events = upcoming_events(today)
     if not events:
-        draw.text(
-            (S(x + INNER_PAD), S(start_y + 8)),
-            "Keine besonderen Termine in dieser Woche.",
-            font=FONT_EVENT_META,
-            fill=TEXT_MUTED,
-        )
-        return height
+        return 0
+    return 42 + len(events) * UPCOMING_ROW_H
 
-    gap = 18
-    usable_w = width - 2 * INNER_PAD
-    col_w = (usable_w - gap * 3) / 4
 
-    for index, event in enumerate(events):
-        row = index // 4
-        col = index % 4
+def draw_upcoming_block(draw, today, x, y, width):
+    events = upcoming_events(today)
+    if not events:
+        return 0
 
-        cell_x = x + INNER_PAD + col * (col_w + gap)
-        cell_y = start_y + row * EVENT_ROW_H
-
-        dt = event_date(week_start, event)
-        color = TYPE_COLORS.get(event["type"], TEXT)
-
-        # Icon auf Höhe des Termin-Namens.
-        draw_event_icon(
-            image,
-            event["type"],
-            cell_x + 11,
-            cell_y + 14,
-            24,
-            color,
-        )
-
-        text_x = cell_x + 30
-        title = ellipsize(draw, event["title"], FONT_EVENT, col_w - 34)
-
-        draw.text(
-            (S(text_x), S(cell_y + 4)),
-            title,
-            font=FONT_EVENT,
-            fill=TEXT,
-        )
-
-        meta = dt.strftime("%d.%m.")
+    draw.text((S(x + INNER_PAD), S(y)), "KOMMENDE TERMINE", font=FONT_SECTION, fill=TEXT)
+    cursor = y + 39
+    for event in events:
+        color = TYPE_COLORS.get(event.get("type"), APPOINTMENT)
+        draw.ellipse((S(x + INNER_PAD), S(cursor + 8), S(x + INNER_PAD + 7), S(cursor + 15)), fill=color)
+        date_text = event["date"].strftime("%d.%m.%Y")
+        draw.text((S(x + INNER_PAD + 15), S(cursor + 1)), date_text, font=FONT_UPCOMING_DATE, fill=TEXT)
+        date_w = text_width(draw, date_text, FONT_UPCOMING_DATE)
+        title_x = x + INNER_PAD + 24 + date_w / S(1)
+        title = event.get("title", "Termin")
         if event.get("time"):
-            meta += f" · {event['time']}"
-
-        draw.text(
-            (S(text_x), S(cell_y + 29)),
-            meta,
-            font=FONT_EVENT_META,
-            fill=TEXT_MUTED,
-        )
-
-    return height
+            title += f" · {event['time']}"
+        title = ellipsize(draw, title, FONT_EVENT_META, width - (title_x - x) - INNER_PAD)
+        draw.text((S(title_x), S(cursor + 1)), title, font=FONT_EVENT_META, fill=TEXT)
+        cursor += UPCOMING_ROW_H
+    return upcoming_block_height(today)
 
 
 # ============================================================
@@ -740,41 +681,36 @@ def absence_dates(week_start, item):
     end_dt = week_start + timedelta(days=item["end_offset"])
     return start_dt, end_dt
 
+
 def relevant_absences(week_start):
-    # Kalenderunabhängig: alle laufenden und zukünftigen Abwesenheiten.
     today = datetime.now(TIMEZONE).date()
     result = []
-
     for absence in ABSENCES:
         start_dt, end_dt = absence_dates(week_start, absence)
         if end_dt.date() >= today:
             result.append(absence)
-
     result.sort(key=lambda item: absence_dates(week_start, item)[0])
     return result
 
 
 def split_absences(week_start):
-    """Trennt sichtbare Abwesenheiten in AKTUELL und KOMMEND."""
     today = datetime.now(TIMEZONE).date()
-    current = []
-    upcoming = []
-
+    current, upcoming = [], []
     for item in relevant_absences(week_start):
         start_dt, end_dt = absence_dates(week_start, item)
-
         if start_dt.date() <= today <= end_dt.date():
             current.append(item)
         elif start_dt.date() > today:
             upcoming.append(item)
-
     current.sort(key=lambda item: absence_dates(week_start, item)[0])
     upcoming.sort(key=lambda item: absence_dates(week_start, item)[0])
     return current, upcoming
 
 
-ABSENCE_GROUP_TITLE_H = 27
-ABSENCE_GROUP_GAP = 8
+ABSENCE_GROUP_TITLE_H = 25
+ABSENCE_GROUP_GAP = 10
+ABSENCE_TITLE_TO_GROUP = 14
+ABSENCE_GROUP_TO_NAMES = 7
 
 
 def absence_group_height(items):
@@ -786,22 +722,17 @@ def absence_group_height(items):
 
 def absence_block_height(week_start):
     current, upcoming = split_absences(week_start)
-
-    # Hauptüberschrift ABWESENHEIT.
-    height = 44
-
+    # Hauptüberschrift + bewusster Abstand zur ersten Gruppe
+    height = 35
     if not current and not upcoming:
-        return height + ABSENCE_ROW_H
-
+        return height + 34
+    height += ABSENCE_TITLE_TO_GROUP
     if current:
         height += absence_group_height(current)
-
     if current and upcoming:
         height += ABSENCE_GROUP_GAP
-
     if upcoming:
         height += absence_group_height(upcoming)
-
     return height
 
 
@@ -809,121 +740,49 @@ def draw_absence_group(draw, week_start, items, title, x, y, width):
     if not items:
         return 0
 
-    # AKTUELL / KOMMEND bewusst kleiner als ABWESENHEIT.
-    draw.text(
-        (S(x + INNER_PAD), S(y + 2)),
-        title,
-        font=FONT_EVENT_META,
-        fill=TEXT_MUTED,
-    )
-
+    draw.text((S(x + INNER_PAD), S(y)), title, font=FONT_ABSENCE_GROUP, fill=(205, 209, 217))
     list_y = y + ABSENCE_GROUP_TITLE_H
     gap = 18
     usable_w = width - 2 * INNER_PAD
     col_w = (usable_w - gap * 3) / 4
 
     for index, item in enumerate(items):
-        row = index // 4
-        col = index % 4
-
+        row, col = divmod(index, 4)
         cell_x = x + INNER_PAD + col * (col_w + gap)
         cell_y = list_y + row * ABSENCE_ROW_H
-
         start_dt, end_dt = absence_dates(week_start, item)
 
-        marker_x = cell_x + 6
-        marker_y = cell_y + 24
-
-        draw.ellipse(
-            (
-                S(marker_x - 4),
-                S(marker_y - 4),
-                S(marker_x + 4),
-                S(marker_y + 4),
-            ),
-            fill=ABSENCE,
-        )
-
+        marker_x, marker_y = cell_x + 6, cell_y + 20
+        draw.ellipse((S(marker_x - 4), S(marker_y - 4), S(marker_x + 4), S(marker_y + 4)), fill=ABSENCE)
         text_x = cell_x + 22
+        name = ellipsize(draw, item["name"], FONT_ABSENCE, col_w - 28)
+        draw.text((S(text_x), S(cell_y)), name, font=FONT_ABSENCE, fill=TEXT)
 
-        name = ellipsize(
-            draw,
-            item["name"],
-            FONT_ABSENCE,
-            col_w - 28,
-        )
-
-        draw.text(
-            (S(text_x), S(cell_y + 4)),
-            name,
-            font=FONT_ABSENCE,
-            fill=TEXT,
-        )
-
-        date_label = (
-            f"{start_dt.strftime('%d.%m.%Y')} – "
-            f"{end_dt.strftime('%d.%m.%Y')}"
-        )
-
-        draw.text(
-            (S(text_x), S(cell_y + 29)),
-            date_label,
-            font=FONT_ABSENCE_DATE,
-            fill=TEXT_MUTED,
-        )
+        date_label = f"{start_dt.strftime('%d.%m.%Y')} – {end_dt.strftime('%d.%m.%Y')}"
+        draw.text((S(text_x), S(cell_y + 27)), date_label, font=FONT_ABSENCE_DATE, fill=(224, 227, 233))
 
     return absence_group_height(items)
 
 
 def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
     current, upcoming = split_absences(week_start)
-
     own_height = absence_block_height(week_start)
     height = max(own_height, forced_height or 0)
 
-    draw.text(
-        (S(x + INNER_PAD), S(y + 18)),
-        "ABWESENHEIT",
-        font=FONT_SECTION,
-        fill=TEXT,
-    )
-
-    cursor_y = y + 44
+    draw.text((S(x + INNER_PAD), S(y)), "ABWESENHEIT", font=FONT_SECTION, fill=TEXT)
+    cursor_y = y + 35
 
     if not current and not upcoming:
-        draw.text(
-            (S(x + INNER_PAD), S(cursor_y + 8)),
-            "Keine",
-            font=FONT_EVENT_META,
-            fill=TEXT_MUTED,
-        )
+        draw.text((S(x + INNER_PAD), S(cursor_y + 4)), "Keine", font=FONT_EVENT_META, fill=TEXT_MUTED)
         return height
 
+    cursor_y += ABSENCE_TITLE_TO_GROUP
     if current:
-        cursor_y += draw_absence_group(
-            draw,
-            week_start,
-            current,
-            "AKTUELL",
-            x,
-            cursor_y,
-            width,
-        )
-
+        cursor_y += draw_absence_group(draw, week_start, current, "AKTUELL", x, cursor_y, width)
     if current and upcoming:
         cursor_y += ABSENCE_GROUP_GAP
-
     if upcoming:
-        cursor_y += draw_absence_group(
-            draw,
-            week_start,
-            upcoming,
-            "KOMMEND",
-            x,
-            cursor_y,
-            width,
-        )
-
+        cursor_y += draw_absence_group(draw, week_start, upcoming, "KOMMEND", x, cursor_y, width)
     return height
 
 
@@ -1050,127 +909,54 @@ def card_canvas(width, height, background_source):
 
 
 # ============================================================
-# DREI EINZELNE KALENDERKARTEN
+# V28 · Eine dynamische Kalenderkarte
 # ============================================================
 
 def render_week_card(week_start, now, background_source):
-    week_h = WEEK_HEADER_H + WEEK_CELL_H
-    preview_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
-    events_h = event_list_height()
+    today = now.date()
+    calendar_h = rolling_row_height(today) + rolling_row_height(today + timedelta(days=7))
+    upcoming_h = upcoming_block_height(today)
     absences_h = absence_block_height(week_start)
 
-    events_gap = 18
-    absences_gap = 14
-
-    height = (
-        TOP
-        + TITLE_H
-        + week_h
-        + preview_h
-        + events_gap
-        + events_h
-        + absences_gap
-        + absences_h
-        + TOP
-    )
+    title_to_calendar = 8
+    block_gap = 22
+    height = TOP + TITLE_H + title_to_calendar + calendar_h
+    if upcoming_h:
+        height += block_gap + upcoming_h
+    height += block_gap + absences_h + BOTTOM_PAD
 
     image = card_canvas(WIDTH, height, background_source)
     draw = ImageDraw.Draw(image)
 
-    draw.text(
-        (MARGIN_X, TOP),
-        "WOCHENÜBERSICHT",
-        font=FONT_TITLE,
-        fill=TEXT,
+    draw.text((MARGIN_X, TOP), "14-TAGE-ÜBERSICHT", font=FONT_TITLE, fill=TEXT)
+    range_end = today + timedelta(days=13)
+    range_text = f"{today.strftime('%d.%m.')} – {range_end.strftime('%d.%m.%Y')}"
+    draw.text((MARGIN_X, TOP + 34), range_text, font=FONT_SUBTITLE, fill=TEXT_MUTED)
+
+    cursor_y = TOP + TITLE_H + title_to_calendar
+    cursor_y += draw_rolling_calendar(
+        image, draw, today, MARGIN_X, cursor_y, WIDTH - 2 * MARGIN_X
     )
 
-    # Kleiner Vermerk über den gesamten sichtbaren 14-Tage-Zeitraum.
-    range_end = week_start + timedelta(days=13)
-    range_text = (
-        f"{week_start.strftime('%d.%m.')} – "
-        f"{range_end.strftime('%d.%m.%Y')}"
-    )
-    draw.text(
-        (MARGIN_X, TOP + 34),
-        range_text,
-        font=FONT_SUBTITLE,
-        fill=TEXT_MUTED,
-    )
+    if upcoming_h:
+        cursor_y += block_gap
+        cursor_y += draw_upcoming_block(
+            draw, today, MARGIN_X, cursor_y, WIDTH - 2 * MARGIN_X
+        )
 
-    week_y = TOP + TITLE_H
-
-    # Aktuelle Woche.
-    draw_week_overview(
-        image,
-        draw,
-        week_start,
-        now,
-        MARGIN_X,
-        week_y,
-        WIDTH - 2 * MARGIN_X,
-    )
-
-    # Folgewoche direkt darunter, ohne Abstand.
-    preview_y = week_y + week_h
-    draw_next_week_preview(
-        image,
-        draw,
-        week_start,
-        MARGIN_X,
-        preview_y,
-        WIDTH - 2 * MARGIN_X,
-    )
-
-    # Terminauflösung unter dem kompletten 14-Tage-Block.
-    events_y = preview_y + preview_h + events_gap
-    draw_events_block(
-        image,
-        draw,
-        week_start,
-        MARGIN_X,
-        events_y,
-        WIDTH - 2 * MARGIN_X,
-    )
-
-    # Abwesenheiten direkt unter die Termine.
-    absences_y = events_y + events_h + absences_gap
+    cursor_y += block_gap
     draw_absences_block(
-        draw,
-        week_start,
-        MARGIN_X,
-        absences_y,
-        WIDTH - 2 * MARGIN_X,
+        draw, week_start, MARGIN_X, cursor_y, WIDTH - 2 * MARGIN_X
     )
 
     image.save(WEEK_FILE, "PNG", optimize=True)
-    print(f"Komplette Kalenderkarte erstellt: {WEEK_FILE}")
-
-def render_absences_card(week_start, background_source):
-    block_h = absence_block_height(week_start)
-    height = TOP + block_h + BOTTOM_PAD
-
-    image = card_canvas(WIDTH, height, background_source)
-    draw = ImageDraw.Draw(image)
-
-    draw_absences_block(
-        draw,
-        week_start,
-        MARGIN_X,
-        TOP,
-        WIDTH - 2 * MARGIN_X,
-    )
-
-    image.save(ABSENCES_FILE, "PNG", optimize=True)
-    print(f"Abwesenheitskarte erstellt: {ABSENCES_FILE}")
+    print(f"Dynamische V28-Kalenderkarte erstellt: {WEEK_FILE}")
 
 
 def render_calendar_cards():
     now = datetime.now(TIMEZONE)
     week_start = monday_of_week(now)
-
     background_source = load_tracker_background()
-
-    # Kalender, Termine und Abwesenheiten jetzt in EINEM Bild.
     render_week_card(week_start, now, background_source)
 
 
