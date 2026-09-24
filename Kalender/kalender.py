@@ -750,7 +750,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             special_title = "Early Access" if special == "early" else "Global Launch"
             special_time = "15:00"
 
-            title_font = FONT_EVENT_TITLE
+            title_font = FONT_EVENT_NAME
             time_font = FONT_EVENT_META
             title_box = draw.textbbox((0, 0), special_title, font=title_font)
             title_w = title_box[2] - title_box[0]
