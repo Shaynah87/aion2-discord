@@ -183,7 +183,7 @@ def load_calendar_data():
         headers={
             "X-Kalender-Key": kalender_token,
             "Accept": "application/json",
-            "User-Agent": "Nyerk24-Kalender/25.0",
+            "User-Agent": "Nyerk24-Kalender/27.0",
         },
     )
 
@@ -742,7 +742,7 @@ def absence_dates(week_start, item):
 
 def relevant_absences(week_start):
     # Kalenderunabhängig: alle laufenden und zukünftigen Abwesenheiten.
-    today = datetime.now(TZ).date()
+    today = datetime.now(TIMEZONE).date()
     result = []
 
     for absence in ABSENCES:
@@ -750,44 +750,74 @@ def relevant_absences(week_start):
         if end_dt.date() >= today:
             result.append(absence)
 
-    # Nächste Abwesenheit zuerst, unabhängig von der Eintragungsreihenfolge.
     result.sort(key=lambda item: absence_dates(week_start, item)[0])
     return result
 
+
+def split_absences(week_start):
+    """Trennt sichtbare Abwesenheiten in AKTUELL und KOMMEND."""
+    today = datetime.now(TIMEZONE).date()
+    current = []
+    upcoming = []
+
+    for item in relevant_absences(week_start):
+        start_dt, end_dt = absence_dates(week_start, item)
+
+        if start_dt.date() <= today <= end_dt.date():
+            current.append(item)
+        elif start_dt.date() > today:
+            upcoming.append(item)
+
+    current.sort(key=lambda item: absence_dates(week_start, item)[0])
+    upcoming.sort(key=lambda item: absence_dates(week_start, item)[0])
+    return current, upcoming
+
+
+ABSENCE_GROUP_TITLE_H = 27
+ABSENCE_GROUP_GAP = 8
+
+
+def absence_group_height(items):
+    if not items:
+        return 0
+    rows = math.ceil(len(items) / 4)
+    return ABSENCE_GROUP_TITLE_H + rows * ABSENCE_ROW_H
+
+
 def absence_block_height(week_start):
-    count = max(1, len(relevant_absences(week_start)))
-    rows = math.ceil(count / 4)
+    current, upcoming = split_absences(week_start)
 
-    # Nur die tatsächliche Höhe des Abwesenheitsbereichs.
-    # Der äußere untere Rand wird separat exakt mit TOP angesetzt.
-    return 44 + rows * ABSENCE_ROW_H
+    # Hauptüberschrift ABWESENHEIT.
+    height = 44
+
+    if not current and not upcoming:
+        return height + ABSENCE_ROW_H
+
+    if current:
+        height += absence_group_height(current)
+
+    if current and upcoming:
+        height += ABSENCE_GROUP_GAP
+
+    if upcoming:
+        height += absence_group_height(upcoming)
+
+    return height
 
 
-def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
-    items = relevant_absences(week_start)
+def draw_absence_group(draw, week_start, items, title, x, y, width):
+    if not items:
+        return 0
 
-    own_height = absence_block_height(week_start)
-    height = max(own_height, forced_height or 0)
-
-    # Kein grauer Panel-Hintergrund mehr.
+    # AKTUELL / KOMMEND bewusst kleiner als ABWESENHEIT.
     draw.text(
-        (S(x + INNER_PAD), S(y + 18)),
-        "ABWESENHEIT",
-        font=FONT_SECTION,
-        fill=TEXT,
+        (S(x + INNER_PAD), S(y + 2)),
+        title,
+        font=FONT_EVENT_META,
+        fill=TEXT_MUTED,
     )
 
-    start_y = y + 44
-
-    if not items:
-        draw.text(
-            (S(x + INNER_PAD), S(start_y + 8)),
-            "Keine",
-            font=FONT_EVENT_META,
-            fill=TEXT_MUTED,
-        )
-        return height
-
+    list_y = y + ABSENCE_GROUP_TITLE_H
     gap = 18
     usable_w = width - 2 * INNER_PAD
     col_w = (usable_w - gap * 3) / 4
@@ -797,7 +827,7 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
         col = index % 4
 
         cell_x = x + INNER_PAD + col * (col_w + gap)
-        cell_y = start_y + row * ABSENCE_ROW_H
+        cell_y = list_y + row * ABSENCE_ROW_H
 
         start_dt, end_dt = absence_dates(week_start, item)
 
@@ -830,13 +860,68 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
             fill=TEXT,
         )
 
-        date_label = f"{start_dt.strftime('%d.%m.%Y')} – {end_dt.strftime('%d.%m.%Y')}"
+        date_label = (
+            f"{start_dt.strftime('%d.%m.%Y')} – "
+            f"{end_dt.strftime('%d.%m.%Y')}"
+        )
 
         draw.text(
             (S(text_x), S(cell_y + 29)),
             date_label,
             font=FONT_ABSENCE_DATE,
             fill=TEXT_MUTED,
+        )
+
+    return absence_group_height(items)
+
+
+def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
+    current, upcoming = split_absences(week_start)
+
+    own_height = absence_block_height(week_start)
+    height = max(own_height, forced_height or 0)
+
+    draw.text(
+        (S(x + INNER_PAD), S(y + 18)),
+        "ABWESENHEIT",
+        font=FONT_SECTION,
+        fill=TEXT,
+    )
+
+    cursor_y = y + 44
+
+    if not current and not upcoming:
+        draw.text(
+            (S(x + INNER_PAD), S(cursor_y + 8)),
+            "Keine",
+            font=FONT_EVENT_META,
+            fill=TEXT_MUTED,
+        )
+        return height
+
+    if current:
+        cursor_y += draw_absence_group(
+            draw,
+            week_start,
+            current,
+            "AKTUELL",
+            x,
+            cursor_y,
+            width,
+        )
+
+    if current and upcoming:
+        cursor_y += ABSENCE_GROUP_GAP
+
+    if upcoming:
+        cursor_y += draw_absence_group(
+            draw,
+            week_start,
+            upcoming,
+            "KOMMEND",
+            x,
+            cursor_y,
+            width,
         )
 
     return height
