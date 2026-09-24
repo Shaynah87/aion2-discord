@@ -769,13 +769,13 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 (S(x1 + (cell_w - title_w) / 2), S(special_y)),
                 special_title,
                 font=title_font,
-                fill=TEXT_PRIMARY,
+                fill=(238, 241, 244),
             )
             draw.text(
                 (S(x1 + (cell_w - time_w) / 2), S(special_y + title_h + gap)),
                 special_time,
                 font=time_font,
-                fill=TEXT_MUTED,
+                fill=(166, 173, 181),
             )
 
         for event in display_events:
