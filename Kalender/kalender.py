@@ -996,7 +996,7 @@ def card_canvas(width, height, background_source):
 
 def render_week_card(week_start, now, background_source):
     today = now.date()
-    calendar_h = rolling_row_height(today) + rolling_row_height(today + timedelta(days=7))
+    calendar_h = rolling_row_height(ImageDraw.Draw(Image.new("RGB", (S(WIDTH), S(100)), (0, 0, 0))), today, WIDTH - 2 * MARGIN_X) + rolling_row_height(ImageDraw.Draw(Image.new("RGB", (S(WIDTH), S(100)), (0, 0, 0))), today + timedelta(days=7), WIDTH - 2 * MARGIN_X)
     upcoming_h = upcoming_block_height(today)
     absences_h = absence_block_height(week_start)
 
