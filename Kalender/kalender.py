@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V21 · symmetrische Außenränder + 14-Tage-Vermerk
+# Nyerk24 · Kalender V22 · D1-Livedaten + 6 Termin-Typen
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -37,6 +37,8 @@ ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
 
 WEBHOOK_URL = os.environ.get("KALENDER_WEBHOOK", "").strip()
+KALENDER_API_KEY = os.environ.get("KALENDER_API_KEY", "").strip()
+KALENDER_DATA_URL = "https://nyerk24-service.laura-stephan.workers.dev/kalender-data"
 TIMEZONE = ZoneInfo("Europe/Berlin")
 
 TRACKER_OVERVIEW_BACKGROUND_URL = (
@@ -108,16 +110,18 @@ TODAY_FILL = (22, 47, 48)
 RELEASE = (90, 155, 214)
 SEASON = (145, 105, 202)
 RAID = (190, 78, 91)
-GUILD = (188, 145, 68)
+MEETING = (188, 145, 68)
 EVENT = (67, 151, 133)
+APPOINTMENT = (154, 160, 171)
 ABSENCE = (132, 94, 194)
 
 TYPE_COLORS = {
     "release": RELEASE,
     "season": SEASON,
     "raid": RAID,
-    "guild": GUILD,
+    "besprechung": MEETING,
     "event": EVENT,
+    "termin": APPOINTMENT,
 }
 
 # ------------------------------------------------------------
@@ -153,116 +157,92 @@ FONT_ABSENCE_DATE = font(14, False)
 
 
 # ============================================================
-# TESTDATEN
-#
-# start_day:
-#   0 = Montag
-#   1 = Dienstag
-#   ...
-#   6 = Sonntag
-#
-# Die Testdaten enthalten absichtlich:
-#   1 Termin an einem Tag
-#   2 Termine an einem Tag
-#   3 Termine an einem Tag
-#   4 Termine an einem Tag
-#
-# So kann die neue Symbollogik sofort geprüft werden.
-# Optional: week_offset=1 legt einen Termin in die Folgewoche.
+# Livedaten aus Cloudflare D1
 # ============================================================
 
-EVENTS = [
-    # Montag: 1
-    {
-        "day": 0,
-        "type": "release",
-        "symbol": "◆",
-        "title": "Early Access",
-        "time": "",
-    },
+EVENTS = []
+ABSENCES = []
 
-    # Dienstag: 2
-    {
-        "day": 1,
-        "type": "season",
-        "symbol": "✦",
-        "title": "Season 2 Start",
-        "time": "",
-    },
-    {
-        "day": 1,
-        "type": "guild",
-        "symbol": "●",
-        "title": "Gildenbesprechung",
-        "time": "19:30",
-    },
+def parse_iso_date(value: str) -> datetime:
+    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=TIMEZONE)
 
-    # Mittwoch: 3
-    {
-        "day": 2,
-        "type": "raid",
-        "symbol": "⚔",
-        "title": "Gilden-Raid",
-        "time": "20:00",
-    },
-    {
-        "day": 2,
-        "type": "event",
-        "symbol": "★",
-        "title": "Gilden-Event",
-        "time": "21:00",
-    },
-    {
-        "day": 2,
-        "type": "guild",
-        "symbol": "●",
-        "title": "Treffen",
-        "time": "22:00",
-    },
+def load_calendar_data():
+    if not KALENDER_API_KEY:
+        raise RuntimeError("KALENDER_API_KEY ist nicht gesetzt.")
 
-    # Freitag: 4
-    {
-        "day": 4,
-        "type": "release",
-        "symbol": "◆",
-        "title": "Global Launch",
-        "time": "",
-    },
-    {
-        "day": 4,
-        "type": "raid",
-        "symbol": "⚔",
-        "title": "Abyss Raid",
-        "time": "19:00",
-    },
-    {
-        "day": 4,
-        "type": "event",
-        "symbol": "★",
-        "title": "Community Event",
-        "time": "20:30",
-    },
-    {
-        "day": 4,
-        "type": "guild",
-        "symbol": "●",
-        "title": "Gildentreffen",
-        "time": "22:00",
-    },
-]
+    request = urllib.request.Request(
+        KALENDER_DATA_URL,
+        method="GET",
+        headers={
+            "Authorization": f"Bearer {KALENDER_API_KEY}",
+            "Accept": "application/json",
+            "User-Agent": "Nyerk24-Kalender/22.0",
+        },
+    )
 
-ABSENCES = [
-    {
-        "name": "Shaynah | Laura",
-        "start_offset": -7,
-        "end_offset": 8,
-    },
-    {
-        "name": "Tom",
-        "start_offset": 2,
-        "end_offset": 5,
-    },
-]
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Kalender-Daten konnten nicht geladen werden: HTTP {exc.code} · {detail}") from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Kalender-Daten konnten nicht geladen werden: {exc}") from exc
+
+    now = datetime.now(TIMEZONE)
+    week_start = monday_of_week(now)
+
+    events = []
+    for row in payload.get("termine", []):
+        try:
+            dt = parse_iso_date(str(row["datum"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        delta = (dt.date() - week_start.date()).days
+        if not 0 <= delta <= 13:
+            continue
+
+        raw_type = str(row.get("termin_typ") or "termin").strip().lower()
+        type_aliases = {
+            "meeting": "besprechung",
+            "guild": "besprechung",
+            "appointment": "termin",
+            "launch": "release",
+        }
+        event_type = type_aliases.get(raw_type, raw_type)
+        if event_type not in TYPE_COLORS:
+            event_type = "termin"
+
+        events.append({
+            "day": delta % 7,
+            "week_offset": delta // 7,
+            "type": event_type,
+            "title": str(row.get("titel") or "Termin"),
+            "time": str(row.get("uhrzeit") or "")[:5],
+        })
+
+    absences = []
+    for row in payload.get("abwesenheiten", []):
+        try:
+            start_dt = parse_iso_date(str(row["start_datum"]))
+            end_dt = parse_iso_date(str(row["end_datum"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        absences.append({
+            "name": str(row.get("discord_name") or "Unbekannt"),
+            "start_offset": (start_dt.date() - week_start.date()).days,
+            "end_offset": (end_dt.date() - week_start.date()).days,
+            "note": str(row.get("notiz") or ""),
+        })
+
+    EVENTS.clear()
+    EVENTS.extend(events)
+    ABSENCES.clear()
+    ABSENCES.extend(absences)
+
+    print(f"Kalender-Daten geladen: {len(EVENTS)} Termine, {len(ABSENCES)} Abwesenheiten")
 
 # ============================================================
 # Hilfsfunktionen
@@ -411,119 +391,76 @@ def make_event_icon(event_type, size, color):
     image, px, sc = _icon_canvas(size)
     d = ImageDraw.Draw(image)
     c = tuple(color) + (255,)
-    w = max(2, _pt(size * 0.075, sc))
+    w = max(2, _pt(size * 0.07, sc))
     cx = px / 2
     cy = px / 2
 
     if event_type == "release":
-        body = [
-            (_pt(size * 0.50, sc), _pt(size * 0.10, sc)),
-            (_pt(size * 0.70, sc), _pt(size * 0.32, sc)),
-            (_pt(size * 0.60, sc), _pt(size * 0.62, sc)),
-            (_pt(size * 0.38, sc), _pt(size * 0.76, sc)),
-            (_pt(size * 0.24, sc), _pt(size * 0.62, sc)),
-            (_pt(size * 0.38, sc), _pt(size * 0.40, sc)),
+        # Party-Popper + Konfetti
+        cone = [
+            (_pt(size * 0.22, sc), _pt(size * 0.78, sc)),
+            (_pt(size * 0.38, sc), _pt(size * 0.42, sc)),
+            (_pt(size * 0.58, sc), _pt(size * 0.62, sc)),
         ]
-        d.line(body + [body[0]], fill=c, width=w, joint="curve")
-        d.ellipse(
-            (
-                _pt(size * 0.47, sc), _pt(size * 0.27, sc),
-                _pt(size * 0.57, sc), _pt(size * 0.37, sc),
-            ),
-            outline=c, width=w,
-        )
-        d.line(
-            (
-                _pt(size * 0.28, sc), _pt(size * 0.70, sc),
-                _pt(size * 0.15, sc), _pt(size * 0.84, sc),
-            ),
-            fill=c, width=w,
-        )
-        d.line(
-            (
-                _pt(size * 0.35, sc), _pt(size * 0.77, sc),
-                _pt(size * 0.26, sc), _pt(size * 0.90, sc),
-            ),
-            fill=c, width=w,
-        )
+        d.polygon(cone, outline=c)
+        d.line((_pt(size*.34,sc),_pt(size*.48,sc),_pt(size*.53,sc),_pt(size*.67,sc)), fill=c, width=w)
+        for x,y in ((.55,.22),(.72,.18),(.76,.40),(.48,.30),(.67,.31)):
+            r=max(1,_pt(size*.035,sc))
+            xx,yy=_pt(size*x,sc),_pt(size*y,sc)
+            d.ellipse((xx-r,yy-r,xx+r,yy+r), fill=c)
+        d.line((_pt(size*.62,sc),_pt(size*.12,sc),_pt(size*.58,sc),_pt(size*.26,sc)), fill=c, width=w)
+        d.line((_pt(size*.82,sc),_pt(size*.27,sc),_pt(size*.69,sc),_pt(size*.32,sc)), fill=c, width=w)
 
     elif event_type == "season":
-        pts = [
-            (_pt(size * 0.16, sc), _pt(size * 0.34, sc)),
-            (_pt(size * 0.32, sc), _pt(size * 0.58, sc)),
-            (_pt(size * 0.50, sc), _pt(size * 0.28, sc)),
-            (_pt(size * 0.68, sc), _pt(size * 0.58, sc)),
-            (_pt(size * 0.84, sc), _pt(size * 0.34, sc)),
-            (_pt(size * 0.76, sc), _pt(size * 0.72, sc)),
-            (_pt(size * 0.24, sc), _pt(size * 0.72, sc)),
-        ]
-        d.line(pts + [pts[0]], fill=c, width=w, joint="curve")
-        d.line(
-            (
-                _pt(size * 0.24, sc), _pt(size * 0.78, sc),
-                _pt(size * 0.76, sc), _pt(size * 0.78, sc),
-            ),
-            fill=c, width=w,
-        )
+        # Zielflagge
+        x0,y0=_pt(size*.25,sc),_pt(size*.14,sc)
+        x1,y1=_pt(size*.25,sc),_pt(size*.84,sc)
+        d.line((x0,y0,x1,y1), fill=c, width=w)
+        left,top=_pt(size*.29,sc),_pt(size*.18,sc)
+        cw,ch=_pt(size*.14,sc),_pt(size*.13,sc)
+        for row in range(3):
+            for col in range(3):
+                box=(left+col*cw, top+row*ch, left+(col+1)*cw, top+(row+1)*ch)
+                if (row+col)%2==0: d.rectangle(box, fill=c)
+                else: d.rectangle(box, outline=c, width=max(1,w//2))
 
     elif event_type == "raid":
-        d.line(
-            (
-                _pt(size * 0.24, sc), _pt(size * 0.18, sc),
-                _pt(size * 0.76, sc), _pt(size * 0.78, sc),
-            ),
-            fill=c, width=w,
-        )
-        d.line(
-            (
-                _pt(size * 0.76, sc), _pt(size * 0.18, sc),
-                _pt(size * 0.24, sc), _pt(size * 0.78, sc),
-            ),
-            fill=c, width=w,
-        )
-        d.line(
-            (
-                _pt(size * 0.20, sc), _pt(size * 0.67, sc),
-                _pt(size * 0.40, sc), _pt(size * 0.67, sc),
-            ),
-            fill=c, width=w,
-        )
-        d.line(
-            (
-                _pt(size * 0.60, sc), _pt(size * 0.67, sc),
-                _pt(size * 0.80, sc), _pt(size * 0.67, sc),
-            ),
-            fill=c, width=w,
-        )
+        # Gekreuzte Schwerter
+        d.line((_pt(size*.22,sc),_pt(size*.18,sc),_pt(size*.76,sc),_pt(size*.78,sc)), fill=c, width=w)
+        d.line((_pt(size*.78,sc),_pt(size*.18,sc),_pt(size*.24,sc),_pt(size*.78,sc)), fill=c, width=w)
+        d.line((_pt(size*.19,sc),_pt(size*.65,sc),_pt(size*.39,sc),_pt(size*.65,sc)), fill=c, width=w)
+        d.line((_pt(size*.61,sc),_pt(size*.65,sc),_pt(size*.81,sc),_pt(size*.65,sc)), fill=c, width=w)
 
-    elif event_type == "guild":
-        pts = [
-            (_pt(size * 0.50, sc), _pt(size * 0.12, sc)),
-            (_pt(size * 0.78, sc), _pt(size * 0.24, sc)),
-            (_pt(size * 0.72, sc), _pt(size * 0.60, sc)),
-            (_pt(size * 0.50, sc), _pt(size * 0.84, sc)),
-            (_pt(size * 0.28, sc), _pt(size * 0.60, sc)),
-            (_pt(size * 0.22, sc), _pt(size * 0.24, sc)),
-        ]
-        d.line(pts + [pts[0]], fill=c, width=w, joint="curve")
-        d.line(
-            (
-                _pt(size * 0.50, sc), _pt(size * 0.25, sc),
-                _pt(size * 0.50, sc), _pt(size * 0.68, sc),
-            ),
-            fill=c, width=max(1, w - 1),
-        )
+    elif event_type == "besprechung":
+        # Sprechblase
+        box=(_pt(size*.15,sc),_pt(size*.20,sc),_pt(size*.82,sc),_pt(size*.66,sc))
+        d.rounded_rectangle(box, radius=_pt(size*.10,sc), outline=c, width=w)
+        d.line((_pt(size*.34,sc),_pt(size*.66,sc),_pt(size*.26,sc),_pt(size*.82,sc),_pt(size*.48,sc),_pt(size*.67,sc)), fill=c, width=w)
+        for x in (.34,.49,.64):
+            r=max(1,_pt(size*.025,sc)); xx,yy=_pt(size*x,sc),_pt(size*.43,sc)
+            d.ellipse((xx-r,yy-r,xx+r,yy+r), fill=c)
+
+    elif event_type == "termin":
+        # Kalenderblatt
+        box=(_pt(size*.18,sc),_pt(size*.24,sc),_pt(size*.82,sc),_pt(size*.80,sc))
+        d.rounded_rectangle(box, radius=_pt(size*.07,sc), outline=c, width=w)
+        d.line((_pt(size*.18,sc),_pt(size*.40,sc),_pt(size*.82,sc),_pt(size*.40,sc)), fill=c, width=w)
+        d.line((_pt(size*.34,sc),_pt(size*.14,sc),_pt(size*.34,sc),_pt(size*.31,sc)), fill=c, width=w)
+        d.line((_pt(size*.66,sc),_pt(size*.14,sc),_pt(size*.66,sc),_pt(size*.31,sc)), fill=c, width=w)
+        d.ellipse((_pt(size*.46,sc),_pt(size*.53,sc),_pt(size*.54,sc),_pt(size*.61,sc)), fill=c)
 
     else:
-        pts = []
+        # Event: Funkelstern
+        pts=[]
         for i in range(16):
-            angle = -math.pi / 2 + i * math.pi / 8
-            r = size * (0.36 if i % 2 == 0 else 0.15) * sc
-            pts.append((cx + math.cos(angle) * r, cy + math.sin(angle) * r))
+            angle=-math.pi/2+i*math.pi/8
+            r=size*(0.36 if i%2==0 else 0.15)*sc
+            pts.append((cx+math.cos(angle)*r, cy+math.sin(angle)*r))
         d.polygon(pts, outline=c)
+        r=max(1,_pt(size*.025,sc))
+        d.ellipse((_pt(size*.76,sc)-r,_pt(size*.18,sc)-r,_pt(size*.76,sc)+r,_pt(size*.18,sc)+r), fill=c)
 
     return image.resize((int(size), int(size)), Image.Resampling.LANCZOS)
-
 
 def draw_event_icon(base_image, event_type, center_x, center_y, size, color):
     icon = make_event_icon(event_type, size, color)
@@ -1284,5 +1221,6 @@ def post_or_update():
 # ============================================================
 
 if __name__ == "__main__":
+    load_calendar_data()
     render_calendar_cards()
     post_or_update()
