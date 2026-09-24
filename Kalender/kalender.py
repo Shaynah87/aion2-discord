@@ -3,6 +3,7 @@ import io
 import json
 import uuid
 import math
+import hashlib
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -185,6 +186,8 @@ def load_calendar_data():
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
+        key_fingerprint = hashlib.sha256(KALENDER_API_KEY.encode("utf-8")).hexdigest()[:12]
+        print(f"GitHub KALENDER_API_KEY: vorhanden={bool(KALENDER_API_KEY)}, länge={len(KALENDER_API_KEY)}, fingerprint={key_fingerprint}")
         raise RuntimeError(f"Kalender-Daten konnten nicht geladen werden: HTTP {exc.code} · {detail}") from exc
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"Kalender-Daten konnten nicht geladen werden: {exc}") from exc
