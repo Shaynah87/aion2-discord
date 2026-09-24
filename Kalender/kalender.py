@@ -12,34 +12,26 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
+
 # ============================================================
-# Nyerk24 · Kalender V23 · D1-Livedaten + 6 Termin-Typen
-#
-# Neue Logik:
-# - Wochenübersicht oben
-# - pro Tag nur Symbole / Marker
-# - 1 Symbol = groß und mittig
-# - 2 Symbole = links / rechts
-# - 3 Symbole = Dreieck (2 oben, 1 unten)
-# - 4 Symbole = 2x2
-# - bei 2/3/4 immer gleiche Symbolgröße
-# - darunter Terminauflösung ohne zusätzliche Überschrift
-# - darunter kleine Vorschau der Folgewoche nur mit Datum + Icons
-# - eigener Block "Aktuelle Abwesenheiten"
-# - zwei Layouts testbar:
-#       LAYOUT_MODE = "columns"
-#       LAYOUT_MODE = "columns"
-# - Discord Webhook + persistente message_id bleiben erhalten
+# Nyerk24 · Kalender V23 · D1-Livedaten + AUTH TEST
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
+
+OUTPUT_FILE = BASE_DIR / "kalender.png"
 WEEK_FILE = BASE_DIR / "kalender_woche.png"
 ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
 
 WEBHOOK_URL = os.environ.get("KALENDER_WEBHOOK", "").strip()
 KALENDER_API_KEY = os.environ.get("KALENDER_API_KEY", "").strip()
-KALENDER_DATA_URL = "https://nyerk24-service.laura-stephan.workers.dev/kalender-data"
+
+KALENDER_DATA_URL = (
+    "https://nyerk24-service.laura-stephan.workers.dev/"
+    "kalender-data"
+)
+
 TIMEZONE = ZoneInfo("Europe/Berlin")
 
 TRACKER_OVERVIEW_BACKGROUND_URL = (
@@ -48,21 +40,11 @@ TRACKER_OVERVIEW_BACKGROUND_URL = (
 )
 
 
-# ------------------------------------------------------------
-# Layout-Schalter
-# ------------------------------------------------------------
+# ============================================================
+# Layout
+# ============================================================
 
-# "stacked":
-# Wochenübersicht -> Termine -> Abwesenheiten
-#
-# "columns":
-# Wochenübersicht -> Termine links / Abwesenheiten rechts
-#
 LAYOUT_MODE = "stacked"
-
-# ------------------------------------------------------------
-# Rendering / Größe
-# ------------------------------------------------------------
 
 SCALE = 1
 WIDTH = 1200
@@ -72,10 +54,13 @@ TOP = 24
 BOTTOM_PAD = 24
 
 TITLE_H = 64
+
 WEEK_HEADER_H = 56
 WEEK_CELL_H = 104
+
 NEXT_WEEK_DATE_H = 34
 NEXT_WEEK_ICON_H = 62
+
 SECTION_GAP = 18
 
 CARD_RADIUS = 15
@@ -84,14 +69,17 @@ INNER_PAD = 22
 EVENT_ROW_H = 58
 ABSENCE_ROW_H = 62
 
+
 def S(value):
     return int(round(value * SCALE))
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Farben
-# ------------------------------------------------------------
+# ============================================================
 
 BG = (17, 18, 22)
+
 PANEL = (24, 26, 31)
 PANEL_SOFT = (28, 30, 36)
 
@@ -107,7 +95,6 @@ WEEKEND_HEADER = (30, 48, 52)
 TODAY_BORDER = (65, 205, 194)
 TODAY_FILL = (22, 47, 48)
 
-# Kategorien
 RELEASE = (90, 155, 214)
 SEASON = (145, 105, 202)
 RAID = (190, 78, 91)
@@ -125,51 +112,132 @@ TYPE_COLORS = {
     "termin": APPOINTMENT,
 }
 
-# ------------------------------------------------------------
+
+# ============================================================
 # Fonts
-# ------------------------------------------------------------
+# ============================================================
 
 def font(size: int, bold: bool = False):
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold else
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
-        if bold else
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    candidates = [
+        (
+            "/usr/share/fonts/truetype/dejavu/"
+            "DejaVuSans-Bold.ttf"
+            if bold
+            else
+            "/usr/share/fonts/truetype/dejavu/"
+            "DejaVuSans.ttf"
+        ),
+        (
+            "/usr/share/fonts/truetype/liberation2/"
+            "LiberationSans-Bold.ttf"
+            if bold
+            else
+            "/usr/share/fonts/truetype/liberation2/"
+            "LiberationSans-Regular.ttf"
+        ),
     ]
+
     for path in candidates:
+
         if Path(path).exists():
-            return ImageFont.truetype(path, S(size))
+
+            return ImageFont.truetype(
+                path,
+                S(size),
+            )
+
     return ImageFont.load_default()
 
+
 FONT_TITLE = font(29, True)
-FONT_SUBTITLE = font(15, False)
+FONT_SUBTITLE = font(15)
 
 FONT_DAY = font(16, True)
-FONT_DATE = font(13, False)
+FONT_DATE = font(13)
 
 FONT_SECTION = font(22, True)
+
 FONT_EVENT = font(18, True)
-FONT_EVENT_META = font(14, False)
+FONT_EVENT_META = font(14)
+
 FONT_ABSENCE = font(18, True)
-FONT_ABSENCE_DATE = font(14, False)
+FONT_ABSENCE_DATE = font(14)
 
 
 # ============================================================
-# Livedaten aus Cloudflare D1
+# Daten
 # ============================================================
 
 EVENTS = []
 ABSENCES = []
 
+
+# ============================================================
+# Datum
+# ============================================================
+
+def monday_of_week(dt: datetime) -> datetime:
+
+    return (
+        dt
+        - timedelta(days=dt.weekday())
+    ).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+
 def parse_iso_date(value: str) -> datetime:
-    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=TIMEZONE)
+
+    return datetime.strptime(
+        value,
+        "%Y-%m-%d",
+    ).replace(
+        tzinfo=TIMEZONE,
+    )
+
+
+def german_date(dt):
+
+    return dt.strftime("%d.%m.%Y")
+
+
+def short_date(dt):
+
+    return dt.strftime("%d.%m.")
+
+
+# ============================================================
+# AUTH TEST
+# ============================================================
+
+def auth_fingerprint(value: str) -> str:
+
+    return hashlib.sha256(
+        value.encode("utf-8")
+    ).hexdigest()[:12]
+
+
+# ============================================================
+# Daten aus Cloudflare laden
+# ============================================================
 
 def load_calendar_data():
+
     if not KALENDER_API_KEY:
-        raise RuntimeError("KALENDER_API_KEY ist nicht gesetzt.")
+
+        raise RuntimeError(
+            "KALENDER_API_KEY ist nicht gesetzt."
+        )
+
+    print(
+        "AUTH TEST SECRET:"
+        f" length={len(KALENDER_API_KEY)}"
+        f" fingerprint={auth_fingerprint(KALENDER_API_KEY)}"
+    )
 
     request = urllib.request.Request(
         KALENDER_DATA_URL,
@@ -181,462 +249,1675 @@ def load_calendar_data():
         },
     )
 
+    request_key = (
+        request.get_header("X-kalender-key")
+        or
+        request.get_header("X-Kalender-Key")
+        or
+        ""
+    )
+
+    print(
+        "AUTH TEST REQUEST:"
+        f" length={len(request_key)}"
+        f" fingerprint={auth_fingerprint(request_key)}"
+    )
+
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+
+        with urllib.request.urlopen(
+            request,
+            timeout=30,
+        ) as response:
+
+            payload = json.loads(
+                response
+                .read()
+                .decode("utf-8")
+            )
+
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        key_fingerprint = hashlib.sha256(KALENDER_API_KEY.encode("utf-8")).hexdigest()[:12]
-        raise RuntimeError(f"Kalender-Daten konnten nicht geladen werden: HTTP {exc.code} · {detail}") from exc
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Kalender-Daten konnten nicht geladen werden: {exc}") from exc
+
+        detail = (
+            exc.read()
+            .decode(
+                "utf-8",
+                errors="replace",
+            )
+        )
+
+        raise RuntimeError(
+            "Kalender-Daten konnten nicht geladen werden: "
+            f"HTTP {exc.code} · {detail}"
+        ) from exc
+
+    except (
+        urllib.error.URLError,
+        TimeoutError,
+        json.JSONDecodeError,
+    ) as exc:
+
+        raise RuntimeError(
+            "Kalender-Daten konnten nicht geladen werden: "
+            f"{exc}"
+        ) from exc
 
     now = datetime.now(TIMEZONE)
+
     week_start = monday_of_week(now)
 
     events = []
-    for row in payload.get("termine", []):
+
+    for row in payload.get(
+        "termine",
+        [],
+    ):
+
         try:
-            dt = parse_iso_date(str(row["datum"]))
-        except (KeyError, TypeError, ValueError):
+
+            dt = parse_iso_date(
+                str(row["datum"])
+            )
+
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+
             continue
 
-        delta = (dt.date() - week_start.date()).days
+        delta = (
+            dt.date()
+            - week_start.date()
+        ).days
+
         if not 0 <= delta <= 13:
+
             continue
 
-        raw_type = str(row.get("termin_typ") or "termin").strip().lower()
+        raw_type = str(
+            row.get("termin_typ")
+            or
+            "termin"
+        ).strip().lower()
+
         type_aliases = {
             "meeting": "besprechung",
             "guild": "besprechung",
             "appointment": "termin",
             "launch": "release",
         }
-        event_type = type_aliases.get(raw_type, raw_type)
+
+        event_type = type_aliases.get(
+            raw_type,
+            raw_type,
+        )
+
         if event_type not in TYPE_COLORS:
+
             event_type = "termin"
 
         events.append({
             "day": delta % 7,
             "week_offset": delta // 7,
             "type": event_type,
-            "title": str(row.get("titel") or "Termin"),
-            "time": str(row.get("uhrzeit") or "")[:5],
+            "title": str(
+                row.get("titel")
+                or
+                "Termin"
+            ),
+            "time": str(
+                row.get("uhrzeit")
+                or
+                ""
+            )[:5],
         })
 
     absences = []
-    for row in payload.get("abwesenheiten", []):
+
+    for row in payload.get(
+        "abwesenheiten",
+        [],
+    ):
+
         try:
-            start_dt = parse_iso_date(str(row["start_datum"]))
-            end_dt = parse_iso_date(str(row["end_datum"]))
-        except (KeyError, TypeError, ValueError):
+
+            start_dt = parse_iso_date(
+                str(row["start_datum"])
+            )
+
+            end_dt = parse_iso_date(
+                str(row["end_datum"])
+            )
+
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+
             continue
 
         absences.append({
-            "name": str(row.get("discord_name") or "Unbekannt"),
-            "start_offset": (start_dt.date() - week_start.date()).days,
-            "end_offset": (end_dt.date() - week_start.date()).days,
-            "note": str(row.get("notiz") or ""),
+            "name": str(
+                row.get("discord_name")
+                or
+                "Unbekannt"
+            ),
+            "start_offset": (
+                start_dt.date()
+                - week_start.date()
+            ).days,
+            "end_offset": (
+                end_dt.date()
+                - week_start.date()
+            ).days,
+            "note": str(
+                row.get("notiz")
+                or
+                ""
+            ),
         })
 
     EVENTS.clear()
     EVENTS.extend(events)
+
     ABSENCES.clear()
     ABSENCES.extend(absences)
 
-    print(f"Kalender-Daten geladen: {len(EVENTS)} Termine, {len(ABSENCES)} Abwesenheiten")
-
-# ============================================================
-# Hilfsfunktionen
-# ============================================================
-
-def monday_of_week(dt: datetime) -> datetime:
-    return (dt - timedelta(days=dt.weekday())).replace(
-        hour=0, minute=0, second=0, microsecond=0
+    print(
+        "Kalender-Daten geladen: "
+        f"{len(EVENTS)} Termine, "
+        f"{len(ABSENCES)} Abwesenheiten"
     )
 
-def fmt_date(dt: datetime) -> str:
-    return dt.strftime("%d.%m.")
 
-def week_title(monday: datetime) -> str:
-    sunday = monday + timedelta(days=6)
-    months = [
-        "JANUAR", "FEBRUAR", "MÄRZ", "APRIL", "MAI", "JUNI",
-        "JULI", "AUGUST", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DEZEMBER"
-    ]
+# ============================================================
+# Text
+# ============================================================
 
-    if monday.month == sunday.month:
-        return (
-            f"{monday.day:02d}.–{sunday.day:02d}. "
-            f"{months[monday.month - 1]} {monday.year}"
-        )
+def text_width(draw, text, font_obj):
 
-    return (
-        f"{monday.day:02d}. {months[monday.month - 1]} – "
-        f"{sunday.day:02d}. {months[sunday.month - 1]} {sunday.year}"
+    box = draw.textbbox(
+        (0, 0),
+        text,
+        font=font_obj,
     )
 
-def text_width(draw, text, fnt):
-    box = draw.textbbox((0, 0), text, font=fnt)
     return box[2] - box[0]
 
-def text_height(draw, text, fnt):
-    box = draw.textbbox((0, 0), text, font=fnt)
-    return box[3] - box[1]
 
-def ellipsize(draw, text, fnt, max_width_logical):
-    max_width = S(max_width_logical)
+def ellipsize(
+    draw,
+    text,
+    font_obj,
+    max_width,
+):
 
-    if text_width(draw, text, fnt) <= max_width:
+    text = str(text)
+
+    if (
+        text_width(
+            draw,
+            text,
+            font_obj,
+        )
+        <= S(max_width)
+    ):
+
         return text
 
     suffix = "…"
-    lo, hi = 0, len(text)
 
-    while lo < hi:
-        mid = (lo + hi + 1) // 2
-        candidate = text[:mid].rstrip() + suffix
+    while text:
 
-        if text_width(draw, candidate, fnt) <= max_width:
-            lo = mid
-        else:
-            hi = mid - 1
+        candidate = (
+            text[:-1]
+            + suffix
+        )
 
-    return text[:lo].rstrip() + suffix
+        if (
+            text_width(
+                draw,
+                candidate,
+                font_obj,
+            )
+            <= S(max_width)
+        ):
 
-def rounded_rect(draw, xy, radius, fill, outline=None, width=1):
+            return candidate
+
+        text = text[:-1]
+
+    return suffix
+
+
+# ============================================================
+# Hintergrund
+# ============================================================
+
+def download_background():
+
+    try:
+
+        request = urllib.request.Request(
+            TRACKER_OVERVIEW_BACKGROUND_URL,
+            headers={
+                "User-Agent":
+                    "Nyerk24-Kalender",
+            },
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=20,
+        ) as response:
+
+            data = response.read()
+
+        return Image.open(
+            io.BytesIO(data)
+        ).convert("RGB")
+
+    except Exception as exc:
+
+        print(
+            "Hintergrund konnte nicht geladen werden:",
+            exc,
+        )
+
+        return None
+
+
+def create_background(
+    width,
+    height,
+):
+
+    source = download_background()
+
+    if source is None:
+
+        return Image.new(
+            "RGB",
+            (
+                S(width),
+                S(height),
+            ),
+            BG,
+        )
+
+    target_w = S(width)
+    target_h = S(height)
+
+    src_w, src_h = source.size
+
+    scale = max(
+        target_w / src_w,
+        target_h / src_h,
+    )
+
+    new_w = max(
+        1,
+        int(src_w * scale),
+    )
+
+    new_h = max(
+        1,
+        int(src_h * scale),
+    )
+
+    source = source.resize(
+        (
+            new_w,
+            new_h,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+    left = max(
+        0,
+        (new_w - target_w) // 2,
+    )
+
+    top = max(
+        0,
+        (new_h - target_h) // 2,
+    )
+
+    source = source.crop(
+        (
+            left,
+            top,
+            left + target_w,
+            top + target_h,
+        )
+    )
+
+    overlay = Image.new(
+        "RGBA",
+        source.size,
+        (
+            10,
+            11,
+            15,
+            158,
+        ),
+    )
+
+    source = source.convert("RGBA")
+
+    source = Image.alpha_composite(
+        source,
+        overlay,
+    )
+
+    return source.convert("RGB")
+
+
+# ============================================================
+# Formen
+# ============================================================
+
+def rounded_rectangle(
+    draw,
+    box,
+    radius,
+    fill,
+    outline=None,
+    width=1,
+):
+
     draw.rounded_rectangle(
-        tuple(S(v) for v in xy),
+        tuple(S(v) for v in box),
         radius=S(radius),
         fill=fill,
         outline=outline,
         width=S(width),
     )
 
-def draw_line(draw, xy, fill, width=1):
-    draw.line(
-        tuple(S(v) for v in xy),
-        fill=fill,
-        width=S(width),
-    )
 
-def centered_text(draw, center_x, center_y, text, fnt, fill):
-    bbox = draw.textbbox((0, 0), text, font=fnt)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
+# ============================================================
+# Icon Rendering
+# ============================================================
 
-    draw.text(
+def icon_canvas(
+    size,
+    factor=4,
+):
+
+    return Image.new(
+        "RGBA",
         (
-            S(center_x) - tw / 2,
-            S(center_y) - th / 2 - S(1),
+            size * factor,
+            size * factor,
         ),
-        text,
-        font=fnt,
-        fill=fill,
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
-# ============================================================
-# Dezenter Tracker-artiger Hintergrund
-# Anthrazit + sehr unauffälliger heller Nebel
-# ============================================================
 
-def create_background(width, height):
-    image = Image.new("RGB", (S(width), S(height)), BG)
+def draw_calendar_icon(
+    size,
+    color,
+):
 
-    # Nebel auf separater Ebene erzeugen.
-    mist = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    md = ImageDraw.Draw(mist)
+    factor = 4
 
-    # Mehrere sehr weiche, helle Flächen.
-    # Absichtlich dezent, damit Text/UI klar bleibt.
-    blobs = [
-        (0.14, 0.28, 0.34, 0.22, 26),
-        (0.48, 0.12, 0.42, 0.20, 18),
-        (0.78, 0.38, 0.36, 0.25, 22),
-        (0.36, 0.76, 0.52, 0.20, 14),
-        (0.86, 0.82, 0.30, 0.18, 16),
-    ]
+    image = icon_canvas(
+        size,
+        factor,
+    )
 
-    for cx, cy, rw, rh, alpha in blobs:
-        x1 = S(width * (cx - rw / 2))
-        y1 = S(height * (cy - rh / 2))
-        x2 = S(width * (cx + rw / 2))
-        y2 = S(height * (cy + rh / 2))
+    draw = ImageDraw.Draw(image)
 
-        md.ellipse(
-            (x1, y1, x2, y2),
-            fill=(220, 225, 230, alpha),
+    w = size * factor
+
+    pad = int(
+        w * 0.18
+    )
+
+    top = int(
+        w * 0.24
+    )
+
+    bottom = int(
+        w * 0.82
+    )
+
+    radius = max(
+        2,
+        int(w * 0.09),
+    )
+
+    draw.rounded_rectangle(
+        (
+            pad,
+            top,
+            w - pad,
+            bottom,
+        ),
+        radius=radius,
+        outline=color,
+        width=max(
+            2,
+            int(w * 0.08),
+        ),
+    )
+
+    line_y = int(
+        w * 0.40
+    )
+
+    draw.line(
+        (
+            pad,
+            line_y,
+            w - pad,
+            line_y,
+        ),
+        fill=color,
+        width=max(
+            2,
+            int(w * 0.06),
+        ),
+    )
+
+    bind_y1 = int(
+        w * 0.14
+    )
+
+    bind_y2 = int(
+        w * 0.31
+    )
+
+    for x in (
+        int(w * 0.36),
+        int(w * 0.64),
+    ):
+
+        draw.line(
+            (
+                x,
+                bind_y1,
+                x,
+                bind_y2,
+            ),
+            fill=color,
+            width=max(
+                2,
+                int(w * 0.07),
+            ),
         )
 
-    mist = mist.filter(ImageFilter.GaussianBlur(S(48)))
-    image = Image.alpha_composite(image.convert("RGBA"), mist)
-
-    return image.convert("RGB")
-
-# ============================================================
-# SAUBERE PIL-ICONS + SYMBOLLOGIK 1–4
-# ============================================================
-
-ICON_RENDER_SCALE = 4
-
-
-def _icon_canvas(size):
-    px = max(24, int(size * ICON_RENDER_SCALE))
-    return Image.new("RGBA", (px, px), (0, 0, 0, 0)), px, ICON_RENDER_SCALE
-
-
-def _pt(value, scale):
-    return int(round(value * scale))
-
-
-def make_event_icon(event_type, size, color):
-    image, px, sc = _icon_canvas(size)
-    d = ImageDraw.Draw(image)
-    c = tuple(color) + (255,)
-    w = max(2, _pt(size * 0.07, sc))
-    cx = px / 2
-    cy = px / 2
-
-    if event_type == "release":
-        # Party-Popper + Konfetti
-        cone = [
-            (_pt(size * 0.22, sc), _pt(size * 0.78, sc)),
-            (_pt(size * 0.38, sc), _pt(size * 0.42, sc)),
-            (_pt(size * 0.58, sc), _pt(size * 0.62, sc)),
-        ]
-        d.polygon(cone, outline=c)
-        d.line((_pt(size*.34,sc),_pt(size*.48,sc),_pt(size*.53,sc),_pt(size*.67,sc)), fill=c, width=w)
-        for x,y in ((.55,.22),(.72,.18),(.76,.40),(.48,.30),(.67,.31)):
-            r=max(1,_pt(size*.035,sc))
-            xx,yy=_pt(size*x,sc),_pt(size*y,sc)
-            d.ellipse((xx-r,yy-r,xx+r,yy+r), fill=c)
-        d.line((_pt(size*.62,sc),_pt(size*.12,sc),_pt(size*.58,sc),_pt(size*.26,sc)), fill=c, width=w)
-        d.line((_pt(size*.82,sc),_pt(size*.27,sc),_pt(size*.69,sc),_pt(size*.32,sc)), fill=c, width=w)
-
-    elif event_type == "season":
-        # Zielflagge
-        x0,y0=_pt(size*.25,sc),_pt(size*.14,sc)
-        x1,y1=_pt(size*.25,sc),_pt(size*.84,sc)
-        d.line((x0,y0,x1,y1), fill=c, width=w)
-        left,top=_pt(size*.29,sc),_pt(size*.18,sc)
-        cw,ch=_pt(size*.14,sc),_pt(size*.13,sc)
-        for row in range(3):
-            for col in range(3):
-                box=(left+col*cw, top+row*ch, left+(col+1)*cw, top+(row+1)*ch)
-                if (row+col)%2==0: d.rectangle(box, fill=c)
-                else: d.rectangle(box, outline=c, width=max(1,w//2))
-
-    elif event_type == "raid":
-        # Gekreuzte Schwerter
-        d.line((_pt(size*.22,sc),_pt(size*.18,sc),_pt(size*.76,sc),_pt(size*.78,sc)), fill=c, width=w)
-        d.line((_pt(size*.78,sc),_pt(size*.18,sc),_pt(size*.24,sc),_pt(size*.78,sc)), fill=c, width=w)
-        d.line((_pt(size*.19,sc),_pt(size*.65,sc),_pt(size*.39,sc),_pt(size*.65,sc)), fill=c, width=w)
-        d.line((_pt(size*.61,sc),_pt(size*.65,sc),_pt(size*.81,sc),_pt(size*.65,sc)), fill=c, width=w)
-
-    elif event_type == "besprechung":
-        # Sprechblase
-        box=(_pt(size*.15,sc),_pt(size*.20,sc),_pt(size*.82,sc),_pt(size*.66,sc))
-        d.rounded_rectangle(box, radius=_pt(size*.10,sc), outline=c, width=w)
-        d.line((_pt(size*.34,sc),_pt(size*.66,sc),_pt(size*.26,sc),_pt(size*.82,sc),_pt(size*.48,sc),_pt(size*.67,sc)), fill=c, width=w)
-        for x in (.34,.49,.64):
-            r=max(1,_pt(size*.025,sc)); xx,yy=_pt(size*x,sc),_pt(size*.43,sc)
-            d.ellipse((xx-r,yy-r,xx+r,yy+r), fill=c)
-
-    elif event_type == "termin":
-        # Kalenderblatt
-        box=(_pt(size*.18,sc),_pt(size*.24,sc),_pt(size*.82,sc),_pt(size*.80,sc))
-        d.rounded_rectangle(box, radius=_pt(size*.07,sc), outline=c, width=w)
-        d.line((_pt(size*.18,sc),_pt(size*.40,sc),_pt(size*.82,sc),_pt(size*.40,sc)), fill=c, width=w)
-        d.line((_pt(size*.34,sc),_pt(size*.14,sc),_pt(size*.34,sc),_pt(size*.31,sc)), fill=c, width=w)
-        d.line((_pt(size*.66,sc),_pt(size*.14,sc),_pt(size*.66,sc),_pt(size*.31,sc)), fill=c, width=w)
-        d.ellipse((_pt(size*.46,sc),_pt(size*.53,sc),_pt(size*.54,sc),_pt(size*.61,sc)), fill=c)
-
-    else:
-        # Event: Funkelstern
-        pts=[]
-        for i in range(16):
-            angle=-math.pi/2+i*math.pi/8
-            r=size*(0.36 if i%2==0 else 0.15)*sc
-            pts.append((cx+math.cos(angle)*r, cy+math.sin(angle)*r))
-        d.polygon(pts, outline=c)
-        r=max(1,_pt(size*.025,sc))
-        d.ellipse((_pt(size*.76,sc)-r,_pt(size*.18,sc)-r,_pt(size*.76,sc)+r,_pt(size*.18,sc)+r), fill=c)
-
-    return image.resize((int(size), int(size)), Image.Resampling.LANCZOS)
-
-def draw_event_icon(base_image, event_type, center_x, center_y, size, color):
-    icon = make_event_icon(event_type, size, color)
-    x = int(round(center_x - icon.width / 2))
-    y = int(round(center_y - icon.height / 2))
-    base_image.paste(icon, (x, y), icon)
-
-
-def get_symbol_layout(cell_x, cell_y, cell_w, cell_h, count):
-    if count <= 0:
-        return [], 0
-
-    cx = cell_x + cell_w / 2
-    cy = cell_y + cell_h / 2
-
-    if count == 1:
-        return [(cx, cy)], 38
-
-    dx = cell_w * 0.20
-    dy = cell_h * 0.20
-    icon_size = 27
-
-    if count == 2:
-        positions = [(cx - dx, cy), (cx + dx, cy)]
-    elif count == 3:
-        positions = [(cx - dx, cy - dy), (cx + dx, cy - dy), (cx, cy + dy)]
-    else:
-        positions = [
-            (cx - dx, cy - dy), (cx + dx, cy - dy),
-            (cx - dx, cy + dy), (cx + dx, cy + dy),
-        ]
-
-    return positions, icon_size
-
-
-def events_for_day(day_index, week_offset=0):
-    return [
-        event for event in EVENTS
-        if event["day"] == day_index and event.get("week_offset", 0) == week_offset
-    ][:4]
-
-
-def draw_day_symbols(image, events, cell_x, cell_y, cell_w, cell_h, preview=False):
-    positions, icon_size = get_symbol_layout(
-        cell_x, cell_y, cell_w, cell_h, len(events)
+    dot_r = max(
+        2,
+        int(w * 0.035),
     )
 
-    if preview and len(events) == 1:
-        icon_size = 30
-    elif preview and len(events) > 1:
-        icon_size = 23
+    for row in range(2):
 
-    for event, (cx, cy) in zip(events, positions):
-        color = TYPE_COLORS.get(event["type"], TEXT)
-        draw_event_icon(image, event["type"], cx, cy, icon_size, color)
+        for col in range(3):
+
+            cx = int(
+                w
+                * (
+                    0.34
+                    + col * 0.16
+                )
+            )
+
+            cy = int(
+                w
+                * (
+                    0.53
+                    + row * 0.15
+                )
+            )
+
+            draw.ellipse(
+                (
+                    cx - dot_r,
+                    cy - dot_r,
+                    cx + dot_r,
+                    cy + dot_r,
+                ),
+                fill=color,
+            )
+
+    return image.resize(
+        (
+            size,
+            size,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def draw_swords_icon(
+    size,
+    color,
+):
+
+    factor = 4
+
+    image = icon_canvas(
+        size,
+        factor,
+    )
+
+    draw = ImageDraw.Draw(image)
+
+    w = size * factor
+
+    stroke = max(
+        2,
+        int(w * 0.065),
+    )
+
+    draw.line(
+        (
+            int(w * 0.24),
+            int(w * 0.18),
+            int(w * 0.76),
+            int(w * 0.80),
+        ),
+        fill=color,
+        width=stroke,
+    )
+
+    draw.line(
+        (
+            int(w * 0.76),
+            int(w * 0.18),
+            int(w * 0.24),
+            int(w * 0.80),
+        ),
+        fill=color,
+        width=stroke,
+    )
+
+    draw.line(
+        (
+            int(w * 0.17),
+            int(w * 0.68),
+            int(w * 0.35),
+            int(w * 0.84),
+        ),
+        fill=color,
+        width=stroke,
+    )
+
+    draw.line(
+        (
+            int(w * 0.83),
+            int(w * 0.68),
+            int(w * 0.65),
+            int(w * 0.84),
+        ),
+        fill=color,
+        width=stroke,
+    )
+
+    return image.resize(
+        (
+            size,
+            size,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def draw_sparkle_icon(
+    size,
+    color,
+):
+
+    factor = 4
+
+    image = icon_canvas(
+        size,
+        factor,
+    )
+
+    draw = ImageDraw.Draw(image)
+
+    w = size * factor
+
+    def star(
+        cx,
+        cy,
+        radius,
+    ):
+
+        points = []
+
+        for index in range(8):
+
+            angle = (
+                math.pi / 4
+                * index
+            )
+
+            r = (
+                radius
+                if index % 2 == 0
+                else radius * 0.22
+            )
+
+            points.append(
+                (
+                    cx
+                    + math.cos(angle)
+                    * r,
+                    cy
+                    + math.sin(angle)
+                    * r,
+                )
+            )
+
+        draw.polygon(
+            points,
+            fill=color,
+        )
+
+    star(
+        w * 0.48,
+        w * 0.48,
+        w * 0.30,
+    )
+
+    star(
+        w * 0.76,
+        w * 0.25,
+        w * 0.12,
+    )
+
+    star(
+        w * 0.25,
+        w * 0.74,
+        w * 0.10,
+    )
+
+    return image.resize(
+        (
+            size,
+            size,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def draw_chat_icon(
+    size,
+    color,
+):
+
+    factor = 4
+
+    image = icon_canvas(
+        size,
+        factor,
+    )
+
+    draw = ImageDraw.Draw(image)
+
+    w = size * factor
+
+    stroke = max(
+        2,
+        int(w * 0.065),
+    )
+
+    left = int(
+        w * 0.15
+    )
+
+    top = int(
+        w * 0.18
+    )
+
+    right = int(
+        w * 0.84
+    )
+
+    bottom = int(
+        w * 0.69
+    )
+
+    draw.rounded_rectangle(
+        (
+            left,
+            top,
+            right,
+            bottom,
+        ),
+        radius=int(
+            w * 0.10
+        ),
+        outline=color,
+        width=stroke,
+    )
+
+    tail = [
+        (
+            int(w * 0.33),
+            bottom,
+        ),
+        (
+            int(w * 0.26),
+            int(w * 0.85),
+        ),
+        (
+            int(w * 0.49),
+            bottom,
+        ),
+    ]
+
+    draw.polygon(
+        tail,
+        fill=color,
+    )
+
+    for x in (
+        0.34,
+        0.50,
+        0.66,
+    ):
+
+        r = int(
+            w * 0.035
+        )
+
+        cx = int(
+            w * x
+        )
+
+        cy = int(
+            w * 0.44
+        )
+
+        draw.ellipse(
+            (
+                cx - r,
+                cy - r,
+                cx + r,
+                cy + r,
+            ),
+            fill=color,
+        )
+
+    return image.resize(
+        (
+            size,
+            size,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def draw_party_icon(
+    size,
+    color,
+):
+
+    factor = 4
+
+    image = icon_canvas(
+        size,
+        factor,
+    )
+
+    draw = ImageDraw.Draw(image)
+
+    w = size * factor
+
+    cone = [
+        (
+            int(w * 0.22),
+            int(w * 0.78),
+        ),
+        (
+            int(w * 0.42),
+            int(w * 0.28),
+        ),
+        (
+            int(w * 0.68),
+            int(w * 0.70),
+        ),
+    ]
+
+    draw.polygon(
+        cone,
+        fill=color,
+    )
+
+    stroke = max(
+        2,
+        int(w * 0.045),
+    )
+
+    confetti = [
+        (
+            0.60,
+            0.18,
+            0.70,
+            0.08,
+        ),
+        (
+            0.75,
+            0.31,
+            0.89,
+            0.29,
+        ),
+        (
+            0.52,
+            0.13,
+            0.50,
+            0.03,
+        ),
+        (
+            0.79,
+            0.53,
+            0.90,
+            0.60,
+        ),
+    ]
+
+    for x1, y1, x2, y2 in confetti:
+
+        draw.line(
+            (
+                int(w * x1),
+                int(w * y1),
+                int(w * x2),
+                int(w * y2),
+            ),
+            fill=color,
+            width=stroke,
+        )
+
+    return image.resize(
+        (
+            size,
+            size,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def draw_flag_icon(
+    size,
+    color,
+):
+
+    factor = 4
+
+    image = icon_canvas(
+        size,
+        factor,
+    )
+
+    draw = ImageDraw.Draw(image)
+
+    w = size * factor
+
+    stroke = max(
+        2,
+        int(w * 0.055),
+    )
+
+    pole_x = int(
+        w * 0.24
+    )
+
+    top = int(
+        w * 0.14
+    )
+
+    bottom = int(
+        w * 0.86
+    )
+
+    draw.line(
+        (
+            pole_x,
+            top,
+            pole_x,
+            bottom,
+        ),
+        fill=color,
+        width=stroke,
+    )
+
+    flag_left = pole_x
+
+    flag_top = int(
+        w * 0.18
+    )
+
+    flag_right = int(
+        w * 0.80
+    )
+
+    flag_bottom = int(
+        w * 0.54
+    )
+
+    cols = 4
+    rows = 3
+
+    cell_w = (
+        flag_right
+        - flag_left
+    ) / cols
+
+    cell_h = (
+        flag_bottom
+        - flag_top
+    ) / rows
+
+    for row in range(rows):
+
+        for col in range(cols):
+
+            x1 = int(
+                flag_left
+                + col * cell_w
+            )
+
+            y1 = int(
+                flag_top
+                + row * cell_h
+            )
+
+            x2 = int(
+                flag_left
+                + (col + 1)
+                * cell_w
+            )
+
+            y2 = int(
+                flag_top
+                + (row + 1)
+                * cell_h
+            )
+
+            if (
+                row + col
+            ) % 2 == 0:
+
+                draw.rectangle(
+                    (
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                    ),
+                    fill=color,
+                )
+
+            else:
+
+                draw.rectangle(
+                    (
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                    ),
+                    outline=color,
+                    width=max(
+                        1,
+                        stroke // 2,
+                    ),
+                )
+
+    return image.resize(
+        (
+            size,
+            size,
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def make_event_icon(
+    event_type,
+    size,
+    color,
+):
+
+    if event_type == "raid":
+
+        return draw_swords_icon(
+            size,
+            color,
+        )
+
+    if event_type == "event":
+
+        return draw_sparkle_icon(
+            size,
+            color,
+        )
+
+    if event_type == "besprechung":
+
+        return draw_chat_icon(
+            size,
+            color,
+        )
+
+    if event_type == "release":
+
+        return draw_party_icon(
+            size,
+            color,
+        )
+
+    if event_type == "season":
+
+        return draw_flag_icon(
+            size,
+            color,
+        )
+
+    return draw_calendar_icon(
+        size,
+        color,
+    )
+
+
+def draw_event_icon(
+    image,
+    event_type,
+    center_x,
+    center_y,
+    size,
+    color,
+):
+
+    icon = make_event_icon(
+        event_type,
+        S(size),
+        color,
+    )
+
+    x = int(
+        S(center_x)
+        - icon.width / 2
+    )
+
+    y = int(
+        S(center_y)
+        - icon.height / 2
+    )
+
+    if image.mode != "RGBA":
+
+        rgba = image.convert(
+            "RGBA"
+        )
+
+        rgba.alpha_composite(
+            icon,
+            (
+                x,
+                y,
+            ),
+        )
+
+        image.paste(
+            rgba.convert("RGB")
+        )
+
+    else:
+
+        image.alpha_composite(
+            icon,
+            (
+                x,
+                y,
+            ),
+        )
+
+
+# ============================================================
+# Termine
+# ============================================================
+
+def event_date(
+    week_start,
+    event,
+):
+
+    return (
+        week_start
+        + timedelta(
+            days=(
+                event["day"]
+                + event.get(
+                    "week_offset",
+                    0,
+                )
+                * 7
+            )
+        )
+    )
+
+
+def events_for_day(
+    week_offset,
+    day_index,
+):
+
+    return [
+        event
+        for event in EVENTS
+        if (
+            event.get(
+                "week_offset",
+                0,
+            )
+            == week_offset
+            and
+            event["day"]
+            == day_index
+        )
+    ]
+
+
+def sorted_events(
+    week_offset=None,
+):
+
+    result = EVENTS
+
+    if week_offset is not None:
+
+        result = [
+            event
+            for event in EVENTS
+            if event.get(
+                "week_offset",
+                0,
+            )
+            == week_offset
+        ]
+
+    return sorted(
+        result,
+        key=lambda item: (
+            item.get(
+                "week_offset",
+                0,
+            ),
+            item["day"],
+            item.get(
+                "time",
+                "",
+            ),
+            item.get(
+                "title",
+                "",
+            ),
+        ),
+    )
 
 
 # ============================================================
 # Wochenübersicht
 # ============================================================
 
-def draw_week_overview(image, draw, week_start, now, x, y, width):
-    day_names = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
+DAY_NAMES = [
+    "MO",
+    "DI",
+    "MI",
+    "DO",
+    "FR",
+    "SA",
+    "SO",
+]
 
-    cell_w = width / 7
-    header_h = WEEK_HEADER_H
-    body_h = WEEK_CELL_H
-    total_h = header_h + body_h
 
-    for day in (5, 6):
-        x1 = x + day * cell_w
-        x2 = x1 + cell_w
-        draw.rectangle((S(x1), S(y), S(x2), S(y + header_h)), fill=WEEKEND_HEADER)
-        draw.rectangle((S(x1), S(y + header_h), S(x2), S(y + total_h)), fill=WEEKEND_BG)
+def week_title(
+    week_start,
+):
 
-    for day_index, day_name in enumerate(day_names):
-        day_dt = week_start + timedelta(days=day_index)
-        x1 = x + day_index * cell_w
-        cx = x1 + cell_w / 2
+    end = (
+        week_start
+        + timedelta(days=13)
+    )
 
-        if day_dt.date() == now.date():
-            draw.rectangle(
-                (
-                    S(x1 + 1), S(y + 1),
-                    S(x1 + cell_w - 1), S(y + total_h - 1),
-                ),
-                fill=TODAY_FILL,
-            )
+    return (
+        f"{week_start.strftime('%d.%m.')} "
+        f"– "
+        f"{end.strftime('%d.%m.%Y')}"
+    )
 
-        centered_text(draw, cx, y + 18, day_name, FONT_DAY, TEXT)
-        centered_text(draw, cx, y + 39, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
 
-        draw_day_symbols(
-            image,
-            events_for_day(day_index, week_offset=0),
-            x1, y + header_h, cell_w, body_h,
-        )
+def draw_icon_group(
+    image,
+    events,
+    center_x,
+    center_y,
+):
 
-    draw_line(draw, (x, y + header_h, x + width, y + header_h), GRID, 1)
+    count = len(events)
 
-    for i in range(1, 7):
-        lx = x + i * cell_w
-        draw_line(draw, (lx, y, lx, y + total_h), GRID, 1)
+    if count == 0:
 
-    if week_start.date() <= now.date() <= (week_start + timedelta(days=6)).date():
-        today_idx = now.weekday()
-        tx1 = x + today_idx * cell_w + 2
-        tx2 = tx1 + cell_w - 4
-        draw.rounded_rectangle(
+        return
+
+    if count == 1:
+
+        positions = [
             (
-                S(tx1), S(y + 2),
-                S(tx2), S(y + total_h - 2),
+                center_x,
+                center_y,
+                34,
             ),
-            radius=S(9),
-            outline=TODAY_BORDER,
-            width=S(2),
+        ]
+
+    elif count == 2:
+
+        positions = [
+            (
+                center_x - 24,
+                center_y,
+                28,
+            ),
+            (
+                center_x + 24,
+                center_y,
+                28,
+            ),
+        ]
+
+    elif count == 3:
+
+        positions = [
+            (
+                center_x - 23,
+                center_y - 16,
+                26,
+            ),
+            (
+                center_x + 23,
+                center_y - 16,
+                26,
+            ),
+            (
+                center_x,
+                center_y + 20,
+                26,
+            ),
+        ]
+
+    else:
+
+        positions = [
+            (
+                center_x - 21,
+                center_y - 18,
+                24,
+            ),
+            (
+                center_x + 21,
+                center_y - 18,
+                24,
+            ),
+            (
+                center_x - 21,
+                center_y + 18,
+                24,
+            ),
+            (
+                center_x + 21,
+                center_y + 18,
+                24,
+            ),
+        ]
+
+    for event, (
+        x,
+        y,
+        size,
+    ) in zip(
+        events[:4],
+        positions,
+    ):
+
+        color = TYPE_COLORS.get(
+            event["type"],
+            TEXT,
         )
 
-    return total_h
+        draw_event_icon(
+            image,
+            event["type"],
+            x,
+            y,
+            size,
+            color,
+        )
 
 
-def draw_next_week_preview(image, draw, week_start, x, y, width):
-    next_start = week_start + timedelta(days=7)
+def draw_week_overview(
+    image,
+    draw,
+    week_start,
+    now,
+    x,
+    y,
+    width,
+):
+
     cell_w = width / 7
-    total_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
 
-    # Klare horizontale Trennung zwischen aktueller Woche und Folgewoche.
-    draw_line(
+    header_y = y
+
+    current_y = (
+        y
+        + WEEK_HEADER_H
+    )
+
+    next_date_y = (
+        current_y
+        + WEEK_CELL_H
+    )
+
+    next_icon_y = (
+        next_date_y
+        + NEXT_WEEK_DATE_H
+    )
+
+    total_h = (
+        WEEK_HEADER_H
+        + WEEK_CELL_H
+        + NEXT_WEEK_DATE_H
+        + NEXT_WEEK_ICON_H
+    )
+
+    rounded_rectangle(
         draw,
-        (x, y, x + width, y),
-        GRID,
-        1,
+        (
+            x,
+            y,
+            x + width,
+            y + total_h,
+        ),
+        CARD_RADIUS,
+        PANEL,
     )
 
     for day_index in range(7):
-        day_dt = next_start + timedelta(days=day_index)
-        x1 = x + day_index * cell_w
-        cx = x1 + cell_w / 2
 
-        if day_index in (5, 6):
+        cell_x = (
+            x
+            + day_index
+            * cell_w
+        )
+
+        current_date = (
+            week_start
+            + timedelta(
+                days=day_index
+            )
+        )
+
+        next_date = (
+            current_date
+            + timedelta(days=7)
+        )
+
+        weekend = (
+            day_index >= 5
+        )
+
+        if weekend:
+
             draw.rectangle(
-                (S(x1), S(y), S(x1 + cell_w), S(y + total_h)),
+                (
+                    S(cell_x),
+                    S(header_y),
+                    S(
+                        cell_x
+                        + cell_w
+                    ),
+                    S(
+                        header_y
+                        + WEEK_HEADER_H
+                    ),
+                ),
+                fill=WEEKEND_HEADER,
+            )
+
+            draw.rectangle(
+                (
+                    S(cell_x),
+                    S(current_y),
+                    S(
+                        cell_x
+                        + cell_w
+                    ),
+                    S(
+                        current_y
+                        + WEEK_CELL_H
+                    ),
+                ),
                 fill=WEEKEND_BG,
             )
 
-        centered_text(
+            draw.rectangle(
+                (
+                    S(cell_x),
+                    S(next_date_y),
+                    S(
+                        cell_x
+                        + cell_w
+                    ),
+                    S(
+                        next_icon_y
+                        + NEXT_WEEK_ICON_H
+                    ),
+                ),
+                fill=WEEKEND_BG,
+            )
+
+        is_today = (
+            current_date.date()
+            == now.date()
+        )
+
+        if is_today:
+
+            draw.rectangle(
+                (
+                    S(cell_x + 2),
+                    S(header_y + 2),
+                    S(
+                        cell_x
+                        + cell_w
+                        - 2
+                    ),
+                    S(
+                        current_y
+                        + WEEK_CELL_H
+                        - 2
+                    ),
+                ),
+                fill=TODAY_FILL,
+                outline=TODAY_BORDER,
+                width=S(2),
+            )
+
+        day_name = DAY_NAMES[
+            day_index
+        ]
+
+        day_name_w = text_width(
             draw,
-            cx,
-            y + NEXT_WEEK_DATE_H / 2,
-            day_dt.strftime("%d.%m."),
+            day_name,
+            FONT_DAY,
+        )
+
+        draw.text(
+            (
+                S(
+                    cell_x
+                    + cell_w / 2
+                )
+                - day_name_w / 2,
+                S(
+                    header_y
+                    + 8
+                ),
+            ),
+            day_name,
+            font=FONT_DAY,
+            fill=TEXT,
+        )
+
+        current_text = (
+            current_date
+            .strftime("%d.%m.")
+        )
+
+        current_text_w = text_width(
+            draw,
+            current_text,
             FONT_DATE,
-            TEXT_MUTED,
         )
 
-        draw_day_symbols(
+        draw.text(
+            (
+                S(
+                    cell_x
+                    + cell_w / 2
+                )
+                - current_text_w / 2,
+                S(
+                    header_y
+                    + 31
+                ),
+            ),
+            current_text,
+            font=FONT_DATE,
+            fill=TEXT_MUTED,
+        )
+
+        current_events = events_for_day(
+            0,
+            day_index,
+        )
+
+        draw_icon_group(
             image,
-            events_for_day(day_index, week_offset=1),
-            x1,
-            y + NEXT_WEEK_DATE_H,
-            cell_w,
-            NEXT_WEEK_ICON_H,
-            preview=True,
+            current_events,
+            cell_x
+            + cell_w / 2,
+            current_y
+            + WEEK_CELL_H / 2,
         )
 
-    draw_line(
-        draw,
-        (x, y + NEXT_WEEK_DATE_H, x + width, y + NEXT_WEEK_DATE_H),
-        GRID,
-        1,
+        next_text = (
+            next_date
+            .strftime("%d.%m.")
+        )
+
+        next_text_w = text_width(
+            draw,
+            next_text,
+            FONT_DATE,
+        )
+
+        draw.text(
+            (
+                S(
+                    cell_x
+                    + cell_w / 2
+                )
+                - next_text_w / 2,
+                S(
+                    next_date_y
+                    + 8
+                ),
+            ),
+            next_text,
+            font=FONT_DATE,
+            fill=TEXT_MUTED,
+        )
+
+        next_events = events_for_day(
+            1,
+            day_index,
+        )
+
+        draw_icon_group(
+            image,
+            next_events,
+            cell_x
+            + cell_w / 2,
+            next_icon_y
+            + NEXT_WEEK_ICON_H / 2,
+        )
+
+        if day_index > 0:
+
+            draw.line(
+                (
+                    S(cell_x),
+                    S(y),
+                    S(cell_x),
+                    S(
+                        y
+                        + total_h
+                    ),
+                ),
+                fill=GRID,
+                width=S(1),
+            )
+
+    draw.line(
+        (
+            S(x),
+            S(
+                y
+                + WEEK_HEADER_H
+            ),
+            S(
+                x
+                + width
+            ),
+            S(
+                y
+                + WEEK_HEADER_H
+            ),
+        ),
+        fill=GRID,
+        width=S(1),
     )
 
-    for i in range(1, 7):
-        lx = x + i * cell_w
-        draw_line(draw, (lx, y, lx, y + total_h), GRID, 1)
+    draw.line(
+        (
+            S(x),
+            S(next_date_y),
+            S(
+                x
+                + width
+            ),
+            S(next_date_y),
+        ),
+        fill=GRID,
+        width=S(1),
+    )
 
     return total_h
 
@@ -645,54 +1926,107 @@ def draw_next_week_preview(image, draw, week_start, x, y, width):
 # Terminliste
 # ============================================================
 
-def event_date(week_start, event):
-    return week_start + timedelta(days=event["day"])
+def event_list_height():
 
-def sorted_events(week_offset=0):
-    return sorted(
-        [e for e in EVENTS if e.get("week_offset", 0) == week_offset],
-        key=lambda e: (
-            e["day"],
-            e.get("time", ""),
-            e["title"],
+    count = max(
+        1,
+        len(
+            sorted_events()
         ),
     )
 
-def event_list_height():
-    count = max(1, len(sorted_events(week_offset=0)))
-    rows = math.ceil(count / 4)
-    return rows * EVENT_ROW_H + 10
+    rows = math.ceil(
+        count / 4
+    )
+
+    return (
+        rows
+        * EVENT_ROW_H
+        + 10
+    )
 
 
-def draw_events_block(image, draw, week_start, x, y, width):
+def draw_events_block(
+    image,
+    draw,
+    week_start,
+    x,
+    y,
+    width,
+):
+
     height = event_list_height()
-    events = sorted_events(week_offset=0)
+
+    events = sorted_events()
+
     start_y = y
 
     if not events:
+
         draw.text(
-            (S(x + INNER_PAD), S(start_y + 8)),
-            "Keine besonderen Termine in dieser Woche.",
+            (
+                S(
+                    x
+                    + INNER_PAD
+                ),
+                S(
+                    start_y
+                    + 8
+                ),
+            ),
+            "Keine besonderen Termine.",
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
         )
+
         return height
 
     gap = 18
-    usable_w = width - 2 * INNER_PAD
-    col_w = (usable_w - gap * 3) / 4
 
-    for index, event in enumerate(events):
+    usable_w = (
+        width
+        - 2
+        * INNER_PAD
+    )
+
+    col_w = (
+        usable_w
+        - gap * 3
+    ) / 4
+
+    for index, event in enumerate(
+        events
+    ):
+
         row = index // 4
         col = index % 4
 
-        cell_x = x + INNER_PAD + col * (col_w + gap)
-        cell_y = start_y + row * EVENT_ROW_H
+        cell_x = (
+            x
+            + INNER_PAD
+            + col
+            * (
+                col_w
+                + gap
+            )
+        )
 
-        dt = event_date(week_start, event)
-        color = TYPE_COLORS.get(event["type"], TEXT)
+        cell_y = (
+            start_y
+            + row
+            * EVENT_ROW_H
+        )
 
-        # Icon auf Höhe des Termin-Namens.
+        dt = event_date(
+            week_start,
+            event,
+        )
+
+        color = TYPE_COLORS.get(
+            event["type"],
+            TEXT,
+        )
+
         draw_event_icon(
             image,
             event["type"],
@@ -702,22 +2036,50 @@ def draw_events_block(image, draw, week_start, x, y, width):
             color,
         )
 
-        text_x = cell_x + 30
-        title = ellipsize(draw, event["title"], FONT_EVENT, col_w - 34)
+        text_x = (
+            cell_x
+            + 30
+        )
+
+        title = ellipsize(
+            draw,
+            event["title"],
+            FONT_EVENT,
+            col_w - 34,
+        )
 
         draw.text(
-            (S(text_x), S(cell_y + 4)),
+            (
+                S(text_x),
+                S(
+                    cell_y
+                    + 4
+                ),
+            ),
             title,
             font=FONT_EVENT,
             fill=TEXT,
         )
 
-        meta = dt.strftime("%d.%m.")
+        meta = dt.strftime(
+            "%d.%m."
+        )
+
         if event.get("time"):
-            meta += f" · {event['time']}"
+
+            meta += (
+                f" · "
+                f"{event['time']}"
+            )
 
         draw.text(
-            (S(text_x), S(cell_y + 29)),
+            (
+                S(text_x),
+                S(
+                    cell_y
+                    + 29
+                ),
+            ),
             meta,
             font=FONT_EVENT_META,
             fill=TEXT_MUTED,
@@ -730,106 +2092,254 @@ def draw_events_block(image, draw, week_start, x, y, width):
 # Abwesenheiten
 # ============================================================
 
-def absence_dates(week_start, item):
-    start_dt = week_start + timedelta(days=item["start_offset"])
-    end_dt = week_start + timedelta(days=item["end_offset"])
-    return start_dt, end_dt
+def absence_dates(
+    week_start,
+    item,
+):
 
-def relevant_absences(week_start):
-    week_end = week_start + timedelta(days=6)
+    start_dt = (
+        week_start
+        + timedelta(
+            days=item[
+                "start_offset"
+            ]
+        )
+    )
+
+    end_dt = (
+        week_start
+        + timedelta(
+            days=item[
+                "end_offset"
+            ]
+        )
+    )
+
+    return (
+        start_dt,
+        end_dt,
+    )
+
+
+def relevant_absences(
+    week_start,
+):
+
+    range_end = (
+        week_start
+        + timedelta(days=13)
+    )
+
     result = []
 
     for absence in ABSENCES:
-        start_dt, end_dt = absence_dates(week_start, absence)
 
-        # Relevant, wenn der Zeitraum diese Woche berührt
-        # oder darüber hinaus weiterläuft.
-        if end_dt.date() >= week_start.date() and start_dt.date() <= week_end.date():
-            result.append(absence)
+        start_dt, end_dt = (
+            absence_dates(
+                week_start,
+                absence,
+            )
+        )
+
+        if (
+            end_dt.date()
+            >= week_start.date()
+            and
+            start_dt.date()
+            <= range_end.date()
+        ):
+
+            result.append(
+                absence
+            )
 
     return result
 
-def absence_block_height(week_start):
-    count = max(1, len(relevant_absences(week_start)))
-    rows = math.ceil(count / 4)
 
-    # Nur die tatsächliche Höhe des Abwesenheitsbereichs.
-    # Der äußere untere Rand wird separat exakt mit TOP angesetzt.
-    return 44 + rows * ABSENCE_ROW_H
+def absence_block_height(
+    week_start,
+):
+
+    count = max(
+        1,
+        len(
+            relevant_absences(
+                week_start
+            )
+        ),
+    )
+
+    rows = math.ceil(
+        count / 4
+    )
+
+    return (
+        44
+        + rows
+        * ABSENCE_ROW_H
+    )
 
 
-def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
-    items = relevant_absences(week_start)
+def draw_absences_block(
+    draw,
+    week_start,
+    x,
+    y,
+    width,
+    forced_height=None,
+):
 
-    own_height = absence_block_height(week_start)
-    height = max(own_height, forced_height or 0)
+    items = relevant_absences(
+        week_start
+    )
 
-    # Kein grauer Panel-Hintergrund mehr.
+    own_height = absence_block_height(
+        week_start
+    )
+
+    height = max(
+        own_height,
+        forced_height or 0,
+    )
+
     draw.text(
-        (S(x + INNER_PAD), S(y + 18)),
+        (
+            S(
+                x
+                + INNER_PAD
+            ),
+            S(y),
+        ),
         "ABWESENHEIT",
         font=FONT_SECTION,
         fill=TEXT,
     )
 
-    start_y = y + 44
+    content_y = (
+        y + 42
+    )
 
     if not items:
+
         draw.text(
-            (S(x + INNER_PAD), S(start_y + 8)),
+            (
+                S(
+                    x
+                    + INNER_PAD
+                ),
+                S(
+                    content_y
+                    + 4
+                ),
+            ),
             "Keine",
-            font=FONT_EVENT_META,
+            font=FONT_ABSENCE_DATE,
             fill=TEXT_MUTED,
         )
+
         return height
 
     gap = 18
-    usable_w = width - 2 * INNER_PAD
-    col_w = (usable_w - gap * 3) / 4
 
-    for index, item in enumerate(items):
+    usable_w = (
+        width
+        - 2
+        * INNER_PAD
+    )
+
+    col_w = (
+        usable_w
+        - gap * 3
+    ) / 4
+
+    for index, absence in enumerate(
+        items
+    ):
+
         row = index // 4
         col = index % 4
 
-        cell_x = x + INNER_PAD + col * (col_w + gap)
-        cell_y = start_y + row * ABSENCE_ROW_H
+        cell_x = (
+            x
+            + INNER_PAD
+            + col
+            * (
+                col_w
+                + gap
+            )
+        )
 
-        start_dt, end_dt = absence_dates(week_start, item)
+        cell_y = (
+            content_y
+            + row
+            * ABSENCE_ROW_H
+        )
 
-        marker_x = cell_x + 6
-        marker_y = cell_y + 24
+        start_dt, end_dt = (
+            absence_dates(
+                week_start,
+                absence,
+            )
+        )
 
         draw.ellipse(
             (
-                S(marker_x - 4),
-                S(marker_y - 4),
-                S(marker_x + 4),
-                S(marker_y + 4),
+                S(cell_x),
+                S(
+                    cell_y
+                    + 8
+                ),
+                S(
+                    cell_x
+                    + 12
+                ),
+                S(
+                    cell_y
+                    + 20
+                ),
             ),
             fill=ABSENCE,
         )
 
-        text_x = cell_x + 22
+        name_x = (
+            cell_x + 22
+        )
 
         name = ellipsize(
             draw,
-            item["name"],
+            absence["name"],
             FONT_ABSENCE,
-            col_w - 28,
+            col_w - 24,
         )
 
         draw.text(
-            (S(text_x), S(cell_y + 4)),
+            (
+                S(name_x),
+                S(
+                    cell_y
+                    + 2
+                ),
+            ),
             name,
             font=FONT_ABSENCE,
             fill=TEXT,
         )
 
-        date_label = f"{fmt_date(start_dt)} – {fmt_date(end_dt)}"
+        date_text = (
+            f"{start_dt.strftime('%d.%m.')} "
+            f"– "
+            f"{end_dt.strftime('%d.%m.')}"
+        )
 
         draw.text(
-            (S(text_x), S(cell_y + 29)),
-            date_label,
+            (
+                S(name_x),
+                S(
+                    cell_y
+                    + 30
+                ),
+            ),
+            date_text,
             font=FONT_ABSENCE_DATE,
             fill=TEXT_MUTED,
         )
@@ -838,391 +2348,554 @@ def draw_absences_block(draw, week_start, x, y, width, forced_height=None):
 
 
 # ============================================================
-# TRACKER-HINTERGRUND FÜR DIE DREI KALENDERKARTEN
+# Gesamthöhe
 # ============================================================
 
-def load_tracker_background():
-    request = urllib.request.Request(
-        TRACKER_OVERVIEW_BACKGROUND_URL,
-        headers={"User-Agent": "Nyerk24-Kalender/2.0"},
+def calculate_total_height(
+    week_start,
+):
+
+    week_overview_h = (
+        WEEK_HEADER_H
+        + WEEK_CELL_H
+        + NEXT_WEEK_DATE_H
+        + NEXT_WEEK_ICON_H
     )
 
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return Image.open(io.BytesIO(response.read())).convert("RGBA")
-    except Exception as exc:
-        print(f"Tracker-Hintergrund konnte nicht geladen werden: {exc}")
-        return None
-
-
-def crop_and_resize_background(image, width, height):
-    if image is None:
-        return Image.new(
-            "RGBA",
-            (width, height),
-            (10, 11, 14, 255),
-        )
-
-    # Der Tracker-Hintergrund selbst besitzt am unteren Rand eine sehr dunkle
-    # Abschlusskante. Bei der höheren Kalenderkarte wurde diese mit skaliert
-    # und dadurch als schwarzer Streifen sichtbar.
-    #
-    # Deshalb die Quelle bewusst asymmetrisch beschneiden:
-    # seitlich/oben nur minimal, unten deutlich stärker.
-    sw, sh = image.size
-
-    trim_left = max(0, int(sw * 0.018))
-    trim_right = max(0, int(sw * 0.018))
-    trim_top = max(0, int(sh * 0.018))
-    trim_bottom = max(0, int(sh * 0.065))
-
-    image = image.crop(
-        (
-            trim_left,
-            trim_top,
-            sw - trim_right,
-            sh - trim_bottom,
-        )
-    )
-
-    sw, sh = image.size
-    target_ratio = width / height
-    source_ratio = sw / sh
-
-    if source_ratio > target_ratio:
-        new_w = int(sh * target_ratio)
-        left = (sw - new_w) // 2
-        image = image.crop(
-            (
-                left,
-                0,
-                left + new_w,
-                sh,
-            )
-        )
-    else:
-        new_h = int(sw / target_ratio)
-        top = (sh - new_h) // 2
-        image = image.crop(
-            (
-                0,
-                top,
-                sw,
-                top + new_h,
-            )
-        )
-
-    image = image.resize(
-        (width, height),
-        Image.Resampling.LANCZOS,
-    )
-
-    # Smoke stays visible, but slightly darkened for readable UI text.
-    dark = Image.new(
-        "RGBA",
-        image.size,
-        (5, 6, 9, 105),
-    )
-
-    return Image.alpha_composite(
-        image,
-        dark,
-    )
-
-
-def card_canvas(width, height, background_source):
-    # Smoke fills the COMPLETE image area.
-    # No extra dark/black outer canvas is added around the card.
-    image = crop_and_resize_background(
-        background_source.copy() if background_source is not None else None,
-        width,
-        height,
-    )
-
-    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-
-    # Very subtle readability gradient only; it does not create a frame.
-    fade_end = int(width * 0.72)
-
-    for x in range(fade_end):
-        progress = x / max(1, fade_end - 1)
-        alpha = int(54 * ((1.0 - progress) ** 1.5))
-        od.line(
-            (x, 0, x, height),
-            fill=(0, 0, 0, alpha),
-        )
-
-    return Image.alpha_composite(
-        image,
-        overlay,
-    ).convert("RGB")
-
-
-# ============================================================
-# DREI EINZELNE KALENDERKARTEN
-# ============================================================
-
-def render_week_card(week_start, now, background_source):
-    week_h = WEEK_HEADER_H + WEEK_CELL_H
-    preview_h = NEXT_WEEK_DATE_H + NEXT_WEEK_ICON_H
-    events_h = event_list_height()
-    absences_h = absence_block_height(week_start)
-
-    events_gap = 18
-    absences_gap = 14
-
-    height = (
+    content_top = (
         TOP
         + TITLE_H
-        + week_h
-        + preview_h
-        + events_gap
-        + events_h
-        + absences_gap
-        + absences_h
-        + TOP
+        + week_overview_h
+        + SECTION_GAP
     )
 
-    image = card_canvas(WIDTH, height, background_source)
-    draw = ImageDraw.Draw(image)
+    if LAYOUT_MODE == "columns":
+
+        lower_h = max(
+            event_list_height(),
+            absence_block_height(
+                week_start
+            ),
+        )
+
+    else:
+
+        lower_h = (
+            event_list_height()
+            + SECTION_GAP
+            + absence_block_height(
+                week_start
+            )
+        )
+
+    return (
+        content_top
+        + lower_h
+        + BOTTOM_PAD
+    )
+
+
+# ============================================================
+# Kalender rendern
+# ============================================================
+
+def render_calendar():
+
+    now = datetime.now(
+        TIMEZONE
+    )
+
+    week_start = monday_of_week(
+        now
+    )
+
+    total_h = calculate_total_height(
+        week_start
+    )
+
+    image = create_background(
+        WIDTH,
+        total_h,
+    )
+
+    draw = ImageDraw.Draw(
+        image
+    )
 
     draw.text(
-        (MARGIN_X, TOP),
+        (
+            S(MARGIN_X),
+            S(TOP),
+        ),
         "WOCHENÜBERSICHT",
         font=FONT_TITLE,
         fill=TEXT,
     )
 
-    # Kleiner Vermerk über den gesamten sichtbaren 14-Tage-Zeitraum.
-    range_end = week_start + timedelta(days=13)
-    range_text = (
-        f"{week_start.strftime('%d.%m.')} – "
-        f"{range_end.strftime('%d.%m.%Y')}"
-    )
     draw.text(
-        (MARGIN_X, TOP + 34),
-        range_text,
+        (
+            S(MARGIN_X),
+            S(
+                TOP + 36
+            ),
+        ),
+        week_title(
+            week_start
+        ),
         font=FONT_SUBTITLE,
         fill=TEXT_MUTED,
     )
 
-    week_y = TOP + TITLE_H
+    week_y = (
+        TOP + TITLE_H
+    )
 
-    # Aktuelle Woche.
-    draw_week_overview(
+    content_width = (
+        WIDTH
+        - 2
+        * MARGIN_X
+    )
+
+    week_h = draw_week_overview(
         image,
         draw,
         week_start,
         now,
         MARGIN_X,
         week_y,
-        WIDTH - 2 * MARGIN_X,
+        content_width,
     )
 
-    # Folgewoche direkt darunter, ohne Abstand.
-    preview_y = week_y + week_h
-    draw_next_week_preview(
-        image,
-        draw,
-        week_start,
-        MARGIN_X,
-        preview_y,
-        WIDTH - 2 * MARGIN_X,
+    lower_y = (
+        week_y
+        + week_h
+        + SECTION_GAP
     )
 
-    # Terminauflösung unter dem kompletten 14-Tage-Block.
-    events_y = preview_y + preview_h + events_gap
-    draw_events_block(
-        image,
-        draw,
-        week_start,
-        MARGIN_X,
-        events_y,
-        WIDTH - 2 * MARGIN_X,
+    if LAYOUT_MODE == "columns":
+
+        gap = 18
+
+        left_w = int(
+            content_width
+            * 0.60
+        )
+
+        right_w = (
+            content_width
+            - left_w
+            - gap
+        )
+
+        left_h = event_list_height()
+
+        right_h = absence_block_height(
+            week_start
+        )
+
+        shared_h = max(
+            left_h,
+            right_h,
+        )
+
+        draw_events_block(
+            image,
+            draw,
+            week_start,
+            MARGIN_X,
+            lower_y,
+            left_w,
+        )
+
+        draw_absences_block(
+            draw,
+            week_start,
+            MARGIN_X
+            + left_w
+            + gap,
+            lower_y,
+            right_w,
+            forced_height=shared_h,
+        )
+
+    else:
+
+        events_h = draw_events_block(
+            image,
+            draw,
+            week_start,
+            MARGIN_X,
+            lower_y,
+            content_width,
+        )
+
+        abs_y = (
+            lower_y
+            + events_h
+            + SECTION_GAP
+        )
+
+        draw_absences_block(
+            draw,
+            week_start,
+            MARGIN_X,
+            abs_y,
+            content_width,
+        )
+
+    image.save(
+        OUTPUT_FILE,
+        optimize=True,
     )
 
-    # Abwesenheiten direkt unter die Termine.
-    absences_y = events_y + events_h + absences_gap
-    draw_absences_block(
-        draw,
-        week_start,
-        MARGIN_X,
-        absences_y,
-        WIDTH - 2 * MARGIN_X,
+    print(
+        f"Kalender erstellt: "
+        f"{OUTPUT_FILE}"
     )
-
-    image.save(WEEK_FILE, "PNG", optimize=True)
-    print(f"Komplette Kalenderkarte erstellt: {WEEK_FILE}")
-
-def render_absences_card(week_start, background_source):
-    block_h = absence_block_height(week_start)
-    height = TOP + block_h + BOTTOM_PAD
-
-    image = card_canvas(WIDTH, height, background_source)
-    draw = ImageDraw.Draw(image)
-
-    draw_absences_block(
-        draw,
-        week_start,
-        MARGIN_X,
-        TOP,
-        WIDTH - 2 * MARGIN_X,
-    )
-
-    image.save(ABSENCES_FILE, "PNG", optimize=True)
-    print(f"Abwesenheitskarte erstellt: {ABSENCES_FILE}")
-
-
-def render_calendar_cards():
-    now = datetime.now(TIMEZONE)
-    week_start = monday_of_week(now)
-
-    background_source = load_tracker_background()
-
-    # Kalender, Termine und Abwesenheiten jetzt in EINEM Bild.
-    render_week_card(week_start, now, background_source)
 
 
 # ============================================================
-# Discord Webhook / State
+# Discord State
 # ============================================================
 
 def load_state():
+
     if not STATE_FILE.exists():
+
         return {}
 
     try:
-        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+
+        return json.loads(
+            STATE_FILE.read_text(
+                encoding="utf-8"
+            )
+        )
+
     except Exception:
+
         return {}
 
 
-def save_state(data):
+def save_state(
+    data,
+):
+
     STATE_FILE.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
 
-def multipart_body(payload_json, file_paths):
-    boundary = f"----Nyerk24Boundary{uuid.uuid4().hex}"
+# ============================================================
+# Multipart
+# ============================================================
+
+def multipart_body(
+    payload_json,
+    image_bytes,
+):
+
+    boundary = (
+        "----Nyerk24Boundary"
+        + uuid.uuid4().hex
+    )
+
     body = io.BytesIO()
 
-    def write_part(headers, content):
-        body.write(f"--{boundary}\r\n".encode())
+    def write_part(
+        headers,
+        content,
+    ):
+
+        body.write(
+            f"--{boundary}\r\n"
+            .encode()
+        )
 
         for key, value in headers.items():
-            body.write(f"{key}: {value}\r\n".encode())
 
-        body.write(b"\r\n")
-        body.write(content)
-        body.write(b"\r\n")
+            body.write(
+                f"{key}: {value}\r\n"
+                .encode()
+            )
+
+        body.write(
+            b"\r\n"
+        )
+
+        body.write(
+            content
+        )
+
+        body.write(
+            b"\r\n"
+        )
 
     write_part(
         {
-            "Content-Disposition": 'form-data; name="payload_json"',
-            "Content-Type": "application/json",
+            "Content-Disposition":
+                'form-data; name="payload_json"',
+            "Content-Type":
+                "application/json",
         },
-        json.dumps(payload_json).encode("utf-8"),
+        json.dumps(
+            payload_json
+        ).encode("utf-8"),
     )
 
-    for index, file_path in enumerate(file_paths):
-        write_part(
-            {
-                "Content-Disposition": (
-                    f'form-data; name="files[{index}]"; '
-                    f'filename="{file_path.name}"'
+    write_part(
+        {
+            "Content-Disposition":
+                (
+                    'form-data; '
+                    'name="files[0]"; '
+                    'filename="kalender.png"'
                 ),
-                "Content-Type": "image/png",
-            },
-            file_path.read_bytes(),
-        )
+            "Content-Type":
+                "image/png",
+        },
+        image_bytes,
+    )
 
-    body.write(f"--{boundary}--\r\n".encode())
+    body.write(
+        f"--{boundary}--\r\n"
+        .encode()
+    )
 
-    return body.getvalue(), boundary
+    return (
+        body.getvalue(),
+        boundary,
+    )
 
 
-def webhook_request(url, method="POST"):
-    files = [
-        WEEK_FILE,
-    ]
+# ============================================================
+# Discord Webhook
+# ============================================================
+
+def webhook_request(
+    url,
+    method="POST",
+):
 
     payload = {
         "content": "",
         "embeds": [
-            {"image": {"url": f"attachment://{WEEK_FILE.name}"}},
+            {
+                "image": {
+                    "url":
+                        "attachment://kalender.png"
+                }
+            }
         ],
         "attachments": [
             {
-                "id": index,
-                "filename": file_path.name,
+                "id": 0,
+                "filename":
+                    "kalender.png",
             }
-            for index, file_path in enumerate(files)
         ],
     }
 
-    body, boundary = multipart_body(payload, files)
+    image_bytes = (
+        OUTPUT_FILE
+        .read_bytes()
+    )
+
+    body, boundary = (
+        multipart_body(
+            payload,
+            image_bytes,
+        )
+    )
 
     request = urllib.request.Request(
         url,
         data=body,
         method=method,
         headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "User-Agent": "Nyerk24-Kalender/2.0",
+            "Content-Type":
+                (
+                    "multipart/form-data; "
+                    f"boundary={boundary}"
+                ),
+            "User-Agent":
+                "Nyerk24-Kalender",
         },
     )
 
-    with urllib.request.urlopen(request, timeout=60) as response:
-        raw = response.read().decode("utf-8")
-        return json.loads(raw) if raw else {}
+    try:
 
+        with urllib.request.urlopen(
+            request,
+            timeout=30,
+        ) as response:
 
-def post_or_update():
-    if not WEBHOOK_URL:
-        raise RuntimeError("KALENDER_WEBHOOK ist nicht gesetzt.")
-
-    state = load_state()
-    message_id = state.get("message_id")
-
-    if message_id:
-        edit_url = f"{WEBHOOK_URL}/messages/{message_id}"
-
-        try:
-            webhook_request(edit_url, method="PATCH")
-            print(f"Discord-Kalender aktualisiert: {message_id}")
-            return
-
-        except urllib.error.HTTPError as exc:
-            if exc.code != 404:
-                raise
-
-            print(
-                "Gespeicherte Discord-Nachricht existiert nicht mehr. "
-                "Erstelle neue Nachricht."
+            response_body = (
+                response
+                .read()
+                .decode(
+                    "utf-8",
+                    errors="replace",
+                )
             )
 
-    result = webhook_request(
-        f"{WEBHOOK_URL}?wait=true",
-        method="POST",
+            return (
+                response.status,
+                response_body,
+            )
+
+    except urllib.error.HTTPError as exc:
+
+        response_body = (
+            exc.read()
+            .decode(
+                "utf-8",
+                errors="replace",
+            )
+        )
+
+        return (
+            exc.code,
+            response_body,
+        )
+
+
+def update_discord():
+
+    if not WEBHOOK_URL:
+
+        raise RuntimeError(
+            "KALENDER_WEBHOOK ist nicht gesetzt."
+        )
+
+    state = load_state()
+
+    message_id = state.get(
+        "message_id"
     )
 
-    new_id = result.get("id")
+    if message_id:
 
-    if not new_id:
-        raise RuntimeError("Discord hat keine message_id zurückgegeben.")
+        patch_url = (
+            WEBHOOK_URL
+            + "/messages/"
+            + str(message_id)
+        )
 
-    save_state({"message_id": new_id})
-    print(f"Neue Discord-Kalendernachricht erstellt: {new_id}")
+        status, response_body = (
+            webhook_request(
+                patch_url,
+                method="PATCH",
+            )
+        )
+
+        if 200 <= status < 300:
+
+            print(
+                "Bestehende Kalender-Nachricht aktualisiert."
+            )
+
+            return
+
+        if status != 404:
+
+            raise RuntimeError(
+                "Discord PATCH fehlgeschlagen: "
+                f"HTTP {status} · "
+                f"{response_body}"
+            )
+
+        print(
+            "Gespeicherte Kalender-Nachricht "
+            "existiert nicht mehr. "
+            "Neue Nachricht wird erstellt."
+        )
+
+    post_url = (
+        WEBHOOK_URL
+        + "?wait=true"
+    )
+
+    status, response_body = (
+        webhook_request(
+            post_url,
+            method="POST",
+        )
+    )
+
+    if not (
+        200
+        <= status
+        < 300
+    ):
+
+        raise RuntimeError(
+            "Discord POST fehlgeschlagen: "
+            f"HTTP {status} · "
+            f"{response_body}"
+        )
+
+    try:
+
+        response_data = json.loads(
+            response_body
+        )
+
+    except json.JSONDecodeError as exc:
+
+        raise RuntimeError(
+            "Discord hat keine gültige "
+            "JSON-Antwort geliefert."
+        ) from exc
+
+    new_message_id = (
+        response_data.get("id")
+    )
+
+    if not new_message_id:
+
+        raise RuntimeError(
+            "Discord-Antwort enthält "
+            "keine message_id."
+        )
+
+    save_state({
+        "message_id":
+            new_message_id,
+    })
+
+    print(
+        "Neue Kalender-Nachricht erstellt: "
+        f"{new_message_id}"
+    )
 
 
 # ============================================================
 # Main
 # ============================================================
 
-if __name__ == "__main__":
+def main():
+
+    print(
+        "Nyerk24 Kalender startet."
+    )
+
     load_calendar_data()
-    render_calendar_cards()
-    post_or_update()
+
+    render_calendar()
+
+    update_discord()
+
+    print(
+        "Nyerk24 Kalender erfolgreich abgeschlossen."
+    )
+
+
+if __name__ == "__main__":
+
+    main()
