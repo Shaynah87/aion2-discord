@@ -1,8 +1,8 @@
 import os
 import json
 import math
+from pathlib import Path
 from datetime import datetime
-import math
 from zoneinfo import ZoneInfo
 
 import requests
@@ -19,13 +19,15 @@ from PIL import (
 # DATEIEN / EINSTELLUNGEN
 # ============================================================
 
-DATA_FILE = "content_data.json"
-MESSAGE_STATE_FILE = "content_message.json"
+BASE_DIR = Path(__file__).resolve().parent
+
+DATA_FILE = BASE_DIR / "content_data.json"
+MESSAGE_STATE_FILE = BASE_DIR / "content_message.json"
 
 WEBHOOK_URL = os.environ.get("CONTENT_WEBHOOK")
 
-EARLY_ACCESS_OUTPUT = "early_access_card.png"
-GLOBAL_LAUNCH_OUTPUT = "global_launch_card.png"
+EARLY_ACCESS_OUTPUT = BASE_DIR / "early_access_card.png"
+GLOBAL_LAUNCH_OUTPUT = BASE_DIR / "global_launch_card.png"
 
 
 # ============================================================
@@ -75,7 +77,7 @@ EARLY_TITLE_SIZE = 96
 EARLY_TITLE_BOLD = True
 EARLY_TITLE_TARGET_WIDTH = 625
 
-EARLY_DATE_SIZE = 32
+EARLY_DATE_SIZE = 36
 EARLY_NOCH_SIZE = COUNTDOWN_NOCH_SIZE
 EARLY_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
 
@@ -127,6 +129,24 @@ EARLY_READABILITY_OUTLINE = (
 )
 
 EARLY_READABILITY_STROKE_WIDTH = 1
+
+# Zusätzliche sehr feine dunkle Außenkante nur für EARLY ACCESS.
+# Groß bewusst dezenter als Compact.
+EARLY_TITLE_DARK_OUTLINE = (
+    0,
+    0,
+    0,
+    120,
+)
+
+EARLY_COMPACT_DARK_OUTLINE = (
+    0,
+    0,
+    0,
+    165,
+)
+
+EARLY_DARK_OUTLINE_WIDTH = 1
 
 
 # ------------------------------------------------------------
@@ -251,11 +271,9 @@ GLOBAL_TITLE_SIZE = 96
 GLOBAL_TITLE_BOLD = True
 GLOBAL_TITLE_TARGET_WIDTH = 470
 
-GLOBAL_DATE_SIZE = 32
+GLOBAL_DATE_SIZE = 36
 GLOBAL_NOCH_SIZE = COUNTDOWN_NOCH_SIZE
 GLOBAL_COUNTDOWN_SIZE = COUNTDOWN_DAYS_SIZE
-GLOBAL_TIME_NOTE_SIZE = 15
-GLOBAL_TIME_NOTE_GAP = 7
 
 
 # ------------------------------------------------------------
@@ -385,23 +403,27 @@ GLOBAL_LINE = (
 # KOMPAKTE KARTE
 # ============================================================
 
-COMPACT_TITLE_SIZE = 43
-COMPACT_STATUS_SIZE = 28
+COMPACT_TITLE_SIZE = 49
+COMPACT_STATUS_SIZE = 31
 
 COMPACT_TITLE_SPACING = 5
 COMPACT_GAP = 18
 
-# Nur zum Gestalten/Testen des Zweizeilers.
-# Nach Freigabe wieder auf False setzen.
-TEST_COMPACT_MODE = True
+# Temporärer separater Compact-Test.
+# True = zwei zusätzliche Test-Nachrichten unter den echten Headern.
+# Die produktiven Early-/Global-Nachrichten bleiben davon unberührt.
+TEST_COMPACT_PREVIEW = False
+
+EARLY_COMPACT_PREVIEW_OUTPUT = BASE_DIR / "early_access_compact_preview.png"
+GLOBAL_COMPACT_PREVIEW_OUTPUT = BASE_DIR / "global_launch_compact_preview.png"
 
 COMPACT_CROP_CENTER = {
     # Kugel: optische Mitte des Masters.
     "early_access": 0.50,
 
-    # Global: Ausschnitt etwas höher, damit die Gesichter
-    # der beiden Hauptfiguren im 220px-Zweizeiler bleiben.
-    "global_launch": 0.40,
+    # Global: Ausschnitt höher im Master, damit die Köpfe
+    # im fertigen 220px-Balken weiter unten sitzen.
+    "global_launch": 0.26,
 }
 
 
@@ -448,7 +470,6 @@ def get_now(timezone_name):
 def parse_date(
     date_string,
     timezone_name,
-    time_string="00:00",
 ):
 
     timezone = ZoneInfo(
@@ -456,20 +477,10 @@ def parse_date(
     )
 
     return datetime.strptime(
-        f"{date_string} {time_string}",
-        "%Y-%m-%d %H:%M",
+        date_string,
+        "%Y-%m-%d",
     ).replace(
         tzinfo=timezone
-    )
-
-
-def get_milestone_time(milestone):
-
-    # Launch-Zeiten. Können später direkt in content_data.json
-    # mit "time" überschrieben werden.
-    return milestone.get(
-        "time",
-        "15:00",
     )
 
 
@@ -479,88 +490,44 @@ def get_milestone_status(
     timezone_name,
 ):
 
-    time_string = get_milestone_time(
-        milestone
-    )
-
     target = parse_date(
         milestone["date"],
         timezone_name,
-        time_string,
     )
-
-    remaining_seconds = (
-        target - now
-    ).total_seconds()
-
-    if remaining_seconds <= 0:
-
-        return {
-            "state": "started",
-            "days": None,
-            "hours": None,
-            "minutes": None,
-            "text": "GESTARTET",
-            "countdown_text": "GESTARTET",
-        }
-
-    # In den letzten 24 Stunden wird auf Stunden/Minuten
-    # umgestellt. Bis zur letzten Stunde auf 5 Minuten
-    # aufrunden, damit der Countdown niemals zu früh 0 zeigt.
-    if remaining_seconds <= 24 * 60 * 60:
-
-        total_minutes = math.ceil(
-            remaining_seconds / 60
-        )
-
-        if remaining_seconds > 60 * 60:
-            total_minutes = int(
-                math.ceil(total_minutes / 5) * 5
-            )
-
-        hours, minutes = divmod(
-            total_minutes,
-            60,
-        )
-
-        if hours > 0:
-            countdown_text = (
-                f"{hours} STD · {minutes:02d} MIN"
-            )
-        else:
-            countdown_text = (
-                f"{minutes} "
-                f"{'MINUTE' if minutes == 1 else 'MINUTEN'}"
-            )
-
-        return {
-            "state": "countdown",
-            "days": None,
-            "hours": hours,
-            "minutes": minutes,
-            "text": f"Noch {countdown_text}",
-            "countdown_text": countdown_text,
-        }
 
     days = (
         target.date()
         - now.date()
     ).days
 
+    if days > 1:
+
+        return {
+            "state": "countdown",
+            "days": days,
+            "text": f"Noch {days} Tage",
+        }
+
     if days == 1:
-        countdown_text = "1 TAG"
-        text = "Noch 1 Tag"
-    else:
-        countdown_text = f"{days} TAGE"
-        text = f"Noch {days} Tage"
+
+        return {
+            "state": "countdown",
+            "days": 1,
+            "text": "Noch 1 Tag",
+        }
+
+    if days == 0:
+
+        return {
+            "state": "today",
+            "days": 0,
+            "text": "HEUTE",
+        }
 
     return {
-        "state": "countdown",
-        "days": days,
-        "hours": None,
-        "minutes": None,
-        "text": text,
-        "countdown_text": countdown_text,
+        "state": "started",
+        "days": None,
+        "text": "GESTARTET",
     }
 
 
@@ -625,12 +592,6 @@ def build_content_state(data):
 
                 "status_text":
                     status["text"],
-
-                "countdown_text":
-                    status.get("countdown_text"),
-
-                "time":
-                    get_milestone_time(milestone),
             }
         )
 
@@ -739,14 +700,37 @@ def load_background(filename):
             "Kein Hintergrundbild für Content gesetzt."
         )
 
-    if not os.path.exists(filename):
+    background_path = Path(filename)
+
+    if not background_path.is_absolute():
+
+        direct_path = (
+            BASE_DIR
+            / background_path
+        )
+
+        launch_path = (
+            BASE_DIR
+            / "Launch"
+            / background_path
+        )
+
+        if direct_path.exists():
+
+            background_path = direct_path
+
+        else:
+
+            background_path = launch_path
+
+    if not background_path.exists():
 
         raise RuntimeError(
-            f"Hintergrund fehlt: {filename}"
+            f"Hintergrund fehlt: {background_path}"
         )
 
     image = Image.open(
-        filename
+        background_path
     ).convert(
         "RGBA"
     )
@@ -1693,6 +1677,7 @@ def draw_early_title(
     center_x,
     y,
     spacing,
+    dark_outline_color=EARLY_TITLE_DARK_OUTLINE,
 ):
 
     return draw_gradient_title(
@@ -1722,10 +1707,10 @@ def draw_early_title(
             EARLY_TITLE_GLOW,
 
         outline_color=
-            EARLY_READABILITY_OUTLINE,
+            dark_outline_color,
 
         outline_width=
-            EARLY_READABILITY_STROKE_WIDTH,
+            EARLY_DARK_OUTLINE_WIDTH,
 
         top_color=
             EARLY_TITLE_TOP_COLOR,
@@ -2481,20 +2466,25 @@ def create_early_access_full_card(
     )
 
     date_text = (
-        f"{milestone['date_display'].upper()} "
-        f"· {milestone['time']} UHR"
+        milestone[
+            "date_display"
+        ].upper()
     )
 
     if milestone["state"] == "countdown":
 
-        days_text = milestone[
-            "countdown_text"
-        ]
+        days = milestone["days"]
+
+        days_text = (
+            f"{days} "
+            f"{'TAG' if days == 1 else 'TAGE'}"
+        )
+
         noch_text = "NOCH"
 
     else:
 
-        days_text = "GESTARTET"
+        days_text = "HEUTE"
         noch_text = ""
 
     probe = ImageDraw.Draw(
@@ -2681,11 +2671,6 @@ def create_global_launch_full_card(
         bold=True,
     )
 
-    time_note_font = load_font(
-        GLOBAL_TIME_NOTE_SIZE,
-        bold=True,
-    )
-
     noch_font = load_font(
         GLOBAL_NOCH_SIZE,
         bold=True,
@@ -2697,20 +2682,25 @@ def create_global_launch_full_card(
     )
 
     date_text = (
-        f"{milestone['date_display'].upper()} "
-        f"· {milestone['time']} UHR"
+        milestone[
+            "date_display"
+        ].upper()
     )
 
     if milestone["state"] == "countdown":
 
-        days_text = milestone[
-            "countdown_text"
-        ]
+        days = milestone["days"]
+
+        days_text = (
+            f"{days} "
+            f"{'TAG' if days == 1 else 'TAGE'}"
+        )
+
         noch_text = "NOCH"
 
     else:
 
-        days_text = "GESTARTET"
+        days_text = "HEUTE"
         noch_text = ""
 
     probe = ImageDraw.Draw(
@@ -2825,43 +2815,6 @@ def create_global_launch_full_card(
 
 
     # --------------------------------------------------------
-    # HINWEIS ZUR GLOBAL-LAUNCH-UHRZEIT
-    # --------------------------------------------------------
-
-    note_text = "UHRZEIT NOCH NICHT BESTÄTIGT"
-    note_bbox = probe.textbbox(
-        (0, 0),
-        note_text,
-        font=time_note_font,
-    )
-    date_bbox = probe.textbbox(
-        (0, 0),
-        date_text,
-        font=date_font,
-    )
-    note_visible_top = (
-        upper_layout["date_y"]
-        + date_bbox[3]
-        + GLOBAL_TIME_NOTE_GAP
-    )
-    note_y = (
-        note_visible_top
-        - note_bbox[1]
-    )
-
-    image = draw_soft_centered_text(
-        image,
-        note_text,
-        note_y,
-        time_note_font,
-        GLOBAL_MUTED,
-        (255, 255, 255, 80),
-        shadow_blur=1.0,
-        shadow_offset=1,
-    )
-
-
-    # --------------------------------------------------------
     # NOCH
     # --------------------------------------------------------
 
@@ -2942,7 +2895,7 @@ def create_compact_card(
 
         title_font = load_font(
             COMPACT_TITLE_SIZE,
-            bold=False,
+            bold=GLOBAL_TITLE_BOLD,
             serif=True,
         )
 
@@ -3036,30 +2989,60 @@ def create_compact_card(
 
     if milestone["key"] == "global_launch":
 
-        draw = ImageDraw.Draw(
-            image
-        )
-
-        title_width = spaced_text_width(
-            draw,
+        global_spacing = spacing_for_target_width(
+            probe,
             title_text,
             title_font,
-            COMPACT_TITLE_SPACING,
+            470,
         )
 
-        title_x = (
-            CARD_WIDTH / 2
-            - title_width / 2
-        )
+        image = draw_gradient_title(
+            image=image,
+            text=title_text,
+            font=title_font,
+            center_x=CARD_WIDTH / 2,
+            y=title_y,
+            spacing=global_spacing,
 
-        draw_spaced_text(
-            draw,
-            title_x,
-            title_y,
-            title_text,
-            title_font,
-            GLOBAL_TEXT,
-            COMPACT_TITLE_SPACING,
+            shadow_offset_x=
+                GLOBAL_TITLE_SHADOW_OFFSET_X,
+
+            shadow_offset_y=
+                GLOBAL_TITLE_SHADOW_OFFSET_Y,
+
+            shadow_blur=
+                GLOBAL_TITLE_SHADOW_BLUR,
+
+            shadow_color=
+                GLOBAL_TITLE_SHADOW,
+
+            glow_blur=
+                GLOBAL_TITLE_GLOW_BLUR,
+
+            glow_color=
+                GLOBAL_TITLE_GLOW,
+
+            # Nur in der kleinen Global-Version keine Goldkante.
+            outline_color=None,
+            outline_width=0,
+
+            top_color=
+                GLOBAL_TITLE_TOP_COLOR,
+
+            upper_color=
+                GLOBAL_TITLE_UPPER_COLOR,
+
+            mid_color=
+                GLOBAL_TITLE_MID_COLOR,
+
+            bottom_color=
+                GLOBAL_TITLE_BOTTOM_COLOR,
+
+            shine_color=
+                GLOBAL_TITLE_SHINE,
+
+            edge_dark_color=
+                GLOBAL_TITLE_EDGE_DARK,
         )
 
         image = draw_soft_centered_text(
@@ -3072,9 +3055,10 @@ def create_compact_card(
                 255,
                 255,
                 255,
-                125,
+                135,
             ),
-            shadow_blur=1.6,
+            shadow_blur=1.7,
+            shadow_offset=1,
         )
 
 
@@ -3098,6 +3082,8 @@ def create_compact_card(
             CARD_WIDTH / 2,
             title_y,
             title_spacing,
+            dark_outline_color=
+                EARLY_COMPACT_DARK_OUTLINE,
         )
 
         image = draw_soft_centered_text(
@@ -3110,9 +3096,14 @@ def create_compact_card(
                 0,
                 0,
                 0,
-                150,
+                175,
             ),
             shadow_blur=2.5,
+            shadow_offset=1,
+            stroke_width=
+                EARLY_LOWER_READABILITY_STROKE_WIDTH,
+            stroke_fill=
+                EARLY_LOWER_READABILITY_OUTLINE,
         )
 
     return image.convert(
@@ -3127,14 +3118,6 @@ def create_compact_card(
 def render_milestone(
     milestone
 ):
-
-    # Temporärer Design-Test: beide Karten sofort als
-    # Zweizeiler rendern, ohne die echten Startdaten anzufassen.
-    if TEST_COMPACT_MODE:
-
-        return create_compact_card(
-            milestone
-        )
 
     if milestone["state"] in (
         "countdown",
@@ -3177,7 +3160,8 @@ def save_milestone_card(
     else:
 
         filename = (
-            f"{milestone['key']}_card.png"
+            BASE_DIR
+            / f"{milestone['key']}_card.png"
         )
 
     image.save(
@@ -3188,6 +3172,44 @@ def save_milestone_card(
 
     print(
         f"{milestone['title']}: "
+        f"{filename} "
+        f"({image.width}x{image.height})"
+    )
+
+    return filename
+
+
+def save_compact_preview_card(
+    milestone
+):
+
+    image = create_compact_card(
+        milestone
+    )
+
+    if milestone["key"] == "early_access":
+
+        filename = EARLY_COMPACT_PREVIEW_OUTPUT
+
+    elif milestone["key"] == "global_launch":
+
+        filename = GLOBAL_COMPACT_PREVIEW_OUTPUT
+
+    else:
+
+        filename = (
+            BASE_DIR
+            / f"{milestone['key']}_compact_preview.png"
+        )
+
+    image.save(
+        filename,
+        "PNG",
+        optimize=True,
+    )
+
+    print(
+        f"{milestone['title']} Compact-Test: "
         f"{filename} "
         f"({image.width}x{image.height})"
     )
@@ -3476,6 +3498,43 @@ def update_or_create_discord_image(
     return True
 
 
+def send_compact_previews_to_discord(
+    early_access_file,
+    global_launch_file,
+):
+
+    print("")
+    print(
+        "Compact-Test: zwei separate Testnachrichten "
+        "werden unter den echten Headern gepostet ..."
+    )
+
+    early_preview_id = post_discord_image(
+        early_access_file,
+        "early_access_compact_preview.png",
+    )
+
+    print(
+        "Early Access Compact-Test erstellt. "
+        f"Message-ID: {early_preview_id}"
+    )
+
+    global_preview_id = post_discord_image(
+        global_launch_file,
+        "global_launch_compact_preview.png",
+    )
+
+    print(
+        "Global Launch Compact-Test erstellt. "
+        f"Message-ID: {global_preview_id}"
+    )
+
+    print(
+        "Die beiden Testnachrichten können danach "
+        "in Discord einfach gelöscht werden."
+    )
+
+
 def send_content_to_discord(
     early_access_file,
     global_launch_file,
@@ -3611,6 +3670,7 @@ def main():
     }
 
     rendered_files = {}
+    milestone_by_key = {}
 
     for milestone in (
         content_state["milestones"]
@@ -3619,6 +3679,10 @@ def main():
         if milestone["key"] not in wanted_keys:
 
             continue
+
+        milestone_by_key[
+            milestone["key"]
+        ] = milestone
 
         filename = save_milestone_card(
             milestone
@@ -3653,6 +3717,25 @@ def main():
             "global_launch"
         ],
     )
+
+    if TEST_COMPACT_PREVIEW:
+
+        early_preview = save_compact_preview_card(
+            milestone_by_key[
+                "early_access"
+            ]
+        )
+
+        global_preview = save_compact_preview_card(
+            milestone_by_key[
+                "global_launch"
+            ]
+        )
+
+        send_compact_previews_to_discord(
+            early_preview,
+            global_preview,
+        )
 
 
 if __name__ == "__main__":
