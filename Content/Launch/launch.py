@@ -36,6 +36,15 @@ COUNTDOWN_DAYS_SIZE = 54
 COUNTDOWN_NOCH_SIZE = 17
 COUNTDOWN_NOCH_DAYS_GAP = 10
 
+# Launch-Zeit (Europe/Berlin).
+# Early Access ist bestätigt; Global Launch nutzt 15:00 als
+# Countdown-Ziel, die Uhrzeit wird auf der Karte als unbestätigt markiert.
+LAUNCH_HOUR = 15
+LAUNCH_MINUTE = 0
+GLOBAL_TIME_NOTE = "UHRZEIT NOCH NICHT BESTÄTIGT"
+GLOBAL_TIME_NOTE_SIZE = 16
+GLOBAL_TIME_NOTE_GAP = 7
+
 
 # ============================================================
 # GLOBAL – POSITION DES OBEREN BLOCKS
@@ -473,50 +482,105 @@ def parse_date(
     )
 
 
+def parse_launch_datetime(
+    date_string,
+    timezone_name,
+):
+
+    target = parse_date(
+        date_string,
+        timezone_name,
+    )
+
+    return target.replace(
+        hour=LAUNCH_HOUR,
+        minute=LAUNCH_MINUTE,
+        second=0,
+        microsecond=0,
+    )
+
+
+def format_live_countdown(remaining_seconds):
+
+    # Immer auf die nächste volle Minute aufrunden, damit vor dem
+    # tatsächlichen Start niemals "0 MINUTEN" erscheint.
+    total_minutes = max(
+        1,
+        math.ceil(remaining_seconds / 60),
+    )
+
+    if total_minutes < 60:
+        return (
+            f"{total_minutes} "
+            f"{'MINUTE' if total_minutes == 1 else 'MINUTEN'}"
+        )
+
+    # Im 24h-Fenster wird in 5-Minuten-Schritten angezeigt.
+    rounded_minutes = int(
+        math.ceil(total_minutes / 5) * 5
+    )
+    hours, minutes = divmod(
+        rounded_minutes,
+        60,
+    )
+
+    if minutes == 0:
+        return f"{hours} STD"
+
+    return f"{hours} STD {minutes:02d} MIN"
+
+
 def get_milestone_status(
     milestone,
     now,
     timezone_name,
 ):
 
-    target = parse_date(
+    target = parse_launch_datetime(
         milestone["date"],
         timezone_name,
     )
 
-    days = (
-        target.date()
-        - now.date()
-    ).days
+    remaining_seconds = (
+        target - now
+    ).total_seconds()
 
-    if days > 1:
+    if remaining_seconds <= 0:
+        return {
+            "state": "started",
+            "days": None,
+            "text": "GESTARTET",
+            "countdown_text": None,
+        }
 
+    if remaining_seconds <= 24 * 60 * 60:
+        countdown_text = format_live_countdown(
+            remaining_seconds
+        )
         return {
             "state": "countdown",
-            "days": days,
-            "text": f"Noch {days} Tage",
+            "days": None,
+            "text": f"Noch {countdown_text}",
+            "countdown_text": countdown_text,
         }
 
-    if days == 1:
-
-        return {
-            "state": "countdown",
-            "days": 1,
-            "text": "Noch 1 Tag",
-        }
-
-    if days == 0:
-
-        return {
-            "state": "today",
-            "days": 0,
-            "text": "HEUTE",
-        }
+    days = math.ceil(
+        remaining_seconds / (24 * 60 * 60)
+    )
 
     return {
-        "state": "started",
-        "days": None,
-        "text": "GESTARTET",
+        "state": "countdown",
+        "days": days,
+        "text": (
+            "Noch 1 Tag"
+            if days == 1
+            else f"Noch {days} Tage"
+        ),
+        "countdown_text": (
+            "1 TAG"
+            if days == 1
+            else f"{days} TAGE"
+        ),
     }
 
 
@@ -581,6 +645,11 @@ def build_content_state(data):
 
                 "status_text":
                     status["text"],
+
+                "countdown_text":
+                    status.get(
+                        "countdown_text"
+                    ),
             }
         )
 
@@ -2395,7 +2464,7 @@ def get_global_title_center_y():
     layout = calculate_global_upper_layout(
         image=dummy,
         title_font=title_font,
-        date_text="5. OKTOBER 2026",
+        date_text="5. OKTOBER 2026 · 15:00 UHR",
         date_font=date_font,
     )
 
@@ -2441,25 +2510,21 @@ def create_early_access_full_card(
     )
 
     date_text = (
-        milestone[
-            "date_display"
-        ].upper()
+        f"{milestone['date_display'].upper()} "
+        f"· {LAUNCH_HOUR:02d}:{LAUNCH_MINUTE:02d} UHR"
     )
 
     if milestone["state"] == "countdown":
 
-        days = milestone["days"]
-
         days_text = (
-            f"{days} "
-            f"{'TAG' if days == 1 else 'TAGE'}"
+            milestone.get("countdown_text")
+            or ""
         )
-
         noch_text = "NOCH"
 
     else:
 
-        days_text = "HEUTE"
+        days_text = "GESTARTET"
         noch_text = ""
 
     probe = ImageDraw.Draw(
@@ -2646,6 +2711,11 @@ def create_global_launch_full_card(
         bold=True,
     )
 
+    time_note_font = load_font(
+        GLOBAL_TIME_NOTE_SIZE,
+        bold=True,
+    )
+
     noch_font = load_font(
         GLOBAL_NOCH_SIZE,
         bold=True,
@@ -2657,25 +2727,21 @@ def create_global_launch_full_card(
     )
 
     date_text = (
-        milestone[
-            "date_display"
-        ].upper()
+        f"{milestone['date_display'].upper()} "
+        f"· {LAUNCH_HOUR:02d}:{LAUNCH_MINUTE:02d} UHR"
     )
 
     if milestone["state"] == "countdown":
 
-        days = milestone["days"]
-
         days_text = (
-            f"{days} "
-            f"{'TAG' if days == 1 else 'TAGE'}"
+            milestone.get("countdown_text")
+            or ""
         )
-
         noch_text = "NOCH"
 
     else:
 
-        days_text = "HEUTE"
+        days_text = "GESTARTET"
         noch_text = ""
 
     probe = ImageDraw.Draw(
@@ -2786,6 +2852,45 @@ def create_global_launch_full_card(
         ),
         shadow_blur=1.7,
         shadow_offset=1,
+    )
+
+
+    # --------------------------------------------------------
+    # HINWEIS ZUR GLOBAL-LAUNCH-UHRZEIT
+    # --------------------------------------------------------
+
+    date_probe = ImageDraw.Draw(image)
+    date_bbox = date_probe.textbbox(
+        (0, 0),
+        date_text,
+        font=date_font,
+    )
+    note_bbox = date_probe.textbbox(
+        (0, 0),
+        GLOBAL_TIME_NOTE,
+        font=time_note_font,
+    )
+    date_visible_top = (
+        upper_layout["date_y"] + date_bbox[1]
+    )
+    date_visible_bottom = (
+        date_visible_top
+        + date_bbox[3]
+        - date_bbox[1]
+    )
+    note_y = (
+        date_visible_bottom
+        + GLOBAL_TIME_NOTE_GAP
+        - note_bbox[1]
+    )
+
+    image = draw_centered_spaced_text(
+        image,
+        GLOBAL_TIME_NOTE,
+        note_y,
+        time_note_font,
+        GLOBAL_MUTED,
+        1.2,
     )
 
 
@@ -3094,10 +3199,7 @@ def render_milestone(
     milestone
 ):
 
-    if milestone["state"] in (
-        "countdown",
-        "today",
-    ):
+    if milestone["state"] == "countdown":
 
         return create_full_card(
             milestone
@@ -3190,5 +3292,3 @@ def save_compact_preview_card(
     )
 
     return filename
-
-
