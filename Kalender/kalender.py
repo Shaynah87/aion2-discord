@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ============================================================
-# Nyerk24 · Kalender V28 · Rollierende 14 Tage + dynamisches Layout
+# Nyerk24 · Kalender V29 · Rollierende 14 Tage + Special Launch Days
 #
 # Neue Logik:
 # - Wochenübersicht oben
@@ -33,6 +33,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
+REPO_DIR = BASE_DIR.parent
+EARLY_ACCESS_IMAGE = REPO_DIR / "Content" / "Launch" / "early_access.png"
+GLOBAL_LAUNCH_IMAGE = REPO_DIR / "Content" / "Launch" / "global_launch.png"
 WEEK_FILE = BASE_DIR / "kalender_woche.png"
 ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
@@ -164,7 +167,8 @@ FONT_UPCOMING_DATE = font(13, True)
 ROLLING_DAYS = 14
 DAY_ROW_BASE_H = 92
 DAY_ROW_EVENT_LINE_H = 23
-DAY_ROW_EVENT_GAP = 4
+DAY_ROW_EVENT_GAP = 7
+DAY_EVENT_TIME_H = 17
 DAY_HEADER_H = 43
 DAY_ROW_PAD_BOTTOM = 10
 UPCOMING_ROW_H = 38
@@ -197,7 +201,7 @@ def load_calendar_data():
         headers={
             "X-Kalender-Key": kalender_token,
             "Accept": "application/json",
-            "User-Agent": "Nyerk24-Kalender/28.0",
+            "User-Agent": "Nyerk24-Kalender/29.0",
         },
     )
 
@@ -235,7 +239,7 @@ def load_calendar_data():
             "date": dt.date(),
             "type": event_type,
             "title": str(row.get("titel") or "Termin"),
-            "time": str(row.get("uhrzeit") or "")[:5],
+            "time": str(row.get("uhrzeit") or "").strip(),
         })
 
     absences = []
@@ -561,44 +565,124 @@ def upcoming_events(today):
     )
 
 
-def rolling_row_height(start_date):
-    max_events = max(len(events_for_date(start_date + timedelta(days=i))) for i in range(7))
-    if max_events == 0:
+def wrap_text_lines(draw, text, fnt, max_width_logical):
+    text = str(text or "").strip()
+    if not text:
+        return [""]
+    words = text.split()
+    lines = []
+    current = ""
+    for word in words:
+        candidate = word if not current else f"{current} {word}"
+        if text_width(draw, candidate, fnt) <= S(max_width_logical):
+            current = candidate
+        else:
+            if current:
+                lines.append(current)
+                current = word
+            else:
+                # Extrem langer Einzelbegriff: zeichenweise umbrechen, niemals "...".
+                chunk = ""
+                for ch in word:
+                    test = chunk + ch
+                    if chunk and text_width(draw, test, fnt) > S(max_width_logical):
+                        lines.append(chunk)
+                        chunk = ch
+                    else:
+                        chunk = test
+                current = chunk
+    if current:
+        lines.append(current)
+    return lines or [""]
+
+
+def event_block_height(draw, event, width):
+    lines = wrap_text_lines(draw, event.get("title", "Termin"), FONT_DAY_EVENT, max(20, width))
+    title_h = len(lines) * 16
+    return title_h + (DAY_EVENT_TIME_H if event.get("time") else 0)
+
+
+def rolling_row_height(draw, start_date, width):
+    cell_w = width / 7
+    max_content = 0
+    for i in range(7):
+        events = events_for_date(start_date + timedelta(days=i))
+        if not events:
+            continue
+        heights = [event_block_height(draw, event, cell_w - 20) for event in events]
+        total = sum(heights) + max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP
+        max_content = max(max_content, total)
+    if max_content == 0:
         return DAY_ROW_BASE_H
-    content_h = DAY_HEADER_H + max_events * DAY_ROW_EVENT_LINE_H + max(0, max_events - 1) * DAY_ROW_EVENT_GAP + DAY_ROW_PAD_BOTTOM
-    return max(DAY_ROW_BASE_H, content_h)
+    return max(DAY_ROW_BASE_H, DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM)
+
+
+def special_launch_kind(day_date, events):
+    for event in events:
+        title = str(event.get("title") or "").casefold()
+        if "early access" in title:
+            return "early"
+        if "global launch" in title:
+            return "global"
+    return None
+
+
+def draw_special_day_background(image, box, kind):
+    path = EARLY_ACCESS_IMAGE if kind == "early" else GLOBAL_LAUNCH_IMAGE
+    if not path.exists():
+        return
+    try:
+        src = Image.open(path).convert("RGB")
+        x1, y1, x2, y2 = [S(v) for v in box]
+        w, h = max(1, x2-x1), max(1, y2-y1)
+        scale = max(w/src.width, h/src.height)
+        resized = src.resize((max(1, int(src.width*scale)), max(1, int(src.height*scale))), Image.Resampling.LANCZOS)
+        left = max(0, (resized.width-w)//2)
+        top = max(0, (resized.height-h)//2)
+        crop = resized.crop((left, top, left+w, top+h)).convert("RGBA")
+        # Motiv sichtbar lassen, aber Text/Raster klar lesbar halten.
+        dark = Image.new("RGBA", crop.size, (8, 10, 14, 145))
+        crop = Image.alpha_composite(crop, dark)
+        image.paste(crop.convert("RGB"), (x1, y1))
+    except Exception as exc:
+        print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
 
 
 def draw_compact_event(draw, image, event, x, y, width):
-    color = TYPE_COLORS.get(event.get("type"), APPOINTMENT)
-    # kleiner farbiger Marker statt großer schwebender Symbole
-    draw.ellipse((S(x), S(y + 5), S(x + 7), S(y + 12)), fill=color)
-    text_x = x + 13
+    # V29: kein bedeutungsloser Farbpunkt mehr. Titel bekommt die volle Zellbreite.
+    lines = wrap_text_lines(draw, event.get("title", "Termin"), FONT_DAY_EVENT, width)
+    cursor_y = y
+    for line in lines:
+        draw.text((S(x), S(cursor_y)), line, font=FONT_DAY_EVENT, fill=TEXT)
+        cursor_y += 16
     time_text = event.get("time", "")
-    time_w = text_width(draw, time_text, FONT_DAY_EVENT_TIME) if time_text else 0
-    reserve_for_time = (time_w / S(1) + 9) if time_text else 0
-    title_width = max(20, width - 18 - reserve_for_time)
-    title = ellipsize(draw, event.get("title", "Termin"), FONT_DAY_EVENT, title_width)
-    draw.text((S(text_x), S(y)), title, font=FONT_DAY_EVENT, fill=TEXT)
     if time_text:
-        draw.text((S(x + width) - time_w, S(y + 1)), time_text, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED)
+        draw.text((S(x), S(cursor_y + 1)), time_text, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED)
+        cursor_y += DAY_EVENT_TIME_H
+    return max(16, cursor_y - y)
 
 
 def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     cell_w = width / 7
-    row_h = rolling_row_height(start_date)
+    row_h = rolling_row_height(draw, start_date, width)
 
     # Hintergründe zuerst. Wochenende nur sehr subtil markieren.
     for idx in range(7):
         day_dt = start_date + timedelta(days=idx)
+        day_events = events_for_date(day_dt)
         x1 = x + idx * cell_w
         if day_dt.weekday() >= 5:
-            draw.rectangle((S(x1), S(y), S(x1 + cell_w), S(y + row_h)), fill=(22, 28, 31))
+            draw.rectangle((S(x1), S(y), S(x1 + cell_w), S(y + row_h)), fill=(20, 23, 27))
+        special = special_launch_kind(day_dt, day_events)
+        if special:
+            draw_special_day_background(image, (x1, y, x1 + cell_w, y + row_h), special)
         if day_dt == now_date:
-            draw.rounded_rectangle(
-                (S(x1 + 2), S(y + 2), S(x1 + cell_w - 2), S(y + row_h - 2)),
-                radius=S(8), fill=TODAY_FILL,
-            )
+            # Bei Special Days das Motiv nicht mit einer Vollfläche überdecken.
+            if not special:
+                draw.rounded_rectangle(
+                    (S(x1 + 2), S(y + 2), S(x1 + cell_w - 2), S(y + row_h - 2)),
+                    radius=S(8), fill=TODAY_FILL,
+                )
 
     for idx in range(7):
         day_dt = start_date + timedelta(days=idx)
@@ -607,19 +691,18 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, TEXT)
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
 
-        ev_y = y + DAY_HEADER_H + 4
+        ev_y = y + DAY_HEADER_H + 7
         for event in events_for_date(day_dt):
-            draw_compact_event(draw, image, event, x1 + 9, ev_y, cell_w - 18)
-            ev_y += DAY_ROW_EVENT_LINE_H + DAY_ROW_EVENT_GAP
+            used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
+            ev_y += used_h + DAY_ROW_EVENT_GAP
 
-    # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende sichtbar bleiben.
+    # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
     draw_line(draw, (x, y + DAY_HEADER_H, x + width, y + DAY_HEADER_H), GRID, 1)
     draw_line(draw, (x, y + row_h, x + width, y + row_h), GRID, 1)
     for i in range(1, 7):
         lx = x + i * cell_w
         draw_line(draw, (lx, y, lx, y + row_h), GRID, 1)
 
-    # Heute-Rahmen ganz zuletzt.
     if start_date <= now_date <= start_date + timedelta(days=6):
         idx = (now_date - start_date).days
         x1 = x + idx * cell_w
@@ -628,7 +711,6 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             radius=S(8), outline=TODAY_BORDER, width=S(2),
         )
     return row_h
-
 
 def draw_rolling_calendar(image, draw, today, x, y, width):
     first_h = draw_rolling_row(image, draw, today, today, x, y, width)
