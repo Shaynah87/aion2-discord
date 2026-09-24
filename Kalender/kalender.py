@@ -606,7 +606,11 @@ def rolling_row_height(draw, start_date, width):
     cell_w = width / 7
     max_content = 0
     for i in range(7):
-        events = events_for_date(start_date + timedelta(days=i))
+        day_date = start_date + timedelta(days=i)
+        events = list(events_for_date(day_date))
+        special = special_launch_kind(day_date, events)
+        if special == "global" and not any("global launch" in str(e.get("title") or "").casefold() for e in events):
+            events.append({"title": "Global Launch", "time": "", "type": "release"})
         if not events:
             continue
         heights = [event_block_height(draw, event, cell_w - 20) for event in events]
@@ -618,6 +622,13 @@ def rolling_row_height(draw, start_date, width):
 
 
 def special_launch_kind(day_date, events):
+    # Einmalige Nyerk24-Special-Days: fest im Renderer verankert.
+    if day_date == date(2026, 9, 30):
+        return "early"
+    if day_date == date(2026, 10, 5):
+        return "global"
+
+    # Kompatibilität, falls entsprechende D1-Termine noch vorhanden sind.
     for event in events:
         title = str(event.get("title") or "").casefold()
         if "early access" in title:
@@ -634,19 +645,41 @@ def draw_special_day_background(image, box, kind):
     try:
         src = Image.open(path).convert("RGB")
         x1, y1, x2, y2 = [S(v) for v in box]
-        w, h = max(1, x2-x1), max(1, y2-y1)
-        scale = max(w/src.width, h/src.height)
-        resized = src.resize((max(1, int(src.width*scale)), max(1, int(src.height*scale))), Image.Resampling.LANCZOS)
-        left = max(0, (resized.width-w)//2)
-        top = max(0, (resized.height-h)//2)
-        crop = resized.crop((left, top, left+w, top+h)).convert("RGBA")
-        # Motiv sichtbar lassen, aber Text/Raster klar lesbar halten.
-        dark = Image.new("RGBA", crop.size, (8, 10, 14, 145))
-        crop = Image.alpha_composite(crop, dark)
-        image.paste(crop.convert("RGB"), (x1, y1))
+        w, h = max(1, x2 - x1), max(1, y2 - y1)
+
+        scale = max(w / src.width, h / src.height)
+        resized = src.resize(
+            (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+        left = max(0, (resized.width - w) // 2)
+        top = max(0, (resized.height - h) // 2)
+        art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
+
+        # Kein "Sticker": Motiv weich in den vorhandenen Kalender einblenden.
+        # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
+        mask = Image.new("L", (w, h), 0)
+        px = mask.load()
+        feather_x = max(18, int(w * 0.24))
+        feather_y = max(14, int(h * 0.22))
+        max_alpha = 145
+        for yy in range(h):
+            fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
+            fy = max(0.0, fy)
+            for xx in range(w):
+                fx = min(1.0, xx / feather_x, (w - 1 - xx) / feather_x)
+                fx = max(0.0, fx)
+                px[xx, yy] = int(max_alpha * min(fx, fy))
+
+        base = image.crop((x1, y1, x2, y2)).convert("RGBA")
+        merged = Image.composite(art, base, mask)
+
+        # Leichte dunkle Lesefläche ohne das Motiv zuzukleben.
+        shade = Image.new("RGBA", (w, h), (6, 8, 12, 52))
+        merged = Image.alpha_composite(merged, shade)
+        image.paste(merged.convert("RGB"), (x1, y1))
     except Exception as exc:
         print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
-
 
 def draw_compact_event(draw, image, event, x, y, width):
     # V29: kein bedeutungsloser Farbpunkt mehr. Titel bekommt die volle Zellbreite.
@@ -672,7 +705,12 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         day_events = events_for_date(day_dt)
         x1 = x + idx * cell_w
         if day_dt.weekday() >= 5:
-            draw.rectangle((S(x1), S(y), S(x1 + cell_w), S(y + row_h)), fill=(20, 23, 27))
+            # Nur eine transparente Tönung: Hintergrund/Nebel bleibt sichtbar.
+            wx1, wy1 = S(x1), S(y)
+            wx2, wy2 = S(x1 + cell_w), S(y + row_h)
+            overlay = Image.new("RGBA", (max(1, wx2-wx1), max(1, wy2-wy1)), (28, 45, 48, 38))
+            base = image.crop((wx1, wy1, wx2, wy2)).convert("RGBA")
+            image.paste(Image.alpha_composite(base, overlay).convert("RGB"), (wx1, wy1))
         special = special_launch_kind(day_dt, day_events)
         if special:
             draw_special_day_background(image, (x1, y, x1 + cell_w, y + row_h), special)
@@ -692,11 +730,21 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, TEXT_MUTED)
 
         ev_y = y + DAY_HEADER_H + 7
-        for event in events_for_date(day_dt):
+        day_events = events_for_date(day_dt)
+        special = special_launch_kind(day_dt, day_events)
+
+        # Global Launch soll am 05.10. sichtbar sein, auch ohne separaten D1-Eintrag.
+        display_events = list(day_events)
+        if special == "global" and not any("global launch" in str(e.get("title") or "").casefold() for e in display_events):
+            display_events.append({"title": "Global Launch", "time": "", "type": "release"})
+
+        for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
             ev_y += used_h + DAY_ROW_EVENT_GAP
 
     # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
+    # Eigene obere Linie pro Reihe: dadurch kann die zweite Reihe die Trennlinie nicht mehr übermalen.
+    draw_line(draw, (x, y, x + width, y), GRID, 1)
     draw_line(draw, (x, y + DAY_HEADER_H, x + width, y + DAY_HEADER_H), GRID, 1)
     draw_line(draw, (x, y + row_h, x + width, y + row_h), GRID, 1)
     for i in range(1, 7):
