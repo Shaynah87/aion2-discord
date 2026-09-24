@@ -568,9 +568,14 @@ def get_milestone_status(
             "countdown_text": countdown_text,
         }
 
-    days = math.ceil(
-        remaining_seconds / (24 * 60 * 60)
-    )
+    # Oberhalb des 24h-Fensters zeigen wir Kalendertage an.
+    # Beispiel: 25.09. -> 30.09. = 5 TAGE, auch wenn der
+    # tatsächliche Start erst am 30.09. um 15:00 Uhr ist.
+    # Die präzise Uhrzeit greift erst ab <= 24 Stunden.
+    days = (
+        target.date()
+        - now.date()
+    ).days
 
     return {
         "state": "countdown",
