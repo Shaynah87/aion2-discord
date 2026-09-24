@@ -665,6 +665,10 @@ def draw_special_day_background(image, box, kind):
             ).convert("RGBA")
             art = Image.new("RGBA", (w, h), (0, 0, 0, 0))
             art.alpha_composite(resized, ((w - resized.width) // 2, (h - resized.height) // 2))
+            # Die sehr helle Mitte des Originals etwas zurücknehmen, damit das
+            # Artwork als Hintergrund wirkt und nicht zur weißen Fläche wird.
+            global_tone = Image.new("RGBA", (w, h), (7, 10, 14, 42))
+            art = Image.alpha_composite(art, global_tone)
         else:
             scale = max(w / src.width, h / src.height)
             resized = src.resize(
@@ -681,7 +685,7 @@ def draw_special_day_background(image, box, kind):
         px = mask.load()
         feather_x = max(18, int(w * 0.24))
         feather_y = max(14, int(h * 0.22))
-        max_alpha = 220
+        max_alpha = 150
         for yy in range(h):
             fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
             fy = max(0.0, fy)
@@ -734,7 +738,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         # Wochenende nur über SA/SO markieren:
         # fast das Türkis des HEUTE-Rahmens, aber leicht abgeschwächt.
         day_name_color = (48, 205, 201) if day_dt.weekday() >= 5 else TEXT
-        day_date_color = (83, 156, 156) if day_dt.weekday() >= 5 else TEXT_MUTED
+        day_date_color = (91, 126, 128) if day_dt.weekday() >= 5 else TEXT_MUTED
         centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, day_name_color)
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, day_date_color)
 
@@ -775,27 +779,6 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             time_x = x1 + (cell_w - time_w) / 2
             time_y = special_y + title_h + gap
 
-            # Das Bild bleibt Hintergrund; Schrift bekommt nur einen weichen,
-            # unsichtbar auslaufenden dunklen Halo statt einer Box.
-            halo_pad_x, halo_pad_y = 11, 6
-            hx1 = min(title_x, time_x) - halo_pad_x
-            hx2 = max(title_x + title_w, time_x + time_w) + halo_pad_x
-            hy1 = special_y - halo_pad_y
-            hy2 = time_y + time_h + halo_pad_y
-            halo = Image.new(
-                "RGBA",
-                (max(1, S(hx2 - hx1)), max(1, S(hy2 - hy1))),
-                (0, 0, 0, 0),
-            )
-            hd = ImageDraw.Draw(halo)
-            hd.rounded_rectangle(
-                (0, 0, halo.width - 1, halo.height - 1),
-                radius=max(1, S(8)),
-                fill=(0, 0, 0, 145),
-            )
-            halo = halo.filter(ImageFilter.GaussianBlur(max(1, S(6))))
-            image.paste(halo, (S(hx1), S(hy1)), halo)
-
             draw.text(
                 (S(title_x), S(special_y)),
                 special_title,
@@ -808,7 +791,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 (S(time_x), S(time_y)),
                 special_time,
                 font=time_font,
-                fill=(220, 226, 231),
+                fill=(232, 236, 240),
                 stroke_width=1,
                 stroke_fill=(10, 12, 15),
             )
