@@ -150,8 +150,8 @@ def font(size: int, bold: bool = False):
 FONT_TITLE = font(29, True)
 FONT_SUBTITLE = font(15, False)
 
-FONT_DAY = font(16, True)
-FONT_DATE = font(13, False)
+FONT_DAY = font(18, True)
+FONT_DATE = font(14, False)
 
 FONT_SECTION = font(22, True)
 FONT_EVENT = font(18, True)
@@ -159,17 +159,18 @@ FONT_EVENT_META = font(14, False)
 FONT_ABSENCE = font(18, True)
 FONT_ABSENCE_DATE = font(14, False)
 FONT_ABSENCE_GROUP = font(14, True)
-FONT_DAY_EVENT = font(13, True)
-FONT_DAY_EVENT_TIME = font(12, False)
+FONT_DAY_EVENT = font(15, True)
+FONT_DAY_EVENT_TIME = font(13, False)
 FONT_UPCOMING_DATE = font(13, True)
 
 # V28: kompakt, aber dynamisch wachsend
-ROLLING_DAYS = 14
-DAY_ROW_BASE_H = 92
+ROLLING_DAYS = 15
+ROLLING_COLS = 5
+DAY_ROW_BASE_H = 104
 DAY_ROW_EVENT_LINE_H = 23
-DAY_ROW_EVENT_GAP = 7
-DAY_EVENT_TIME_H = 17
-DAY_HEADER_H = 43
+DAY_ROW_EVENT_GAP = 8
+DAY_EVENT_TIME_H = 19
+DAY_HEADER_H = 47
 DAY_ROW_PAD_BOTTOM = 10
 UPCOMING_ROW_H = 38
 
@@ -598,14 +599,14 @@ def wrap_text_lines(draw, text, fnt, max_width_logical):
 
 def event_block_height(draw, event, width):
     lines = wrap_text_lines(draw, event.get("title", "Termin"), FONT_DAY_EVENT, max(20, width))
-    title_h = len(lines) * 16
+    title_h = len(lines) * 19
     return title_h + (DAY_EVENT_TIME_H if event.get("time") else 0)
 
 
 def rolling_row_height(draw, start_date, width):
-    cell_w = width / 7
+    cell_w = width / ROLLING_COLS
     max_content = 0
-    for i in range(7):
+    for i in range(ROLLING_COLS):
         day_date = start_date + timedelta(days=i)
         events = list(events_for_date(day_date))
         special = special_launch_kind(day_date, events)
@@ -710,20 +711,20 @@ def draw_compact_event(draw, image, event, x, y, width):
     cursor_y = y
     for line in lines:
         draw.text((S(x), S(cursor_y)), line, font=FONT_DAY_EVENT, fill=TEXT)
-        cursor_y += 16
+        cursor_y += 19
     time_text = event.get("time", "")
     if time_text:
         draw.text((S(x), S(cursor_y + 1)), time_text, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED)
         cursor_y += DAY_EVENT_TIME_H
-    return max(16, cursor_y - y)
+    return max(19, cursor_y - y)
 
 
 def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
-    cell_w = width / 7
+    cell_w = width / ROLLING_COLS
     row_h = rolling_row_height(draw, start_date, width)
 
     # Hintergründe zuerst. Wochenende nur sehr subtil markieren.
-    for idx in range(7):
+    for idx in range(ROLLING_COLS):
         day_dt = start_date + timedelta(days=idx)
         day_events = events_for_date(day_dt)
         x1 = x + idx * cell_w
@@ -731,7 +732,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         if special:
             draw_special_day_background(image, (x1, y, x1 + cell_w, y + row_h), special)
 
-    for idx in range(7):
+    for idx in range(ROLLING_COLS):
         day_dt = start_date + timedelta(days=idx)
         x1 = x + idx * cell_w
         cx = x1 + cell_w / 2
@@ -806,11 +807,11 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     draw_line(draw, (x, y + DAY_HEADER_H, x + width, y + DAY_HEADER_H), GRID, 1)
 
     draw_line(draw, (x, y + row_h, x + width, y + row_h), GRID, 1)
-    for i in range(1, 7):
+    for i in range(1, ROLLING_COLS):
         lx = x + i * cell_w
         draw_line(draw, (lx, y, lx, y + row_h), GRID, 1)
 
-    if start_date <= now_date <= start_date + timedelta(days=6):
+    if start_date <= now_date <= start_date + timedelta(days=ROLLING_COLS - 1):
         idx = (now_date - start_date).days
         x1 = x + idx * cell_w
         draw.rounded_rectangle(
@@ -820,11 +821,13 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     return row_h
 
 def draw_rolling_calendar(image, draw, today, x, y, width):
-    first_h = draw_rolling_row(image, draw, today, today, x, y, width)
-    second_start = today + timedelta(days=7)
-    second_y = y + first_h
-    second_h = draw_rolling_row(image, draw, second_start, today, x, second_y, width)
-    return first_h + second_h
+    total_h = 0
+    row_count = (ROLLING_DAYS + ROLLING_COLS - 1) // ROLLING_COLS
+    for row_idx in range(row_count):
+        row_start = today + timedelta(days=row_idx * ROLLING_COLS)
+        row_y = y + total_h
+        total_h += draw_rolling_row(image, draw, row_start, today, x, row_y, width)
+    return total_h
 
 
 # ============================================================
@@ -1103,7 +1106,12 @@ def card_canvas(width, height, background_source):
 
 def render_week_card(week_start, now, background_source):
     today = now.date()
-    calendar_h = rolling_row_height(ImageDraw.Draw(Image.new("RGB", (S(WIDTH), S(100)), (0, 0, 0))), today, WIDTH - 2 * MARGIN_X) + rolling_row_height(ImageDraw.Draw(Image.new("RGB", (S(WIDTH), S(100)), (0, 0, 0))), today + timedelta(days=7), WIDTH - 2 * MARGIN_X)
+    _height_draw = ImageDraw.Draw(Image.new("RGB", (S(WIDTH), S(100)), (0, 0, 0)))
+    _row_count = (ROLLING_DAYS + ROLLING_COLS - 1) // ROLLING_COLS
+    calendar_h = sum(
+        rolling_row_height(_height_draw, today + timedelta(days=i * ROLLING_COLS), WIDTH - 2 * MARGIN_X)
+        for i in range(_row_count)
+    )
     upcoming_h = upcoming_block_height(today)
     absences_h = absence_block_height(week_start)
 
@@ -1117,8 +1125,8 @@ def render_week_card(week_start, now, background_source):
     image = card_canvas(WIDTH, height, background_source)
     draw = ImageDraw.Draw(image)
 
-    draw.text((MARGIN_X, TOP), "14-TAGE-ÜBERSICHT", font=FONT_TITLE, fill=TEXT)
-    range_end = today + timedelta(days=13)
+    draw.text((MARGIN_X, TOP), "15-TAGE-ÜBERSICHT", font=FONT_TITLE, fill=TEXT)
+    range_end = today + timedelta(days=14)
     range_text = f"{today.strftime('%d.%m.')} – {range_end.strftime('%d.%m.%Y')}"
     draw.text((MARGIN_X, TOP + 34), range_text, font=FONT_SUBTITLE, fill=TEXT_MUTED)
 
