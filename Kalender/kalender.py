@@ -171,6 +171,8 @@ DAY_ROW_EVENT_LINE_H = 23
 DAY_ROW_EVENT_GAP = 8
 DAY_EVENT_TIME_H = 19
 DAY_HEADER_H = 47
+SPECIAL_LABEL_H = 48
+SPECIAL_ROW_MIN_H = 168
 DAY_ROW_PAD_BOTTOM = 10
 UPCOMING_ROW_H = 38
 
@@ -627,9 +629,12 @@ def rolling_row_height(draw, start_date, width):
         heights = [event_block_height(draw, event, cell_w - 20) for event in events]
         total = sum(heights) + max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP
         max_content = max(max_content, total)
-    if max_content == 0:
-        return DAY_ROW_BASE_H
-    return max(DAY_ROW_BASE_H, DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM)
+    normal_height = (DAY_ROW_BASE_H if max_content == 0 else
+                     max(DAY_ROW_BASE_H, DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM))
+    has_special = any(special_launch_kind(start_date + timedelta(days=i),
+                      events_for_date(start_date + timedelta(days=i)))
+                      for i in range(ROLLING_COLS))
+    return max(normal_height, SPECIAL_ROW_MIN_H) if has_special else normal_height
 
 
 def special_launch_kind(day_date, events):
@@ -730,7 +735,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         x1 = x + idx * cell_w
         special = special_launch_kind(day_dt, day_events)
         if special:
-            draw_special_day_background(image, (x1, y, x1 + cell_w, y + row_h), special)
+            draw_special_day_background(image, (x1, y + DAY_HEADER_H, x1 + cell_w, y + row_h - SPECIAL_LABEL_H), special)
 
     for idx in range(ROLLING_COLS):
         day_dt = start_date + timedelta(days=idx)
@@ -758,32 +763,25 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 and "global launch" not in str(e.get("title") or "").casefold()
             ]
 
-            # Nur die Beschriftung anpassen. Die Original-Bilddarstellung bleibt unverändert.
-            special_title = "EARLY ACCESS" if special == "early" else "GLOBAL LAUNCH"
+            # Eigenständige, ruhige Beschriftung UNTER dem Motiv.
+            special_title = "Early Access" if special == "early" else "Global Launch"
             special_time = "15:00"
-            title_font = font(16, True)
-            time_font = font(13)
-            title_color = (240, 223, 188) if special == "early" else (240, 242, 247)
-            time_color = (224, 227, 233)
-            content_top = y + DAY_HEADER_H
-            content_h = row_h - DAY_HEADER_H
-            gap = 5
-            title_box = draw.textbbox((0, 0), special_title, font=title_font)
-            time_box = draw.textbbox((0, 0), special_time, font=time_font)
+            label_top = y + row_h - SPECIAL_LABEL_H
+            draw.rectangle(
+                (S(x1 + 2), S(label_top), S(x1 + cell_w - 2), S(y + row_h - 2)),
+                fill=(20, 22, 27),
+            )
+            title_box = draw.textbbox((0, 0), special_title, font=FONT_DAY_EVENT)
+            time_box = draw.textbbox((0, 0), special_time, font=FONT_DAY_EVENT_TIME)
             title_w = title_box[2] - title_box[0]
-            title_h = title_box[3] - title_box[1]
             time_w = time_box[2] - time_box[0]
-            time_h = time_box[3] - time_box[1]
-            top = content_top + (content_h - title_h - gap - time_h) / 2
             draw.text(
-                (S(x1 + (cell_w - title_w) / 2), S(top) - title_box[1]),
-                special_title, font=title_font, fill=title_color,
-                stroke_width=1, stroke_fill=(10, 12, 16),
+                (S(x1 + (cell_w - title_w) / 2), S(label_top + 5) - title_box[1]),
+                special_title, font=FONT_DAY_EVENT, fill=TEXT,
             )
             draw.text(
-                (S(x1 + (cell_w - time_w) / 2), S(top + title_h + gap) - time_box[1]),
-                special_time, font=time_font, fill=time_color,
-                stroke_width=1, stroke_fill=(10, 12, 16),
+                (S(x1 + (cell_w - time_w) / 2), S(label_top + 27) - time_box[1]),
+                special_time, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED,
             )
 
         for event in display_events:
