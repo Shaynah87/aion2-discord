@@ -650,6 +650,7 @@ def special_launch_kind(day_date, events):
 
 
 def draw_special_day_background(image, box, kind):
+    """Originalmotive mit weichen Rändern, ohne einfarbige Übermalung."""
     path = EARLY_ACCESS_IMAGE if kind == "early" else GLOBAL_LAUNCH_IMAGE
     if not path.exists():
         return
@@ -657,45 +658,56 @@ def draw_special_day_background(image, box, kind):
         src = Image.open(path).convert("RGB")
         x1, y1, x2, y2 = [S(v) for v in box]
         w, h = max(1, x2 - x1), max(1, y2 - y1)
-
-        # Beide Originalgrafiken als Hintergrund über die ganze Zelle legen.
-        # Cover statt Contain verhindert den rechteckigen Sticker bei Global Launch.
         scale = max(w / src.width, h / src.height)
-        resized = src.resize(
-            (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-        left = max(0, (resized.width - w) // 2)
-        top = max(0, (resized.height - h) // 2)
+        resized = src.resize((max(1, round(src.width * scale)),
+                              max(1, round(src.height * scale))), Image.Resampling.LANCZOS)
+        left = (resized.width - w) // 2
+        top = (resized.height - h) // 2
         art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
-        if kind == "global":
-            # Die helle Bildmitte sanft abdunkeln, ohne das Original zu ersetzen.
-            art = Image.alpha_composite(art, Image.new("RGBA", (w, h), (7, 10, 14, 48)))
 
-        # Nur die Außenkanten weich in den vorhandenen Kalender einblenden.
-        # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
+        # Randverlauf statt rechteckiger Bildkante. Originalfarben erhalten.
         mask = Image.new("L", (w, h), 0)
         px = mask.load()
-        feather_x = max(18, int(w * 0.24))
-        feather_y = max(14, int(h * 0.22))
-        max_alpha = 150
+        feather_x = max(12, round(w * .15))
+        feather_y = max(8, round(h * .13))
         for yy in range(h):
-            fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
-            fy = max(0.0, fy)
+            fy = min(1., yy / feather_y, (h - 1 - yy) / feather_y)
             for xx in range(w):
-                fx = min(1.0, xx / feather_x, (w - 1 - xx) / feather_x)
-                fx = max(0.0, fx)
-                px[xx, yy] = int(max_alpha * min(fx, fy))
-
+                fx = min(1., xx / feather_x, (w - 1 - xx) / feather_x)
+                px[xx, yy] = round(235 * max(0., min(fx, fy)))
         base = image.crop((x1, y1, x2, y2)).convert("RGBA")
-        merged = Image.composite(art, base, mask)
-
-        # Leichte dunkle Lesefläche ohne das Motiv zuzukleben.
-        shade = Image.new("RGBA", (w, h), (6, 8, 12, 0))
-        merged = Image.alpha_composite(merged, shade)
-        image.paste(merged.convert("RGB"), (x1, y1))
+        image.paste(Image.composite(art, base, mask).convert("RGB"), (x1, y1))
     except Exception as exc:
         print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
+
+
+def draw_launch_label(image, kind, x1, y, cell_w, row_h):
+    """Einzeilige Poster-Typografie mit zum Original passender Farbgebung."""
+    label = "EARLY ACCESS · 15:00" if kind == "early" else "GLOBAL LAUNCH · 15:00"
+    serif = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+    if not Path(serif).exists():
+        serif = "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf"
+    max_w = S(cell_w - 18)
+    size = 16
+    fnt = ImageFont.truetype(serif, S(size))
+    measure = ImageDraw.Draw(image)
+    while measure.textbbox((0, 0), label, font=fnt)[2] > max_w and size > 10:
+        size -= 1
+        fnt = ImageFont.truetype(serif, S(size))
+    bb = measure.textbbox((0, 0), label, font=fnt)
+    tx = S(x1) + (S(cell_w) - (bb[2] - bb[0])) // 2
+    content_top = S(y + DAY_HEADER_H)
+    content_h = S(row_h - DAY_HEADER_H)
+    ty = content_top + (content_h - (bb[3] - bb[1])) // 2 - bb[1]
+
+    # Early: Gold auf dem dunklen Exos-Motiv. Global: Navy auf heller Bildmitte.
+    if kind == "early":
+        ink, edge = (242, 221, 182), (13, 24, 37)
+    else:
+        ink, edge = (24, 39, 65), (240, 245, 253)
+    draw = ImageDraw.Draw(image)
+    draw.text((tx, ty), label, font=fnt, fill=ink,
+              stroke_width=max(1, S(1)), stroke_fill=edge)
 
 def draw_compact_event(draw, image, event, x, y, width):
     # V29: kein bedeutungsloser Farbpunkt mehr. Titel bekommt die volle Zellbreite.
@@ -750,63 +762,8 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 and "global launch" not in str(e.get("title") or "").casefold()
             ]
 
-            # Sondergrafik im Stil der Content-Poster: markanter Titel,
-            # darunter das vollständige Datum und die Uhrzeit.
-            poster_title = "EARLY ACCESS" if special == "early" else "GLOBAL LAUNCH"
-            poster_date = "30. SEPTEMBER 2026 · 15:00 UHR" if special == "early" else "5. OKTOBER 2026 · 15:00 UHR"
-            content_top = y + DAY_HEADER_H + 2
-            content_bottom = y + row_h - 4
-            content_h = content_bottom - content_top
-            max_w = S(cell_w - 18)
-
-            # Serifenschrift wie bei den großen Content-Motiven; bei Bedarf
-            # automatisch verkleinern, damit der Schriftzug vollständig passt.
-            serif_path = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
-            if not Path(serif_path).exists():
-                serif_path = "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"
-            title_size = 21 if special == "early" else 19
-            title_font = ImageFont.truetype(serif_path, S(title_size))
-            while draw.textbbox((0, 0), poster_title, font=title_font)[2] > max_w and title_size > 11:
-                title_size -= 1
-                title_font = ImageFont.truetype(serif_path, S(title_size))
-
-            date_size = 11
-            date_font = font(date_size, True)
-            while draw.textbbox((0, 0), poster_date, font=date_font)[2] > max_w and date_size > 8:
-                date_size -= 1
-                date_font = font(date_size, True)
-
-            title_box = draw.textbbox((0, 0), poster_title, font=title_font)
-            date_box = draw.textbbox((0, 0), poster_date, font=date_font)
-            title_h = title_box[3] - title_box[1]
-            date_h = date_box[3] - date_box[1]
-            gap = S(9)
-            total_h = title_h + gap + date_h
-            title_y = S(content_top) + max(S(3), (S(content_h) - total_h) // 2)
-            date_y = title_y + title_h + gap
-            title_x = S(x1) + (S(cell_w) - (title_box[2] - title_box[0])) // 2
-            date_x = S(x1) + (S(cell_w) - (date_box[2] - date_box[0])) // 2
-
-            # Weicher Schatten statt einer rechteckigen Textplakette.
-            shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            sd = ImageDraw.Draw(shadow)
-            for label, pos, fnt in (
-                (poster_title, (title_x, title_y), title_font),
-                (poster_date, (date_x, date_y), date_font),
-            ):
-                sd.text(pos, label, font=fnt, fill=(0, 0, 0, 235),
-                        stroke_width=S(3), stroke_fill=(0, 0, 0, 220))
-            shadow = shadow.filter(ImageFilter.GaussianBlur(S(5)))
-            image.paste(shadow, (0, 0), shadow)
+            draw_launch_label(image, special, x1, y, cell_w, row_h)
             draw = ImageDraw.Draw(image)
-
-            # Gold/Creme für Early Access, kühles Weiß für Global Launch.
-            title_color = (244, 224, 185) if special == "early" else (245, 247, 253)
-            draw.text((title_x, title_y), poster_title, font=title_font,
-                      fill=title_color, stroke_width=1, stroke_fill=(12, 16, 25))
-            draw.text((date_x, date_y), poster_date, font=date_font,
-                      fill=(246, 242, 231), stroke_width=1,
-                      stroke_fill=(12, 16, 25))
 
         for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
