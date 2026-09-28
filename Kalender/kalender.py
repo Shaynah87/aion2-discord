@@ -658,27 +658,19 @@ def draw_special_day_background(image, box, kind):
         x1, y1, x2, y2 = [S(v) for v in box]
         w, h = max(1, x2 - x1), max(1, y2 - y1)
 
+        # Beide Originalgrafiken als Hintergrund über die ganze Zelle legen.
+        # Cover statt Contain verhindert den rechteckigen Sticker bei Global Launch.
+        scale = max(w / src.width, h / src.height)
+        resized = src.resize(
+            (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+        left = max(0, (resized.width - w) // 2)
+        top = max(0, (resized.height - h) // 2)
+        art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
         if kind == "global":
-            scale = min(w / src.width, h / src.height)
-            resized = src.resize(
-                (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
-                Image.Resampling.LANCZOS,
-            ).convert("RGBA")
-            art = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-            art.alpha_composite(resized, ((w - resized.width) // 2, (h - resized.height) // 2))
-            # Die sehr helle Mitte des Originals etwas zurücknehmen, damit das
-            # Artwork als Hintergrund wirkt und nicht zur weißen Fläche wird.
-            global_tone = Image.new("RGBA", (w, h), (7, 10, 14, 42))
-            art = Image.alpha_composite(art, global_tone)
-        else:
-            scale = max(w / src.width, h / src.height)
-            resized = src.resize(
-                (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
-                Image.Resampling.LANCZOS,
-            )
-            left = max(0, (resized.width - w) // 2)
-            top = max(0, (resized.height - h) // 2)
-            art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
+            # Die helle Bildmitte sanft abdunkeln, ohne das Original zu ersetzen.
+            art = Image.alpha_composite(art, Image.new("RGBA", (w, h), (7, 10, 14, 48)))
 
         # Nur die Außenkanten weich in den vorhandenen Kalender einblenden.
         # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
@@ -761,40 +753,37 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             special_title = "Early Access" if special == "early" else "Global Launch"
             special_time = "15:00"
 
-            title_font = FONT_EVENT_META
-            time_font = FONT_EVENT_META
-            title_box = draw.textbbox((0, 0), special_title, font=title_font)
-            title_w = title_box[2] - title_box[0]
-            title_h = title_box[3] - title_box[1]
-            time_box = draw.textbbox((0, 0), special_time, font=time_font)
-            time_w = time_box[2] - time_box[0]
-            time_h = time_box[3] - time_box[1]
-
+            # Eventname und Uhrzeit wie im Content in EINER Zeile.
+            label = f"{special_title} · {special_time}"
+            label_font = FONT_EVENT_META
+            label_box = draw.textbbox((0, 0), label, font=label_font)
+            label_w = label_box[2] - label_box[0]
+            label_h = label_box[3] - label_box[1]
             content_top = y + DAY_HEADER_H
             content_h = row_h - DAY_HEADER_H
-            gap = 4
-            total_h = title_h + gap + time_h
-            special_y = content_top + max(5, (content_h - total_h) / 2)
+            label_x = x1 + (cell_w - label_w) / 2
+            label_y = content_top + max(5, (content_h - label_h) / 2)
 
-            title_x = x1 + (cell_w - title_w) / 2
-            time_x = x1 + (cell_w - time_w) / 2
-            time_y = special_y + title_h + gap
-
-            draw.text(
-                (S(title_x), S(special_y)),
-                special_title,
-                font=title_font,
-                fill=(248, 250, 252),
-                stroke_width=1,
-                stroke_fill=(10, 12, 15),
+            # Sehr dezente, weiche Lesefläche: keine harte Textplakette.
+            pad_x, pad_y = S(12), S(7)
+            backdrop = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            backdrop_draw = ImageDraw.Draw(backdrop)
+            backdrop_draw.rounded_rectangle(
+                (
+                    int(S(label_x) - pad_x), int(S(label_y) - pad_y),
+                    int(S(label_x) + label_w + pad_x),
+                    int(S(label_y) + label_h + pad_y),
+                ),
+                radius=S(12), fill=(5, 8, 13, 110),
             )
+            backdrop = backdrop.filter(ImageFilter.GaussianBlur(S(7)))
+            image.paste(backdrop, (0, 0), backdrop)
+            # ImageDraw neu anlegen: Das Bild wurde durch paste aktualisiert.
+            draw = ImageDraw.Draw(image)
             draw.text(
-                (S(time_x), S(time_y)),
-                special_time,
-                font=time_font,
-                fill=(232, 236, 240),
-                stroke_width=1,
-                stroke_fill=(10, 12, 15),
+                (S(label_x), S(label_y)), label,
+                font=label_font, fill=(248, 250, 252),
+                stroke_width=1, stroke_fill=(10, 12, 15),
             )
 
         for event in display_events:
