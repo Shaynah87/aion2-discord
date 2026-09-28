@@ -750,41 +750,63 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 and "global launch" not in str(e.get("title") or "").casefold()
             ]
 
-            special_title = "Early Access" if special == "early" else "Global Launch"
-            special_time = "15:00"
+            # Sondergrafik im Stil der Content-Poster: markanter Titel,
+            # darunter das vollständige Datum und die Uhrzeit.
+            poster_title = "EARLY ACCESS" if special == "early" else "GLOBAL LAUNCH"
+            poster_date = "30. SEPTEMBER 2026 · 15:00 UHR" if special == "early" else "5. OKTOBER 2026 · 15:00 UHR"
+            content_top = y + DAY_HEADER_H + 2
+            content_bottom = y + row_h - 4
+            content_h = content_bottom - content_top
+            max_w = S(cell_w - 18)
 
-            # Eventname und Uhrzeit wie im Content in EINER Zeile.
-            label = f"{special_title} · {special_time}"
-            label_font = FONT_EVENT_META
-            label_box = draw.textbbox((0, 0), label, font=label_font)
-            label_w = label_box[2] - label_box[0]
-            label_h = label_box[3] - label_box[1]
-            content_top = y + DAY_HEADER_H
-            content_h = row_h - DAY_HEADER_H
-            label_x = x1 + (cell_w - label_w) / 2
-            label_y = content_top + max(5, (content_h - label_h) / 2)
+            # Serifenschrift wie bei den großen Content-Motiven; bei Bedarf
+            # automatisch verkleinern, damit der Schriftzug vollständig passt.
+            serif_path = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+            if not Path(serif_path).exists():
+                serif_path = "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"
+            title_size = 21 if special == "early" else 19
+            title_font = ImageFont.truetype(serif_path, S(title_size))
+            while draw.textbbox((0, 0), poster_title, font=title_font)[2] > max_w and title_size > 11:
+                title_size -= 1
+                title_font = ImageFont.truetype(serif_path, S(title_size))
 
-            # Sehr dezente, weiche Lesefläche: keine harte Textplakette.
-            pad_x, pad_y = S(12), S(7)
-            backdrop = Image.new("RGBA", image.size, (0, 0, 0, 0))
-            backdrop_draw = ImageDraw.Draw(backdrop)
-            backdrop_draw.rounded_rectangle(
-                (
-                    int(S(label_x) - pad_x), int(S(label_y) - pad_y),
-                    int(S(label_x) + label_w + pad_x),
-                    int(S(label_y) + label_h + pad_y),
-                ),
-                radius=S(12), fill=(5, 8, 13, 110),
-            )
-            backdrop = backdrop.filter(ImageFilter.GaussianBlur(S(7)))
-            image.paste(backdrop, (0, 0), backdrop)
-            # ImageDraw neu anlegen: Das Bild wurde durch paste aktualisiert.
+            date_size = 11
+            date_font = font(date_size, True)
+            while draw.textbbox((0, 0), poster_date, font=date_font)[2] > max_w and date_size > 8:
+                date_size -= 1
+                date_font = font(date_size, True)
+
+            title_box = draw.textbbox((0, 0), poster_title, font=title_font)
+            date_box = draw.textbbox((0, 0), poster_date, font=date_font)
+            title_h = title_box[3] - title_box[1]
+            date_h = date_box[3] - date_box[1]
+            gap = S(9)
+            total_h = title_h + gap + date_h
+            title_y = S(content_top) + max(S(3), (S(content_h) - total_h) // 2)
+            date_y = title_y + title_h + gap
+            title_x = S(x1) + (S(cell_w) - (title_box[2] - title_box[0])) // 2
+            date_x = S(x1) + (S(cell_w) - (date_box[2] - date_box[0])) // 2
+
+            # Weicher Schatten statt einer rechteckigen Textplakette.
+            shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+            sd = ImageDraw.Draw(shadow)
+            for label, pos, fnt in (
+                (poster_title, (title_x, title_y), title_font),
+                (poster_date, (date_x, date_y), date_font),
+            ):
+                sd.text(pos, label, font=fnt, fill=(0, 0, 0, 235),
+                        stroke_width=S(3), stroke_fill=(0, 0, 0, 220))
+            shadow = shadow.filter(ImageFilter.GaussianBlur(S(5)))
+            image.paste(shadow, (0, 0), shadow)
             draw = ImageDraw.Draw(image)
-            draw.text(
-                (S(label_x), S(label_y)), label,
-                font=label_font, fill=(248, 250, 252),
-                stroke_width=1, stroke_fill=(10, 12, 15),
-            )
+
+            # Gold/Creme für Early Access, kühles Weiß für Global Launch.
+            title_color = (244, 224, 185) if special == "early" else (245, 247, 253)
+            draw.text((title_x, title_y), poster_title, font=title_font,
+                      fill=title_color, stroke_width=1, stroke_fill=(12, 16, 25))
+            draw.text((date_x, date_y), poster_date, font=date_font,
+                      fill=(246, 242, 231), stroke_width=1,
+                      stroke_fill=(12, 16, 25))
 
         for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
