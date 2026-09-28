@@ -634,7 +634,17 @@ def rolling_row_height(draw, start_date, width):
             heights = [event_block_height(draw, e, cell_w - 20) for e in events]
             max_content = max(max_content, sum(heights) +
                               max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP)
-    return max(SPECIAL_ROW_MIN_H,
+    # Nur Reihen mit Sondergrafiken erhalten mehr Bildhöhe; alle anderen
+    # Kalenderreihen behalten ihre bisherige Berechnung.
+    has_decoration = any(
+        not special_launch_kind(start_date + timedelta(days=i),
+                                events_for_date(start_date + timedelta(days=i)))
+        and calendar_special_kind(start_date + timedelta(days=i),
+                                  events_for_date(start_date + timedelta(days=i)))
+        for i in range(ROLLING_COLS)
+    )
+    min_height = 218 if has_decoration else SPECIAL_ROW_MIN_H
+    return max(min_height,
                DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM)
 
 
@@ -708,28 +718,59 @@ def calendar_special_kind(day_date, events):
 
 
 def draw_calendar_special(image, box, kind):
-    """Transparentes Motiv rechts/unten, ohne die Kalender-Hintergrundfläche zu ersetzen."""
+    """Fotorealistisches Motiv vollständig rechts; Dekoration weich entlang der Unterkante."""
     path = SPECIAL_IMAGES[kind]
     if not path.is_file():
         print(f"Sondergrafik fehlt: {path}")
         return
     try:
         with Image.open(path) as source:
-            art = source.convert("RGBA")
+            original = source.convert("RGBA")
         x1, y1, x2, y2 = [S(v) for v in box]
         w, h = max(1, x2 - x1), max(1, y2 - y1)
-        # Originalgrafik vollständig erhalten; bei hohen Feldern proportional
-        # vergrößern, ohne die linke obere Textfläche zu überdecken.
-        target_w = w
-        target_h = min(h, max(1, round(h * 0.92)))
-        scale = min(target_w / art.width, target_h / art.height)
-        out_w = max(1, round(art.width * scale))
-        out_h = max(1, round(art.height * scale))
-        art = art.resize((out_w, out_h), Image.Resampling.LANCZOS)
-        image.paste(art, (x2 - out_w, y2 - out_h), art)
+
+        # Vollständiges Hauptmotiv: proportional auf die verfügbare Höhe
+        # skalieren, nie oben oder seitlich beschneiden.
+        scale = min(h / original.height, w / original.width)
+        main_w = max(1, round(original.width * scale))
+        main_h = max(1, round(original.height * scale))
+        main = original.resize((main_w, main_h), Image.Resampling.LANCZOS)
+        layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        main_x, main_y = w - main_w, h - main_h
+
+        # Linke Unterkante aus dem tatsächlichen unteren Bildbereich gewinnen.
+        # Das Hauptmotiv bleibt unverzerrt. Nur die flache Dekorationsleiste
+        # wird horizontal verteilt und nach links/rechts transparent ausgeblendet.
+        # Sie liegt HINTER dem vollständigen Hauptmotiv.
+        if main_x > 18:
+            band_source_h = 115
+            band_source_w = 320
+            band = original.crop((0, original.height - band_source_h,
+                                  band_source_w, original.height))
+            band_h = min(max(26, round(h * 0.28)), 52)
+            band_w = min(w, max(main_x + 35, round(w * 0.73)))
+            band = band.resize((band_w, band_h), Image.Resampling.LANCZOS)
+            alpha = band.getchannel("A")
+            fade = Image.new("L", (band_w, band_h), 0)
+            fade_px = fade.load()
+            edge = max(12, round(band_w * 0.16))
+            for xx in range(band_w):
+                left = min(1.0, xx / edge)
+                right = min(1.0, (band_w - 1 - xx) / max(18, round(band_w * 0.27)))
+                strength = max(0.0, min(left, right))
+                for yy in range(band_h):
+                    fade_px[xx, yy] = round(255 * strength * min(1.0, yy / max(1, round(band_h * 0.52))))
+            from PIL import ImageChops
+            band.putalpha(ImageChops.multiply(alpha, fade))
+            layer.alpha_composite(band, (0, h - band_h))
+
+        layer.alpha_composite(main, (main_x, main_y))
+        # Alpha-composite statt paste(..., mask): feine transparente Ränder
+        # behalten ihre korrekte Deckkraft.
+        base = image.crop((x1, y1, x2, y2)).convert("RGBA")
+        image.paste(Image.alpha_composite(base, layer).convert("RGB"), (x1, y1))
     except Exception as exc:
         print(f"Sondergrafik konnte nicht geladen werden ({path.name}): {exc}")
-
 
 def draw_special_day_background(image, box, kind):
     path = EARLY_ACCESS_IMAGE if kind == "early" else GLOBAL_LAUNCH_IMAGE
