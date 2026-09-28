@@ -36,6 +36,17 @@ BASE_DIR = Path(__file__).resolve().parent
 REPO_DIR = BASE_DIR.parent
 EARLY_ACCESS_IMAGE = REPO_DIR / "Content" / "Launch" / "early_access.png"
 GLOBAL_LAUNCH_IMAGE = REPO_DIR / "Content" / "Launch" / "global_launch.png"
+
+# Sondergrafiken liegen direkt neben kalender.py im Ordner Kalender/.
+SPECIAL_IMAGES = {
+    "ostern": BASE_DIR / "ostern.png",
+    "halloween": BASE_DIR / "halloween.png",
+    "silvester": BASE_DIR / "silvester.png",
+    "fasching": BASE_DIR / "fasching.png",
+    "weihnachten": BASE_DIR / "weihnachten.png",
+    "season_start": BASE_DIR / "season_start.png",
+}
+
 WEEK_FILE = BASE_DIR / "kalender_woche.png"
 ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
@@ -644,6 +655,68 @@ def special_launch_kind(day_date, events):
     return None
 
 
+def easter_sunday(year):
+    # Gregorianisches Osterdatum; Rosenmontag ist 48 Tage davor.
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = (h + l - 7 * m + 114) % 31 + 1
+    return date(year, month, day)
+
+
+def calendar_special_kind(day_date, events):
+    # Launch-Tage haben Vorrang und behalten ihre bisherige Darstellung.
+    if special_launch_kind(day_date, events):
+        return None
+    easter = easter_sunday(day_date.year)
+    if day_date in (easter, easter + timedelta(days=1)):
+        return "ostern"
+    if day_date in (easter - timedelta(days=48), easter - timedelta(days=47)):
+        return "fasching"
+    if (day_date.month, day_date.day) == (10, 31):
+        return "halloween"
+    if (day_date.month, day_date.day) == (12, 31):
+        return "silvester"
+    if day_date.month == 12 and day_date.day in (24, 25, 26):
+        return "weihnachten"
+    # Kein Season-Start-Datum erfinden: nur bei entsprechendem D1-Termin.
+    if any("season start" in str(e.get("title") or "").casefold().replace("_", " ").replace("-", " ")
+           for e in events):
+        return "season_start"
+    return None
+
+
+def draw_calendar_special(image, box, kind):
+    """Transparentes Motiv rechts/unten, ohne die Kalender-Hintergrundfläche zu ersetzen."""
+    path = SPECIAL_IMAGES[kind]
+    if not path.is_file():
+        print(f"Sondergrafik fehlt: {path}")
+        return
+    try:
+        with Image.open(path) as source:
+            art = source.convert("RGBA")
+        x1, y1, x2, y2 = [S(v) for v in box]
+        w, h = max(1, x2 - x1), max(1, y2 - y1)
+        # Originalgrafik vollständig erhalten; bei hohen Feldern proportional
+        # vergrößern, ohne die linke obere Textfläche zu überdecken.
+        target_w = w
+        target_h = min(h, max(1, round(h * 0.92)))
+        scale = min(target_w / art.width, target_h / art.height)
+        out_w = max(1, round(art.width * scale))
+        out_h = max(1, round(art.height * scale))
+        art = art.resize((out_w, out_h), Image.Resampling.LANCZOS)
+        image.paste(art, (x2 - out_w, y2 - out_h), art)
+    except Exception as exc:
+        print(f"Sondergrafik konnte nicht geladen werden ({path.name}): {exc}")
+
+
 def draw_special_day_background(image, box, kind):
     path = EARLY_ACCESS_IMAGE if kind == "early" else GLOBAL_LAUNCH_IMAGE
     if not path.exists():
@@ -734,6 +807,12 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         special = special_launch_kind(day_dt, day_events)
         if special:
             draw_special_day_background(image, (x1, y + DAY_HEADER_H + 1, x1 + cell_w, y + row_h - 1), special)
+        else:
+            decoration = calendar_special_kind(day_dt, day_events)
+            if decoration:
+                draw_calendar_special(
+                    image, (x1, y + DAY_HEADER_H + 1, x1 + cell_w, y + row_h - 1), decoration
+                )
 
     for idx in range(ROLLING_COLS):
         day_dt = start_date + timedelta(days=idx)
@@ -1284,6 +1363,23 @@ def post_or_update():
 # ============================================================
 
 if __name__ == "__main__":
-    load_calendar_data()
-    render_calendar_cards()
-    post_or_update()
+    if os.environ.get("KALENDER_SPECIAL_TEST") == "1":
+        # Lokal: keine API, kein Webhook, kein Überschreiben der Discord-Karte.
+        import sys
+        test_day = (date(2026, 10, 10) if len(sys.argv) > 1 and sys.argv[1] == "season" else
+                    date.fromisoformat(sys.argv[1]) if len(sys.argv) > 1 else date(2026, 10, 31))
+        EVENTS[:] = ([{"date": test_day, "title": "Season Start", "time": "15:00", "type": "season"}]
+                     if len(sys.argv) > 1 and sys.argv[1] == "season" else [])
+        if len(sys.argv) > 1 and sys.argv[1] == "season":
+            test_day = date(2026, 10, 10)
+            EVENTS[0]["date"] = test_day
+        preview = Image.new("RGB", (S(WIDTH), S(300)), BG)
+        preview_draw = ImageDraw.Draw(preview)
+        draw_rolling_row(preview, preview_draw, test_day, test_day, MARGIN_X, 28, WIDTH - 2 * MARGIN_X)
+        output = BASE_DIR / "sondergrafiken_vorschau.png"
+        preview.save(output)
+        print(f"Sondergrafik-Vorschau erstellt: {output}")
+    else:
+        load_calendar_data()
+        render_calendar_cards()
+        post_or_update()
