@@ -675,20 +675,28 @@ def draw_special_day_background(image, box, kind):
             top = max(0, (resized.height - h) // 2)
             art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
 
-        # Nur die Außenkanten weich in den vorhandenen Kalender einblenden.
-        # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
+        # Global Launch: weiche, durchgehende Alpha-Vignette statt eines
+        # rechteckigen Bildfelds. Die Helligkeit nimmt bis zum Rand stetig ab.
+        # Early Access verwendet unverändert seine bisherige Maske.
         mask = Image.new("L", (w, h), 0)
         px = mask.load()
-        feather_x = max(18, int(w * (0.26 if kind == "global" else 0.20)))
-        feather_y = max(14, int(h * (0.27 if kind == "global" else 0.19)))
-        max_alpha = 158 if kind == "global" else 195
-        for yy in range(h):
-            fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
-            fy = max(0.0, fy)
-            for xx in range(w):
-                fx = min(1.0, xx / feather_x, (w - 1 - xx) / feather_x)
-                fx = max(0.0, fx)
-                px[xx, yy] = int(max_alpha * min(fx, fy))
+        if kind == "global":
+            for yy in range(h):
+                ny = abs((yy + 0.5) / h - 0.5) * 2.0
+                # Kein flacher Bereich: weicher Verlauf über die gesamte Höhe.
+                vertical = max(0.0, 1.0 - ny ** 2) ** 1.8
+                for xx in range(w):
+                    nx = abs((xx + 0.5) / w - 0.5) * 2.0
+                    horizontal = max(0.0, 1.0 - nx ** 4) ** 1.2
+                    px[xx, yy] = round(205 * horizontal * vertical)
+        else:
+            feather_x = max(18, int(w * 0.20))
+            feather_y = max(14, int(h * 0.19))
+            for yy in range(h):
+                fy = max(0.0, min(1.0, yy / feather_y, (h - 1 - yy) / feather_y))
+                for xx in range(w):
+                    fx = max(0.0, min(1.0, xx / feather_x, (w - 1 - xx) / feather_x))
+                    px[xx, yy] = int(195 * min(fx, fy))
 
         base = image.crop((x1, y1, x2, y2)).convert("RGBA")
         merged = Image.composite(art, base, mask)
