@@ -671,10 +671,24 @@ def easter_sunday(year):
     return date(year, month, day)
 
 
+# TEMPORÄRER SICHTTEST: alle sechs Sondergrafiken im aktuellen 16-Tage-Fenster.
+# Nach der Abnahme diesen Block entfernen; die regulären Feiertagsdaten bleiben unten erhalten.
+SPECIAL_PREVIEW_DATES = {
+    date(2026, 9, 28): "ostern",
+    date(2026, 9, 29): "halloween",
+    date(2026, 10, 1): "silvester",
+    date(2026, 10, 2): "fasching",
+    date(2026, 10, 3): "weihnachten",
+    date(2026, 10, 4): "season_start",
+}
+
+
 def calendar_special_kind(day_date, events):
     # Launch-Tage haben Vorrang und behalten ihre bisherige Darstellung.
     if special_launch_kind(day_date, events):
         return None
+    if day_date in SPECIAL_PREVIEW_DATES:
+        return SPECIAL_PREVIEW_DATES[day_date]
     easter = easter_sunday(day_date.year)
     if day_date in (easter, easter + timedelta(days=1)):
         return "ostern"
