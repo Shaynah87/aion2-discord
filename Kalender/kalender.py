@@ -171,8 +171,7 @@ DAY_ROW_EVENT_LINE_H = 23
 DAY_ROW_EVENT_GAP = 8
 DAY_EVENT_TIME_H = 19
 DAY_HEADER_H = 47
-SPECIAL_LABEL_H = 48
-SPECIAL_ROW_MIN_H = 168
+SPECIAL_ROW_MIN_H = 148
 DAY_ROW_PAD_BOTTOM = 10
 UPCOMING_ROW_H = 38
 
@@ -606,35 +605,24 @@ def event_block_height(draw, event, width):
 
 
 def rolling_row_height(draw, start_date, width):
+    # Alle vier Reihen gleich hoch; bei vielen Terminen darf eine Reihe wachsen.
     cell_w = width / ROLLING_COLS
     max_content = 0
     for i in range(ROLLING_COLS):
         day_date = start_date + timedelta(days=i)
         events = list(events_for_date(day_date))
         special = special_launch_kind(day_date, events)
-        if special in ("early", "global"):
-            # Special-Text wird separat mittig gerendert; für die Mindesthöhe trotzdem berücksichtigen.
-            events = [
-                e for e in events
-                if "early access" not in str(e.get("title") or "").casefold()
-                and "global launch" not in str(e.get("title") or "").casefold()
-            ]
-            events.append({
-                "title": "Early Access" if special == "early" else "Global Launch",
-                "time": "15:00",
-                "type": "release",
-            })
-        if not events:
-            continue
-        heights = [event_block_height(draw, event, cell_w - 20) for event in events]
-        total = sum(heights) + max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP
-        max_content = max(max_content, total)
-    normal_height = (DAY_ROW_BASE_H if max_content == 0 else
-                     max(DAY_ROW_BASE_H, DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM))
-    has_special = any(special_launch_kind(start_date + timedelta(days=i),
-                      events_for_date(start_date + timedelta(days=i)))
-                      for i in range(ROLLING_COLS))
-    return max(normal_height, SPECIAL_ROW_MIN_H) if has_special else normal_height
+        if special:
+            events = [e for e in events if not any(
+                label in str(e.get("title") or "").casefold()
+                for label in ("early access", "global launch")
+            )]
+        if events:
+            heights = [event_block_height(draw, e, cell_w - 20) for e in events]
+            max_content = max(max_content, sum(heights) +
+                              max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP)
+    return max(SPECIAL_ROW_MIN_H,
+               DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM)
 
 
 def special_launch_kind(day_date, events):
@@ -735,7 +723,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         x1 = x + idx * cell_w
         special = special_launch_kind(day_dt, day_events)
         if special:
-            draw_special_day_background(image, (x1, y + DAY_HEADER_H, x1 + cell_w, y + row_h - SPECIAL_LABEL_H), special)
+            draw_special_day_background(image, (x1, y + DAY_HEADER_H + 1, x1 + cell_w, y + row_h - 1), special)
 
     for idx in range(ROLLING_COLS):
         day_dt = start_date + timedelta(days=idx)
@@ -763,26 +751,24 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 and "global launch" not in str(e.get("title") or "").casefold()
             ]
 
-            # Eigenständige, ruhige Beschriftung UNTER dem Motiv.
+            # Name und Uhrzeit liegen im Motiv; keine separate Textfläche.
             special_title = "Early Access" if special == "early" else "Global Launch"
             special_time = "15:00"
-            label_top = y + row_h - SPECIAL_LABEL_H
-            draw.rectangle(
-                (S(x1 + 2), S(label_top), S(x1 + cell_w - 2), S(y + row_h - 2)),
-                fill=(20, 22, 27),
-            )
-            title_box = draw.textbbox((0, 0), special_title, font=FONT_DAY_EVENT)
-            time_box = draw.textbbox((0, 0), special_time, font=FONT_DAY_EVENT_TIME)
-            title_w = title_box[2] - title_box[0]
-            time_w = time_box[2] - time_box[0]
-            draw.text(
-                (S(x1 + (cell_w - title_w) / 2), S(label_top + 5) - title_box[1]),
-                special_title, font=FONT_DAY_EVENT, fill=TEXT,
-            )
-            draw.text(
-                (S(x1 + (cell_w - time_w) / 2), S(label_top + 27) - time_box[1]),
-                special_time, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED,
-            )
+            title_font = FONT_DAY_EVENT
+            time_font = FONT_DAY_EVENT_TIME
+            title_box = draw.textbbox((0, 0), special_title, font=title_font)
+            time_box = draw.textbbox((0, 0), special_time, font=time_font)
+            title_x = x1 + (cell_w - (title_box[2] - title_box[0])) / 2
+            time_x = x1 + (cell_w - (time_box[2] - time_box[0])) / 2
+            # Im unteren Motivbereich, mit genügend Abstand zur Datumszeile.
+            title_y = y + row_h - 43
+            time_y = y + row_h - 23
+            # Lesbarkeit ohne Umrandung, Balken oder Farbfilter auf dem Motiv.
+            text_color = (238, 241, 245) if special == "early" else (27, 31, 43)
+            draw.text((S(title_x), S(title_y) - title_box[1]),
+                      special_title, font=title_font, fill=text_color)
+            draw.text((S(time_x), S(time_y) - time_box[1]),
+                      special_time, font=time_font, fill=text_color)
 
         for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
