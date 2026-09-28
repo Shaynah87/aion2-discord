@@ -16,7 +16,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # Nyerk24 · Kalender V29 · Rollierende 14 Tage + Special Launch Days
 #
 # Neue Logik:
-
 # - Wochenübersicht oben
 # - pro Tag nur Symbole / Marker
 # - 1 Symbol = groß und mittig
@@ -660,18 +659,18 @@ def draw_special_day_background(image, box, kind):
         w, h = max(1, x2 - x1), max(1, y2 - y1)
 
         if kind == "global":
-            scale = min(w / src.width, h / src.height)
+            # Originalfarben behalten. Motiv oben ausrichten, nur unten kürzen.
+            # Durch das füllende Format entstehen keine Sticker-Ränder.
+            scale = max(w / src.width, h / src.height)
             resized = src.resize(
                 (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
                 Image.Resampling.LANCZOS,
-            ).convert("RGBA")
-            art = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-            art.alpha_composite(resized, ((w - resized.width) // 2, (h - resized.height) // 2))
-            # Die sehr helle Mitte des Originals etwas zurücknehmen, damit das
-            # Artwork als Hintergrund wirkt und nicht zur weißen Fläche wird.
-            global_tone = Image.new("RGBA", (w, h), (7, 10, 14, 42))
-            art = Image.alpha_composite(art, global_tone)
+            )
+            left = max(0, (resized.width - w) // 2)
+            top = 0
+            art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
         else:
+            # Early Access wie in der bisherigen 4x4-Version.
             scale = max(w / src.width, h / src.height)
             resized = src.resize(
                 (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
@@ -740,7 +739,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         # Wochenende nur über SA/SO markieren:
         # fast das Türkis des HEUTE-Rahmens, aber leicht abgeschwächt.
         day_name_color = (48, 205, 201) if day_dt.weekday() >= 5 else TEXT
-        day_date_color = (91, 126, 128) if day_dt.weekday() >= 5 else TEXT_MUTED
+        day_date_color = (44, 185, 181) if day_dt.weekday() >= 5 else (220, 223, 230)
         centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, day_name_color)
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, day_date_color)
 
