@@ -164,8 +164,8 @@ FONT_DAY_EVENT_TIME = font(13, False)
 FONT_UPCOMING_DATE = font(13, True)
 
 # V28: kompakt, aber dynamisch wachsend
-ROLLING_DAYS = 15
-ROLLING_COLS = 5
+ROLLING_DAYS = 16
+ROLLING_COLS = 4
 DAY_ROW_BASE_H = 104
 DAY_ROW_EVENT_LINE_H = 23
 DAY_ROW_EVENT_GAP = 8
@@ -1125,8 +1125,8 @@ def render_week_card(week_start, now, background_source):
     image = card_canvas(WIDTH, height, background_source)
     draw = ImageDraw.Draw(image)
 
-    draw.text((MARGIN_X, TOP), "15-TAGE-ÜBERSICHT", font=FONT_TITLE, fill=TEXT)
-    range_end = today + timedelta(days=14)
+    draw.text((MARGIN_X, TOP), "16-TAGE-ÜBERSICHT", font=FONT_TITLE, fill=TEXT)
+    range_end = today + timedelta(days=15)
     range_text = f"{today.strftime('%d.%m.')} – {range_end.strftime('%d.%m.%Y')}"
     draw.text((MARGIN_X, TOP + 34), range_text, font=FONT_SUBTITLE, fill=TEXT_MUTED)
 
