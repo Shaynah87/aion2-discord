@@ -666,7 +666,7 @@ def draw_special_day_background(image, box, kind):
             art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
         else:
             # Early Access wie in der bisherigen 4x4-Version.
-            scale = max(w / src.width, h / src.height)
+            scale = max(w / src.width, h / src.height) * 1.13
             resized = src.resize(
                 (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
                 Image.Resampling.LANCZOS,
@@ -679,9 +679,9 @@ def draw_special_day_background(image, box, kind):
         # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
         mask = Image.new("L", (w, h), 0)
         px = mask.load()
-        feather_x = max(18, int(w * (0.37 if kind == "global" else 0.24)))
-        feather_y = max(14, int(h * (0.34 if kind == "global" else 0.22)))
-        max_alpha = 135 if kind == "global" else 150
+        feather_x = max(18, int(w * (0.26 if kind == "global" else 0.20)))
+        feather_y = max(14, int(h * (0.27 if kind == "global" else 0.19)))
+        max_alpha = 158 if kind == "global" else 195
         for yy in range(h):
             fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
             fy = max(0.0, fy)
