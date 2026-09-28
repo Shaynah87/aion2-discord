@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 # Nyerk24 · Kalender V29 · Rollierende 14 Tage + Special Launch Days
 #
 # Neue Logik:
+
 # - Wochenübersicht oben
 # - pro Tag nur Symbole / Marker
 # - 1 Symbol = groß und mittig
@@ -650,7 +651,6 @@ def special_launch_kind(day_date, events):
 
 
 def draw_special_day_background(image, box, kind):
-    """Originalmotive mit weichen Rändern, ohne einfarbige Übermalung."""
     path = EARLY_ACCESS_IMAGE if kind == "early" else GLOBAL_LAUNCH_IMAGE
     if not path.exists():
         return
@@ -658,56 +658,53 @@ def draw_special_day_background(image, box, kind):
         src = Image.open(path).convert("RGB")
         x1, y1, x2, y2 = [S(v) for v in box]
         w, h = max(1, x2 - x1), max(1, y2 - y1)
-        scale = max(w / src.width, h / src.height)
-        resized = src.resize((max(1, round(src.width * scale)),
-                              max(1, round(src.height * scale))), Image.Resampling.LANCZOS)
-        left = (resized.width - w) // 2
-        top = (resized.height - h) // 2
-        art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
 
-        # Randverlauf statt rechteckiger Bildkante. Originalfarben erhalten.
+        if kind == "global":
+            scale = min(w / src.width, h / src.height)
+            resized = src.resize(
+                (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
+                Image.Resampling.LANCZOS,
+            ).convert("RGBA")
+            art = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            art.alpha_composite(resized, ((w - resized.width) // 2, (h - resized.height) // 2))
+            # Die sehr helle Mitte des Originals etwas zurücknehmen, damit das
+            # Artwork als Hintergrund wirkt und nicht zur weißen Fläche wird.
+            global_tone = Image.new("RGBA", (w, h), (7, 10, 14, 42))
+            art = Image.alpha_composite(art, global_tone)
+        else:
+            scale = max(w / src.width, h / src.height)
+            resized = src.resize(
+                (max(1, int(src.width * scale)), max(1, int(src.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+            left = max(0, (resized.width - w) // 2)
+            top = max(0, (resized.height - h) // 2)
+            art = resized.crop((left, top, left + w, top + h)).convert("RGBA")
+
+        # Nur die Außenkanten weich in den vorhandenen Kalender einblenden.
+        # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
         mask = Image.new("L", (w, h), 0)
         px = mask.load()
-        feather_x = max(12, round(w * .15))
-        feather_y = max(8, round(h * .13))
+        feather_x = max(18, int(w * 0.24))
+        feather_y = max(14, int(h * 0.22))
+        max_alpha = 150
         for yy in range(h):
-            fy = min(1., yy / feather_y, (h - 1 - yy) / feather_y)
+            fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
+            fy = max(0.0, fy)
             for xx in range(w):
-                fx = min(1., xx / feather_x, (w - 1 - xx) / feather_x)
-                px[xx, yy] = round(235 * max(0., min(fx, fy)))
+                fx = min(1.0, xx / feather_x, (w - 1 - xx) / feather_x)
+                fx = max(0.0, fx)
+                px[xx, yy] = int(max_alpha * min(fx, fy))
+
         base = image.crop((x1, y1, x2, y2)).convert("RGBA")
-        image.paste(Image.composite(art, base, mask).convert("RGB"), (x1, y1))
+        merged = Image.composite(art, base, mask)
+
+        # Leichte dunkle Lesefläche ohne das Motiv zuzukleben.
+        shade = Image.new("RGBA", (w, h), (6, 8, 12, 0))
+        merged = Image.alpha_composite(merged, shade)
+        image.paste(merged.convert("RGB"), (x1, y1))
     except Exception as exc:
         print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
-
-
-def draw_launch_label(image, kind, x1, y, cell_w, row_h):
-    """Einzeilige Poster-Typografie mit zum Original passender Farbgebung."""
-    label = "EARLY ACCESS · 15:00" if kind == "early" else "GLOBAL LAUNCH · 15:00"
-    serif = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
-    if not Path(serif).exists():
-        serif = "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf"
-    max_w = S(cell_w - 18)
-    size = 16
-    fnt = ImageFont.truetype(serif, S(size))
-    measure = ImageDraw.Draw(image)
-    while measure.textbbox((0, 0), label, font=fnt)[2] > max_w and size > 10:
-        size -= 1
-        fnt = ImageFont.truetype(serif, S(size))
-    bb = measure.textbbox((0, 0), label, font=fnt)
-    tx = S(x1) + (S(cell_w) - (bb[2] - bb[0])) // 2
-    content_top = S(y + DAY_HEADER_H)
-    content_h = S(row_h - DAY_HEADER_H)
-    ty = content_top + (content_h - (bb[3] - bb[1])) // 2 - bb[1]
-
-    # Early: Gold auf dem dunklen Exos-Motiv. Global: Navy auf heller Bildmitte.
-    if kind == "early":
-        ink, edge = (242, 221, 182), (13, 24, 37)
-    else:
-        ink, edge = (24, 39, 65), (240, 245, 253)
-    draw = ImageDraw.Draw(image)
-    draw.text((tx, ty), label, font=fnt, fill=ink,
-              stroke_width=max(1, S(1)), stroke_fill=edge)
 
 def draw_compact_event(draw, image, event, x, y, width):
     # V29: kein bedeutungsloser Farbpunkt mehr. Titel bekommt die volle Zellbreite.
@@ -762,8 +759,33 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 and "global launch" not in str(e.get("title") or "").casefold()
             ]
 
-            draw_launch_label(image, special, x1, y, cell_w, row_h)
-            draw = ImageDraw.Draw(image)
+            # Nur die Beschriftung anpassen. Die Original-Bilddarstellung bleibt unverändert.
+            special_title = "EARLY ACCESS" if special == "early" else "GLOBAL LAUNCH"
+            special_time = "15:00"
+            title_font = font(16, True)
+            time_font = font(13)
+            title_color = (240, 223, 188) if special == "early" else (240, 242, 247)
+            time_color = (224, 227, 233)
+            content_top = y + DAY_HEADER_H
+            content_h = row_h - DAY_HEADER_H
+            gap = 5
+            title_box = draw.textbbox((0, 0), special_title, font=title_font)
+            time_box = draw.textbbox((0, 0), special_time, font=time_font)
+            title_w = title_box[2] - title_box[0]
+            title_h = title_box[3] - title_box[1]
+            time_w = time_box[2] - time_box[0]
+            time_h = time_box[3] - time_box[1]
+            top = content_top + (content_h - title_h - gap - time_h) / 2
+            draw.text(
+                (S(x1 + (cell_w - title_w) / 2), S(top) - title_box[1]),
+                special_title, font=title_font, fill=title_color,
+                stroke_width=1, stroke_fill=(10, 12, 16),
+            )
+            draw.text(
+                (S(x1 + (cell_w - time_w) / 2), S(top + title_h + gap) - time_box[1]),
+                special_time, font=time_font, fill=time_color,
+                stroke_width=1, stroke_fill=(10, 12, 16),
+            )
 
         for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
