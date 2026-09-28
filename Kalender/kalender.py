@@ -161,6 +161,8 @@ FONT_ABSENCE_DATE = font(14, False)
 FONT_ABSENCE_GROUP = font(14, True)
 FONT_DAY_EVENT = font(15, True)
 FONT_DAY_EVENT_TIME = font(13, False)
+FONT_SPECIAL_TITLE = font(17, True)
+FONT_SPECIAL_TIME = font(13, False)
 FONT_UPCOMING_DATE = font(13, True)
 
 # V28: kompakt, aber dynamisch wachsend
@@ -677,9 +679,9 @@ def draw_special_day_background(image, box, kind):
         # Mitte sichtbar, zu allen Rändern hin sanft auslaufend.
         mask = Image.new("L", (w, h), 0)
         px = mask.load()
-        feather_x = max(18, int(w * 0.24))
-        feather_y = max(14, int(h * 0.22))
-        max_alpha = 150
+        feather_x = max(18, int(w * (0.37 if kind == "global" else 0.24)))
+        feather_y = max(14, int(h * (0.34 if kind == "global" else 0.22)))
+        max_alpha = 135 if kind == "global" else 150
         for yy in range(h):
             fy = min(1.0, yy / feather_y, (h - 1 - yy) / feather_y)
             fy = max(0.0, fy)
@@ -754,21 +756,26 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             # Name und Uhrzeit liegen im Motiv; keine separate Textfläche.
             special_title = "Early Access" if special == "early" else "Global Launch"
             special_time = "15:00"
-            title_font = FONT_DAY_EVENT
-            time_font = FONT_DAY_EVENT_TIME
+            title_font = FONT_SPECIAL_TITLE
+            time_font = FONT_SPECIAL_TIME
             title_box = draw.textbbox((0, 0), special_title, font=title_font)
             time_box = draw.textbbox((0, 0), special_time, font=time_font)
             title_x = x1 + (cell_w - (title_box[2] - title_box[0])) / 2
             time_x = x1 + (cell_w - (time_box[2] - time_box[0])) / 2
-            # Im unteren Motivbereich, mit genügend Abstand zur Datumszeile.
-            title_y = y + row_h - 43
-            time_y = y + row_h - 23
-            # Lesbarkeit ohne Umrandung, Balken oder Farbfilter auf dem Motiv.
+            # Name und Uhrzeit als ein Block mittig im Inhaltsbereich.
+            content_top = y + DAY_HEADER_H + 1
+            content_bottom = y + row_h - 1
+            title_h = title_box[3] - title_box[1]
+            time_h = time_box[3] - time_box[1]
+            gap = 5
+            block_top = (content_top + content_bottom - title_h - gap - time_h) / 2
+            title_y = block_top - title_box[1]
+            time_y = block_top + title_h + gap - time_box[1]
             text_color = (238, 241, 245) if special == "early" else (27, 31, 43)
-            draw.text((S(title_x), S(title_y) - title_box[1]),
-                      special_title, font=title_font, fill=text_color)
-            draw.text((S(time_x), S(time_y) - time_box[1]),
-                      special_time, font=time_font, fill=text_color)
+            draw.text((S(title_x), S(title_y)), special_title,
+                      font=title_font, fill=text_color)
+            draw.text((S(time_x), S(time_y)), special_time,
+                      font=time_font, fill=text_color)
 
         for event in display_events:
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
