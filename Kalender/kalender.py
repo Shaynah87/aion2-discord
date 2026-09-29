@@ -52,6 +52,7 @@ CATEGORY_IMAGES = {
     "kampf": BASE_DIR / "kampf.png",
     "event": BASE_DIR / "event.png",
     "gilde": BASE_DIR / "gilde.png",
+    "geburtstag": BASE_DIR / "geburtstag.png",
 }
 CATEGORY_ICON_SIZE = 21
 CATEGORY_ICON_GAP = 5
@@ -696,13 +697,17 @@ def birthdays_for_date(day_date):
             month, day = (2, 29) if leap else (3, 1)
         if (month, day) == (day_date.month, day_date.day):
             age = f" ({day_date.year - entry['year']})" if entry["year"] is not None else ""
-            result.append(f"🎂 {entry['name']}{age}")
+            result.append(f"{entry['name']}{age}")
     return sorted(result, key=str.casefold)
 
 def birthday_lines(draw, day_date, width):
+    # Die erste Zeile jedes Geburtstags reserviert Platz fuer die PNG-Torte.
     lines = []
+    text_width_available = max(20, width - CATEGORY_ICON_SIZE - CATEGORY_ICON_GAP)
     for label in birthdays_for_date(day_date):
-        lines.extend(wrap_text_lines(draw, label, FONT_BIRTHDAY, width))
+        wrapped = wrap_text_lines(draw, label, FONT_BIRTHDAY, text_width_available)
+        for index, line in enumerate(wrapped):
+            lines.append((line, index == 0))
     return lines
 
 def rolling_row_height(draw, start_date, width):
@@ -971,8 +976,16 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         b_lines = birthday_lines(draw, day_dt, cell_w - 20)
         if b_lines:
             birthday_top = y + row_h - DAY_ROW_PAD_BOTTOM - len(b_lines) * BIRTHDAY_LINE_H
-            for line_index, label in enumerate(b_lines):
-                draw.text((S(x1 + 10), S(birthday_top + line_index * BIRTHDAY_LINE_H)),
+            cake = category_icon({"type": "geburtstag"})
+            for line_index, (label, first_line) in enumerate(b_lines):
+                line_y = birthday_top + line_index * BIRTHDAY_LINE_H
+                text_x = x1 + 10
+                if first_line:
+                    if cake is not None:
+                        icon_y = S(line_y) + max(0, (S(BIRTHDAY_LINE_H) - cake.height) // 2)
+                        image.paste(cake, (S(text_x), icon_y), cake)
+                    text_x += CATEGORY_ICON_SIZE + CATEGORY_ICON_GAP
+                draw.text((S(text_x), S(line_y)),
                           label, font=FONT_BIRTHDAY, fill=TEXT,
                           stroke_width=1, stroke_fill=(8, 10, 14))
 
