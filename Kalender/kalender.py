@@ -196,6 +196,7 @@ UPCOMING_ROW_H = 38
 
 EVENTS = []
 ABSENCES = []
+BIRTHDAYS = []
 
 def parse_iso_date(value: str) -> datetime:
     return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=TIMEZONE)
@@ -271,6 +272,20 @@ def load_calendar_data():
             "end_offset": (end_dt.date() - week_start.date()).days,
             "note": str(row.get("notiz") or ""),
         })
+
+    birthdays = []
+    for row in payload.get("geburtstage", []):
+        try:
+            day = int(row["tag"])
+            month = int(row["monat"])
+            year = int(row["jahr"]) if row.get("jahr") is not None else None
+            date(2024 if (month, day) == (2, 29) else 2025, month, day)
+            birthdays.append({"name": str(row.get("discord_name") or "Unbekannt"),
+                              "day": day, "month": month, "year": year})
+        except (KeyError, ValueError, TypeError):
+            continue
+    BIRTHDAYS.clear()
+    BIRTHDAYS.extend(birthdays)
 
     EVENTS.clear()
     EVENTS.extend(events)
@@ -631,6 +646,30 @@ def event_block_height(draw, event, width):
     return len(compact_event_lines(draw, event, width)) * 21
 
 
+BIRTHDAY_LINE_H = 22
+BIRTHDAY_GAP = 5
+FONT_BIRTHDAY = font(15, True)
+
+def birthdays_for_date(day_date):
+    result = []
+    for entry in BIRTHDAYS:
+        month, day = entry["month"], entry["day"]
+        # 29. Februar wird in Nicht-Schaltjahren am 1. März gefeiert.
+        if (month, day) == (2, 29):
+            leap = (day_date.year % 4 == 0 and
+                    (day_date.year % 100 != 0 or day_date.year % 400 == 0))
+            month, day = (2, 29) if leap else (3, 1)
+        if (month, day) == (day_date.month, day_date.day):
+            age = f" ({day_date.year - entry['year']})" if entry["year"] is not None else ""
+            result.append(f"🎂 {entry['name']}{age}")
+    return sorted(result, key=str.casefold)
+
+def birthday_lines(draw, day_date, width):
+    lines = []
+    for label in birthdays_for_date(day_date):
+        lines.extend(wrap_text_lines(draw, label, FONT_BIRTHDAY, width))
+    return lines
+
 def rolling_row_height(draw, start_date, width):
     # Alle vier Reihen gleich hoch; bei vielen Terminen darf eine Reihe wachsen.
     cell_w = width / ROLLING_COLS
@@ -644,10 +683,13 @@ def rolling_row_height(draw, start_date, width):
                 label in str(e.get("title") or "").casefold()
                 for label in ("early access", "global launch")
             )]
+        event_h = 0
         if events:
             heights = [event_block_height(draw, e, cell_w - 20) for e in events]
-            max_content = max(max_content, sum(heights) +
-                              max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP)
+            event_h = sum(heights) + max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP
+        b_lines = birthday_lines(draw, day_date, cell_w - 20)
+        birthday_h = len(b_lines) * BIRTHDAY_LINE_H + (BIRTHDAY_GAP if b_lines else 0)
+        max_content = max(max_content, event_h + birthday_h)
     # Sondergrafiken beeinflussen die Feldhöhe nicht.
     return max(SPECIAL_ROW_MIN_H,
                DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM)
@@ -885,6 +927,15 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             # dezente Kontur und die Grafiken werden halbtransparent gerendert.
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
             ev_y += used_h + DAY_ROW_EVENT_GAP
+
+        # Geburtstage stehen nur am jeweiligen Tag und immer am Feldende.
+        b_lines = birthday_lines(draw, day_dt, cell_w - 20)
+        if b_lines:
+            birthday_top = y + row_h - DAY_ROW_PAD_BOTTOM - len(b_lines) * BIRTHDAY_LINE_H
+            for line_index, label in enumerate(b_lines):
+                draw.text((S(x1 + 10), S(birthday_top + line_index * BIRTHDAY_LINE_H)),
+                          label, font=FONT_BIRTHDAY, fill=(244, 204, 138),
+                          stroke_width=1, stroke_fill=(8, 10, 14))
 
     # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
     # Eigene obere Linie pro Reihe: dadurch kann die zweite Reihe die Trennlinie nicht mehr übermalen.
