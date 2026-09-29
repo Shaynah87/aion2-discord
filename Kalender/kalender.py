@@ -1030,11 +1030,9 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width, absence_wee
                     text_box = draw.textbbox((0, 0), label, font=FONT_BIRTHDAY,
                                              stroke_width=1)
                     text_y = icon_y + cake.height - text_box[3]
-                # Einheitliche, feine helle Kontur fuer alle Rollenfarben:
-                # Auch dunkles Member-Gruen und Violett bleiben auf Anthrazit lesbar.
+                # Geburtstage sind fuer alle Mitglieder einheitlich weiss.
                 draw.text((S(block_x + icon_space), text_y),
-                          label, font=FONT_BIRTHDAY, fill=birthday_color,
-                          stroke_width=max(1, S(0.5)), stroke_fill=(200, 205, 216))
+                          label, font=FONT_BIRTHDAY, fill=(255, 255, 255))
 
     # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
     # Eigene obere Linie pro Reihe: dadurch kann die zweite Reihe die Trennlinie nicht mehr übermalen.
