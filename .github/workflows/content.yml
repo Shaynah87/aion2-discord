@@ -1,37 +1,49 @@
+
+    
+  
 name: Content
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "daily, quarter oder minute"
+        required: false
+        default: daily
+        type: choice
+        options:
+          - daily
+          - quarter
+          - minute
 
 permissions:
   contents: write
 
+concurrency:
+  group: aion2-content
+  cancel-in-progress: false
+
 jobs:
   update-content:
     runs-on: ubuntu-latest
-
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v5
-
       - name: Python installieren
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
       - name: Pillow installieren
         run: pip install pillow requests
-
       - name: AION 2 Content aktualisieren
         env:
           CONTENT_WEBHOOK: ${{ secrets.CONTENT_WEBHOOK }}
+          CONTENT_MODE: ${{ inputs.mode || 'daily' }}
         run: python Content/content.py
-
       - name: Content-Status speichern
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           if git diff --quiet Content/content_message.json; then
             echo "Keine Änderung an Content/content_message.json."
           else
@@ -39,3 +51,4 @@ jobs:
             git commit -m "Update content message state"
             git push
           fi
+
