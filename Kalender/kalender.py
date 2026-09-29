@@ -911,7 +911,7 @@ def draw_compact_event(draw, image, event, x, y, width):
                       stroke_width=1, stroke_fill=(8, 10, 14))
     return max(21, len(lines)*21)
 
-def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
+def draw_rolling_row(image, draw, start_date, now_date, x, y, width, absence_week_start=None):
     cell_w = width / ROLLING_COLS
     row_h = rolling_row_height(draw, start_date, width)
 
@@ -943,17 +943,19 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
 
         # Pro Tag nur ein Punkt je abwesender Rollenfarbe. Rechts nach links:
         # eigene Rolle (lila), Offizier, Member, Rookie.
-        week_start = monday_of_week(datetime.combine(day_dt, datetime.min.time()))
+        # Abwesenheits-Offsets beziehen sich auf den Wochenbeginn beim Datenabruf,
+        # nicht auf den Wochenbeginn des jeweiligen Kalender-Tages.
         present_roles = set()
+        absence_anchor = absence_week_start or monday_of_week(datetime.combine(now_date, datetime.min.time()))
         for absence in ABSENCES:
-            start_dt, end_dt = absence_dates(week_start, absence)
+            start_dt, end_dt = absence_dates(absence_anchor, absence)
             if start_dt.date() <= day_dt <= end_dt.date():
                 role = str(absence.get("kalender_rolle") or "").lower()
                 if role in ROLE_COLORS:
                     present_roles.add(role)
-        dot_radius = 4
-        dot_step = 13
-        dot_right = x1 + cell_w - 13
+        dot_radius = 5
+        dot_step = 15
+        dot_right = x1 + cell_w - 14
         dot_y = y + 15
         visible_roles = [role for role in ROLE_ORDER if role in present_roles]
         for dot_index, role in enumerate(visible_roles):
@@ -1028,9 +1030,11 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                     text_box = draw.textbbox((0, 0), label, font=FONT_BIRTHDAY,
                                              stroke_width=1)
                     text_y = icon_y + cake.height - text_box[3]
+                # Einheitliche, feine helle Kontur fuer alle Rollenfarben:
+                # Auch dunkles Member-Gruen und Violett bleiben auf Anthrazit lesbar.
                 draw.text((S(block_x + icon_space), text_y),
                           label, font=FONT_BIRTHDAY, fill=birthday_color,
-                          stroke_width=1, stroke_fill=(8, 10, 14))
+                          stroke_width=max(1, S(0.5)), stroke_fill=(200, 205, 216))
 
     # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
     # Eigene obere Linie pro Reihe: dadurch kann die zweite Reihe die Trennlinie nicht mehr übermalen.
@@ -1175,8 +1179,8 @@ def draw_absence_group(draw, week_start, items, title, x, y, width):
         cell_y = list_y + row * ABSENCE_ROW_H
         start_dt, end_dt = absence_dates(week_start, item)
 
-        marker_x, marker_y = cell_x + 6, cell_y + 20
-        draw.ellipse((S(marker_x - 4), S(marker_y - 4), S(marker_x + 4), S(marker_y + 4)), fill=ABSENCE)
+        marker_x, marker_y = cell_x + 6, cell_y + 9
+        draw.ellipse((S(marker_x - 4), S(marker_y - 4), S(marker_x + 4), S(marker_y + 4)), fill=member_color(item))
         text_x = cell_x + 22
         name = ellipsize(draw, item["name"], FONT_ABSENCE, col_w - 28)
         draw.text((S(text_x), S(cell_y)), name, font=FONT_ABSENCE, fill=TEXT)
