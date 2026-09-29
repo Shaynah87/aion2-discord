@@ -684,7 +684,7 @@ def event_block_height(draw, event, width):
 
 BIRTHDAY_LINE_H = 22
 BIRTHDAY_GAP = 5
-FONT_BIRTHDAY = font(15, True)
+FONT_BIRTHDAY = font(15, False)
 
 def birthdays_for_date(day_date):
     result = []
@@ -972,20 +972,22 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
             ev_y += used_h + DAY_ROW_EVENT_GAP
 
-        # Geburtstage stehen nur am jeweiligen Tag und immer am Feldende.
+        # Geburtstage stehen unten mittig; die Torte und der Name bilden
+        # zusammen einen zentrierten Block. Mehrere Geburtstage bleiben untereinander.
         b_lines = birthday_lines(draw, day_dt, cell_w - 20)
         if b_lines:
             birthday_top = y + row_h - DAY_ROW_PAD_BOTTOM - len(b_lines) * BIRTHDAY_LINE_H
             cake = category_icon({"type": "geburtstag"})
             for line_index, (label, first_line) in enumerate(b_lines):
                 line_y = birthday_top + line_index * BIRTHDAY_LINE_H
-                text_x = x1 + 10
-                if first_line:
-                    if cake is not None:
-                        icon_y = S(line_y) + max(0, (S(BIRTHDAY_LINE_H) - cake.height) // 2)
-                        image.paste(cake, (S(text_x), icon_y), cake)
-                    text_x += CATEGORY_ICON_SIZE + CATEGORY_ICON_GAP
-                draw.text((S(text_x), S(line_y)),
+                label_w = text_width(draw, label, FONT_BIRTHDAY) / SCALE
+                icon_space = CATEGORY_ICON_SIZE + CATEGORY_ICON_GAP if first_line and cake is not None else 0
+                block_w = label_w + icon_space
+                block_x = x1 + (cell_w - block_w) / 2
+                if first_line and cake is not None:
+                    icon_y = S(line_y) + max(0, (S(BIRTHDAY_LINE_H) - cake.height) // 2)
+                    image.paste(cake, (S(block_x), icon_y), cake)
+                draw.text((S(block_x + icon_space), S(line_y)),
                           label, font=FONT_BIRTHDAY, fill=TEXT,
                           stroke_width=1, stroke_fill=(8, 10, 14))
 
