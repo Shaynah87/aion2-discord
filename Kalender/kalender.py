@@ -727,6 +727,10 @@ def draw_calendar_special(image, box, kind):
         # Das vollständige Original proportional auf die feste Höhe reduzieren.
         # Die untere/rechte Hauptgrafik bleibt erhalten, ohne Ausschnitt oder Streckung.
         scale = min(fixed_h / original.height, w / original.width)
+        # Season Start etwas kleiner, damit die linke Startlinie weich im
+        # Kalenderhintergrund endet, statt am Bildrand abgeschnitten zu wirken.
+        if kind == "season_start":
+            scale *= 0.90
         mw = max(1, round(original.width * scale))
         mh = max(1, round(original.height * scale))
         main = original.resize((mw, mh), Image.Resampling.LANCZOS)
@@ -740,7 +744,7 @@ def draw_calendar_special(image, box, kind):
             ch = max(1, round(corner_h * cw / corner_w))
             corner = corner.resize((cw, ch), Image.Resampling.LANCZOS)
             # Nur der originale Eckbereich; bewusst dezenter für Termine.
-            alpha = corner.getchannel("A").point(lambda v: round(v * 0.48))
+            alpha = corner.getchannel("A").point(lambda v: round(v * 0.36))
             corner.putalpha(alpha)
             layer.alpha_composite(corner, (0, 0))
             # Eckdekoration aus der Hauptgrafik ausblenden, damit sie nicht
@@ -750,6 +754,19 @@ def draw_calendar_special(image, box, kind):
             md.rectangle((0, 0, round(mw * 0.43), round(mh * 0.42)), fill=0)
             from PIL import ImageChops
             main.putalpha(ImageChops.multiply(main.getchannel("A"), mask))
+        # Leichte einheitliche Transparenz nur beim Rendern; PNGs unverändert.
+        # Season Start: linken Bildrand weich auslaufen lassen, damit die
+        # horizontale Startlinie nicht plötzlich abgeschnitten erscheint.
+        main_alpha = main.getchannel("A")
+        if kind == "season_start":
+            from PIL import ImageChops
+            fade = Image.new("L", (mw, mh), 255)
+            fd = ImageDraw.Draw(fade)
+            fade_w = min(mw, max(18, round(mw * 0.18)))
+            for xx in range(fade_w):
+                fd.line((xx, 0, xx, mh), fill=round(255 * xx / fade_w))
+            main_alpha = ImageChops.multiply(main_alpha, fade)
+        main.putalpha(main_alpha.point(lambda v: round(v * 0.78)))
         layer.alpha_composite(main, (w-mw, h-mh))
         base = image.crop((x1, y1, x2, y2)).convert("RGBA")
         image.paste(Image.alpha_composite(base, layer).convert("RGB"), (x1, y1))
@@ -901,10 +918,8 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                       font=time_font, fill=text_color)
 
         for event in display_events:
-            if calendar_special_kind(day_dt, day_events) and not special:
-                line_h = event_block_height(draw, event, cell_w - 20)
-                shade = Image.new("RGBA", (S(cell_w - 12), S(line_h + 4)), (8, 10, 14, 175))
-                image.paste(shade, (S(x1 + 6), S(ev_y - 2)), shade)
+            # Keine schwarzen Lesebalken; die Schrift besitzt bereits eine
+            # dezente Kontur und die Grafiken werden halbtransparent gerendert.
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
             ev_y += used_h + DAY_ROW_EVENT_GAP
 
