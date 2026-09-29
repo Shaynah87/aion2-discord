@@ -1,6 +1,3 @@
-
-    
-  
 name: Content
 
 on:
@@ -51,4 +48,3 @@ jobs:
             git commit -m "Update content message state"
             git push
           fi
-
