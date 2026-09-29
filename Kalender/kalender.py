@@ -743,8 +743,8 @@ def draw_calendar_special(image, box, kind):
             cw = max(1, round(w * 0.25))
             ch = max(1, round(corner_h * cw / corner_w))
             corner = corner.resize((cw, ch), Image.Resampling.LANCZOS)
-            # Nur der originale Eckbereich; bewusst dezenter für Termine.
-            alpha = corner.getchannel("A").point(lambda v: round(v * 0.36))
+            # Eckdekoration besser sichtbar, weiterhin transparent und nur am Rand.
+            alpha = corner.getchannel("A").point(lambda v: round(v * 0.70))
             corner.putalpha(alpha)
             layer.alpha_composite(corner, (0, 0))
             # Eckdekoration aus der Hauptgrafik ausblenden, damit sie nicht
