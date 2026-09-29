@@ -682,9 +682,9 @@ def easter_sunday(year):
 
 
 # NUR ZUR SICHTKONTROLLE im Original-Discord-Kalender.
-# In GitHub Actions als Umgebungsvariable KALENDER_SHOW_ALL_SPECIALS=1 setzen.
-# Danach entfernen/auf 0 setzen: die echten Feiertagsdaten bleiben erhalten.
-SHOW_ALL_SPECIALS = os.environ.get("KALENDER_SHOW_ALL_SPECIALS", "0") == "1"
+# Vorschau ist standardmäßig AN: alle sechs Grafiken auf Testtagen 29.09.–14.10.2026.
+# Nach der Sichtkontrolle hier True auf False setzen; jährliche Feiertage bleiben erhalten.
+SHOW_ALL_SPECIALS = True
 SPECIAL_DEMO_DATES = {
     date(2026, 9, 29): "halloween",
     date(2026, 10, 1): "ostern",
