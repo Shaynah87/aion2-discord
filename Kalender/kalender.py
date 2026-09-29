@@ -611,12 +611,24 @@ def wrap_text_lines(draw, text, fnt, max_width_logical):
     return lines or [""]
 
 
+def compact_event_lines(draw, event, width):
+    # Titel fett (15 px), Uhrzeit normal (13 px); nur bei Platzmangel umbrechen.
+    title = str(event.get("title", "Termin"))
+    time = str(event.get("time") or "")
+    lines = [(part, FONT_DAY_EVENT) for part in wrap_text_lines(draw, title, FONT_DAY_EVENT, max(20, width))]
+    if time:
+        suffix = " · " + time
+        last_title = lines[-1][0]
+        if text_width(draw, last_title, FONT_DAY_EVENT) + text_width(draw, suffix, FONT_DAY_EVENT_TIME) <= S(width):
+            lines[-1] = (last_title, FONT_DAY_EVENT, suffix)
+        else:
+            # Uhrzeit in die nächste Zeile, wenn der Titel keinen Platz mehr lässt.
+            lines.append((suffix.lstrip(), FONT_DAY_EVENT_TIME))
+    return lines
+
+
 def event_block_height(draw, event, width):
-    label = str(event.get("title", "Termin"))
-    if event.get("time"):
-        label += " · " + str(event["time"])
-    lines = wrap_text_lines(draw, label, FONT_DAY_EVENT, max(20, width))
-    return len(lines) * 19
+    return len(compact_event_lines(draw, event, width)) * 19
 
 
 def rolling_row_height(draw, start_date, width):
@@ -838,14 +850,17 @@ def draw_special_day_background(image, box, kind):
         print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
 
 def draw_compact_event(draw, image, event, x, y, width):
-    # Titel und Uhrzeit zusammen; nur bei Platzmangel Zeilenumbruch.
-    label = str(event.get("title", "Termin"))
-    if event.get("time"):
-        label += " · " + str(event["time"])
-    lines = wrap_text_lines(draw, label, FONT_DAY_EVENT, width)
-    for i, line in enumerate(lines):
-        draw.text((S(x), S(y + i*19)), line, font=FONT_DAY_EVENT, fill=TEXT,
+    # Titel bleibt 15 px fett; Uhrzeit folgt in 13 px normal.
+    lines = compact_event_lines(draw, event, width)
+    for i, parts in enumerate(lines):
+        title, title_font = parts[:2]
+        line_y = S(y + i*19)
+        draw.text((S(x), line_y), title, font=title_font, fill=TEXT,
                   stroke_width=1, stroke_fill=(8, 10, 14))
+        if len(parts) == 3:
+            draw.text((S(x) + text_width(draw, title, title_font), line_y),
+                      parts[2], font=FONT_DAY_EVENT_TIME, fill=TEXT,
+                      stroke_width=1, stroke_fill=(8, 10, 14))
     return max(19, len(lines)*19)
 
 def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
