@@ -681,10 +681,26 @@ def easter_sunday(year):
     return date(year, month, day)
 
 
+# NUR ZUR SICHTKONTROLLE im Original-Discord-Kalender.
+# In GitHub Actions als Umgebungsvariable KALENDER_SHOW_ALL_SPECIALS=1 setzen.
+# Danach entfernen/auf 0 setzen: die echten Feiertagsdaten bleiben erhalten.
+SHOW_ALL_SPECIALS = os.environ.get("KALENDER_SHOW_ALL_SPECIALS", "0") == "1"
+SPECIAL_DEMO_DATES = {
+    date(2026, 9, 29): "halloween",
+    date(2026, 10, 1): "ostern",
+    date(2026, 10, 2): "fasching",
+    date(2026, 10, 3): "weihnachten",
+    date(2026, 10, 4): "season_start",
+    date(2026, 10, 6): "silvester",
+}
+
+
 def calendar_special_kind(day_date, events):
     # Launch-Tage haben Vorrang und behalten ihre bisherige Darstellung.
     if special_launch_kind(day_date, events):
         return None
+    if SHOW_ALL_SPECIALS and day_date in SPECIAL_DEMO_DATES:
+        return SPECIAL_DEMO_DATES[day_date]
     easter = easter_sunday(day_date.year)
     if day_date == easter:
         return "ostern"
@@ -704,7 +720,7 @@ def calendar_special_kind(day_date, events):
 
 
 def draw_calendar_special(image, box, kind):
-    """Feiertagsdeko im ganzen Tagesfeld; Season Start bleibt im Inhaltsbereich."""
+    """Fertige, transparente Sondergrafik als EIN Bild; keine Eck-Zerlegung."""
     path = SPECIAL_IMAGES[kind]
     if not path.is_file():
         print(f"Sondergrafik fehlt: {path}")
@@ -713,58 +729,25 @@ def draw_calendar_special(image, box, kind):
         with Image.open(path) as source:
             original = source.convert("RGBA")
         x1, y1, x2, y2 = [S(v) for v in box]
-        w, h = max(1, x2-x1), max(1, y2-y1)
-        fixed_h = min(h, S(100 if kind == "season_start" else 140))
+        w, h = max(1, x2 - x1), max(1, y2 - y1)
+        # Tagesfelder koennen mit Terminen wachsen. Bild bleibt bei seiner
+        # Originalgroesse (286 x 148) und wird unten am Feld ausgerichtet.
+        # Im 286px breiten Standardfeld keine zusaetzliche Vergroesserung.
+        factor = min(1.0, w / original.width)
+        mw = max(1, round(original.width * factor))
+        mh = max(1, round(original.height * factor))
+        art = (original if (mw, mh) == original.size else
+               original.resize((mw, mh), Image.Resampling.LANCZOS))
+        # Nur leicht transparent, um Texte auf Dekorationen lesbar zu halten.
+        alpha = art.getchannel("A").point(lambda a: round(a * 0.78))
+        art.putalpha(alpha)
         layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-
-        # Das vollständige Original proportional auf die feste Höhe reduzieren.
-        # Die untere/rechte Hauptgrafik bleibt erhalten, ohne Ausschnitt oder Streckung.
-        scale = min(fixed_h / original.height, w / original.width)
-        # Season Start etwas kleiner, damit die linke Startlinie weich im
-        # Kalenderhintergrund endet, statt am Bildrand abgeschnitten zu wirken.
-        if kind == "season_start":
-            scale *= 0.90
-        mw = max(1, round(original.width * scale))
-        mh = max(1, round(original.height * scale))
-        main = original.resize((mw, mh), Image.Resampling.LANCZOS)
-        if kind != "season_start":
-            # Originale obere linke Dekoration separat an die obere linke Ecke
-            # der festen Bildzone setzen; das Hauptmotiv bleibt unten rechts.
-            corner_w = round(original.width * 0.39)
-            corner_h = round(original.height * 0.43)
-            corner = original.crop((0, 0, corner_w, corner_h))
-            cw = max(1, round(w * 0.25))
-            ch = max(1, round(corner_h * cw / corner_w))
-            corner = corner.resize((cw, ch), Image.Resampling.LANCZOS)
-            # Eckdekoration besser sichtbar, weiterhin transparent und nur am Rand.
-            alpha = corner.getchannel("A").point(lambda v: round(v * 0.70))
-            corner.putalpha(alpha)
-            layer.alpha_composite(corner, (0, 0))
-            # Eckdekoration aus der Hauptgrafik ausblenden, damit sie nicht
-            # versehentlich mitten im Feld erscheint.
-            mask = Image.new("L", (mw, mh), 255)
-            md = ImageDraw.Draw(mask)
-            md.rectangle((0, 0, round(mw * 0.43), round(mh * 0.42)), fill=0)
-            from PIL import ImageChops
-            main.putalpha(ImageChops.multiply(main.getchannel("A"), mask))
-        # Leichte einheitliche Transparenz nur beim Rendern; PNGs unverändert.
-        # Season Start: linken Bildrand weich auslaufen lassen, damit die
-        # horizontale Startlinie nicht plötzlich abgeschnitten erscheint.
-        main_alpha = main.getchannel("A")
-        if kind == "season_start":
-            from PIL import ImageChops
-            fade = Image.new("L", (mw, mh), 255)
-            fd = ImageDraw.Draw(fade)
-            fade_w = min(mw, max(18, round(mw * 0.18)))
-            for xx in range(fade_w):
-                fd.line((xx, 0, xx, mh), fill=round(255 * xx / fade_w))
-            main_alpha = ImageChops.multiply(main_alpha, fade)
-        main.putalpha(main_alpha.point(lambda v: round(v * 0.78)))
-        layer.alpha_composite(main, (w-mw, h-mh))
+        layer.alpha_composite(art, (w - mw, h - mh))
         base = image.crop((x1, y1, x2, y2)).convert("RGBA")
         image.paste(Image.alpha_composite(base, layer).convert("RGB"), (x1, y1))
     except Exception as exc:
         print(f"Sondergrafik konnte nicht geladen werden ({path.name}): {exc}")
+
 
 def draw_special_day_background(image, box, kind):
     path = EARLY_ACCESS_IMAGE if kind == "early" else GLOBAL_LAUNCH_IMAGE
@@ -860,8 +843,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             decoration = calendar_special_kind(day_dt, day_events)
             if decoration:
                 draw_calendar_special(
-                    image, (x1, y + 1 if decoration != "season_start" else y + DAY_HEADER_H + 1,
-                        x1 + cell_w, y + row_h - 1), decoration
+                    image, (x1 + 1, y + 1, x1 + cell_w - 1, y + row_h - 1), decoration
                 )
 
     for idx in range(ROLLING_COLS):
