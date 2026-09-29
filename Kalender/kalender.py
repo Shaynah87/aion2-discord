@@ -738,8 +738,8 @@ def draw_calendar_special(image, box, kind):
         mh = max(1, round(original.height * factor))
         art = (original if (mw, mh) == original.size else
                original.resize((mw, mh), Image.Resampling.LANCZOS))
-        # Alle sechs Sondergrafiken einheitlich mit 60 % Deckkraft; Schrift bleibt voll sichtbar.
-        alpha = art.getchannel("A").point(lambda a: round(a * 0.60))
+        # Alle sechs Sondergrafiken einheitlich mit 70 % Deckkraft; Schrift bleibt voll sichtbar.
+        alpha = art.getchannel("A").point(lambda a: round(a * 0.70))
         art.putalpha(alpha)
         layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         layer.alpha_composite(art, (w - mw, h - mh))
