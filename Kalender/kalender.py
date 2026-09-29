@@ -170,8 +170,8 @@ FONT_EVENT_META = font(14, False)
 FONT_ABSENCE = font(18, True)
 FONT_ABSENCE_DATE = font(14, False)
 FONT_ABSENCE_GROUP = font(14, True)
-FONT_DAY_EVENT = font(15, True)
-FONT_DAY_EVENT_TIME = font(13, False)
+FONT_DAY_EVENT = font(17, True)
+FONT_DAY_EVENT_TIME = font(15, False)
 FONT_SPECIAL_TITLE = font(17, True)
 FONT_SPECIAL_TIME = font(13, False)
 FONT_UPCOMING_DATE = font(13, True)
@@ -181,7 +181,7 @@ ROLLING_DAYS = 16
 ROLLING_COLS = 4
 DAY_ROW_BASE_H = 104
 DAY_ROW_EVENT_LINE_H = 23
-DAY_ROW_EVENT_GAP = 8
+DAY_ROW_EVENT_GAP = 3
 DAY_EVENT_TIME_H = 19
 DAY_HEADER_H = 47
 SPECIAL_ROW_MIN_H = 148
@@ -612,7 +612,7 @@ def wrap_text_lines(draw, text, fnt, max_width_logical):
 
 
 def compact_event_lines(draw, event, width):
-    # Titel fett (15 px), Uhrzeit normal (13 px); nur bei Platzmangel umbrechen.
+    # Titel fett (17 px), Uhrzeit normal (15 px); nur bei Platzmangel umbrechen.
     title = str(event.get("title", "Termin"))
     time = str(event.get("time") or "")
     lines = [(part, FONT_DAY_EVENT) for part in wrap_text_lines(draw, title, FONT_DAY_EVENT, max(20, width))]
@@ -628,7 +628,7 @@ def compact_event_lines(draw, event, width):
 
 
 def event_block_height(draw, event, width):
-    return len(compact_event_lines(draw, event, width)) * 19
+    return len(compact_event_lines(draw, event, width)) * 21
 
 
 def rolling_row_height(draw, start_date, width):
@@ -850,18 +850,18 @@ def draw_special_day_background(image, box, kind):
         print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
 
 def draw_compact_event(draw, image, event, x, y, width):
-    # Titel bleibt 15 px fett; Uhrzeit folgt in 13 px normal.
+    # Titel bleibt 17 px fett; Uhrzeit folgt in 15 px normal.
     lines = compact_event_lines(draw, event, width)
     for i, parts in enumerate(lines):
         title, title_font = parts[:2]
-        line_y = S(y + i*19)
+        line_y = S(y + i*21)
         draw.text((S(x), line_y), title, font=title_font, fill=TEXT,
                   stroke_width=1, stroke_fill=(8, 10, 14))
         if len(parts) == 3:
             draw.text((S(x) + text_width(draw, title, title_font), line_y),
                       parts[2], font=FONT_DAY_EVENT_TIME, fill=TEXT,
                       stroke_width=1, stroke_fill=(8, 10, 14))
-    return max(19, len(lines)*19)
+    return max(21, len(lines)*21)
 
 def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     cell_w = width / ROLLING_COLS
