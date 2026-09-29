@@ -681,26 +681,10 @@ def easter_sunday(year):
     return date(year, month, day)
 
 
-# NUR ZUR SICHTKONTROLLE im Original-Discord-Kalender.
-# Vorschau ist standardmäßig AN: alle sechs Grafiken auf Testtagen 29.09.–14.10.2026.
-# Nach der Sichtkontrolle hier True auf False setzen; jährliche Feiertage bleiben erhalten.
-SHOW_ALL_SPECIALS = True
-SPECIAL_DEMO_DATES = {
-    date(2026, 9, 29): "halloween",
-    date(2026, 10, 1): "ostern",
-    date(2026, 10, 2): "fasching",
-    date(2026, 10, 3): "weihnachten",
-    date(2026, 10, 4): "season_start",
-    date(2026, 10, 6): "silvester",
-}
-
-
 def calendar_special_kind(day_date, events):
     # Launch-Tage haben Vorrang und behalten ihre bisherige Darstellung.
     if special_launch_kind(day_date, events):
         return None
-    if SHOW_ALL_SPECIALS and day_date in SPECIAL_DEMO_DATES:
-        return SPECIAL_DEMO_DATES[day_date]
     easter = easter_sunday(day_date.year)
     if day_date == easter:
         return "ostern"
