@@ -1086,7 +1086,8 @@ def draw_absence_group(draw, week_start, items, title, x, y, width):
         name = ellipsize(draw, item["name"], FONT_ABSENCE, col_w - 28)
         draw.text((S(text_x), S(cell_y)), name, font=FONT_ABSENCE, fill=TEXT)
 
-        date_label = f"{start_dt.strftime('%d.%m.%Y')} – {end_dt.strftime('%d.%m.%Y')}"
+        date_label = (start_dt.strftime("%d.%m.%Y") if start_dt.date() == end_dt.date()
+                      else f"{start_dt.strftime('%d.%m.%Y')} – {end_dt.strftime('%d.%m.%Y')}")
         draw.text((S(text_x), S(cell_y + 27)), date_label, font=FONT_ABSENCE_DATE, fill=(224, 227, 233))
 
     return absence_group_height(items)
