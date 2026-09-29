@@ -987,7 +987,13 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                 if first_line and cake is not None:
                     icon_y = S(line_y) + max(0, (S(BIRTHDAY_LINE_H) - cake.height) // 2)
                     image.paste(cake, (S(block_x), icon_y), cake)
-                draw.text((S(block_x + icon_space), S(line_y)),
+                # Textunterkante an der Unterkante der Torte ausrichten.
+                text_y = S(line_y)
+                if first_line and cake is not None:
+                    text_box = draw.textbbox((0, 0), label, font=FONT_BIRTHDAY,
+                                             stroke_width=1)
+                    text_y = icon_y + cake.height - text_box[3]
+                draw.text((S(block_x + icon_space), text_y),
                           label, font=FONT_BIRTHDAY, fill=TEXT,
                           stroke_width=1, stroke_fill=(8, 10, 14))
 
