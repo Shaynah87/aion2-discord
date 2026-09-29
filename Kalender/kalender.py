@@ -660,13 +660,8 @@ def special_launch_kind(day_date, events):
     if day_date == date(2026, 10, 5):
         return "global"
 
-    # Kompatibilität, falls entsprechende D1-Termine noch vorhanden sind.
-    for event in events:
-        title = str(event.get("title") or "").casefold()
-        if "early access" in title:
-            return "early"
-        if "global launch" in title:
-            return "global"
+    # Die Launch-Grafiken waren einmalige Ereignisse im Jahr 2026.
+    # Gleichnamige D1-Termine an anderen Tagen lösen keine Launch-Grafik aus.
     return None
 
 
@@ -686,34 +681,20 @@ def easter_sunday(year):
     return date(year, month, day)
 
 
-# TEMPORÄRER SICHTTEST: alle sechs Sondergrafiken im aktuellen 16-Tage-Fenster.
-# Nach der Abnahme diesen Block entfernen; die regulären Feiertagsdaten bleiben unten erhalten.
-SPECIAL_PREVIEW_DATES = {
-    date(2026, 9, 28): "ostern",
-    date(2026, 9, 29): "halloween",
-    date(2026, 10, 1): "silvester",
-    date(2026, 10, 2): "fasching",
-    date(2026, 10, 3): "weihnachten",
-    date(2026, 10, 4): "season_start",
-}
-
-
 def calendar_special_kind(day_date, events):
     # Launch-Tage haben Vorrang und behalten ihre bisherige Darstellung.
     if special_launch_kind(day_date, events):
         return None
-    if day_date in SPECIAL_PREVIEW_DATES:
-        return SPECIAL_PREVIEW_DATES[day_date]
     easter = easter_sunday(day_date.year)
-    if day_date in (easter, easter + timedelta(days=1)):
+    if day_date == easter:
         return "ostern"
-    if day_date in (easter - timedelta(days=48), easter - timedelta(days=47)):
+    if day_date == easter - timedelta(days=48):
         return "fasching"
     if (day_date.month, day_date.day) == (10, 31):
         return "halloween"
     if (day_date.month, day_date.day) == (12, 31):
         return "silvester"
-    if day_date.month == 12 and day_date.day in (24, 25, 26):
+    if (day_date.month, day_date.day) == (12, 24):
         return "weihnachten"
     # Kein Season-Start-Datum erfinden: nur bei entsprechendem D1-Termin.
     if any("season start" in str(e.get("title") or "").casefold().replace("_", " ").replace("-", " ")
@@ -723,7 +704,7 @@ def calendar_special_kind(day_date, events):
 
 
 def draw_calendar_special(image, box, kind):
-    """Feste 100-px-Dekoration, unabhängig von der dynamischen Tagesfeldhöhe."""
+    """Feiertagsdeko im ganzen Tagesfeld; Season Start bleibt im Inhaltsbereich."""
     path = SPECIAL_IMAGES[kind]
     if not path.is_file():
         print(f"Sondergrafik fehlt: {path}")
@@ -733,7 +714,7 @@ def draw_calendar_special(image, box, kind):
             original = source.convert("RGBA")
         x1, y1, x2, y2 = [S(v) for v in box]
         w, h = max(1, x2-x1), max(1, y2-y1)
-        fixed_h = min(h, S(100))
+        fixed_h = min(h, S(100 if kind == "season_start" else 140))
         layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
 
         # Das vollständige Original proportional auf die feste Höhe reduzieren.
@@ -879,7 +860,8 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             decoration = calendar_special_kind(day_dt, day_events)
             if decoration:
                 draw_calendar_special(
-                    image, (x1, y + DAY_HEADER_H + 1, x1 + cell_w, y + row_h - 1), decoration
+                    image, (x1, y + 1 if decoration != "season_start" else y + DAY_HEADER_H + 1,
+                        x1 + cell_w, y + row_h - 1), decoration
                 )
 
     for idx in range(ROLLING_COLS):
