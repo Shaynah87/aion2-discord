@@ -525,9 +525,12 @@ def format_live_countdown(remaining_seconds):
     )
 
     if minutes == 0:
-        return f"{hours} STD"
+        return f"{hours} STUNDE" if hours == 1 else f"{hours} STUNDEN"
 
-    return f"{hours} STD {minutes:02d} MIN"
+    return (
+        f"{hours} {'STUNDE' if hours == 1 else 'STUNDEN'} "
+        f"{minutes:02d} MINUTEN"
+    )
 
 
 def get_milestone_status(
