@@ -140,6 +140,18 @@ MEETING = (188, 145, 68)
 EVENT = (67, 151, 133)
 APPOINTMENT = (154, 160, 171)
 ABSENCE = (132, 94, 194)
+# Rangfolge: eigene Rolle > Offizier > Member > Rookie.
+ROLE_COLORS = {
+    "rookie": (0x8E, 0xCF, 0xA9),
+    "member": (0x1F, 0x8B, 0x4C),
+    "offizier": (0xC2, 0x7C, 0x0E),
+    "ich": (0x71, 0x36, 0x8A),
+}
+ROLE_ORDER = ("ich", "offizier", "member", "rookie")
+
+def member_color(entry):
+    return ROLE_COLORS.get(str(entry.get("kalender_rolle") or "").lower(), TEXT)
+
 
 TYPE_COLORS = {
     "release": RELEASE,
@@ -273,6 +285,7 @@ def load_calendar_data():
 
         absences.append({
             "name": str(row.get("discord_name") or "Unbekannt"),
+            "kalender_rolle": row.get("kalender_rolle"),
             "start_offset": (start_dt.date() - week_start.date()).days,
             "end_offset": (end_dt.date() - week_start.date()).days,
             "note": str(row.get("notiz") or ""),
@@ -286,7 +299,8 @@ def load_calendar_data():
             year = int(row["jahr"]) if row.get("jahr") is not None else None
             date(2024 if (month, day) == (2, 29) else 2025, month, day)
             birthdays.append({"name": str(row.get("discord_name") or "Unbekannt"),
-                              "day": day, "month": month, "year": year})
+                              "day": day, "month": month, "year": year,
+                              "kalender_rolle": row.get("kalender_rolle")})
         except (KeyError, ValueError, TypeError):
             continue
     BIRTHDAYS.clear()
@@ -697,17 +711,17 @@ def birthdays_for_date(day_date):
             month, day = (2, 29) if leap else (3, 1)
         if (month, day) == (day_date.month, day_date.day):
             age = f" ({day_date.year - entry['year']})" if entry["year"] is not None else ""
-            result.append(f"{entry['name']}{age}")
-    return sorted(result, key=str.casefold)
+            result.append((f"{entry['name']}{age}", member_color(entry)))
+    return sorted(result, key=lambda item: item[0].casefold())
 
 def birthday_lines(draw, day_date, width):
     # Die erste Zeile jedes Geburtstags reserviert Platz fuer die PNG-Torte.
     lines = []
     text_width_available = max(20, width - CATEGORY_ICON_SIZE - CATEGORY_ICON_GAP)
-    for label in birthdays_for_date(day_date):
+    for label, color in birthdays_for_date(day_date):
         wrapped = wrap_text_lines(draw, label, FONT_BIRTHDAY, text_width_available)
         for index, line in enumerate(wrapped):
-            lines.append((line, index == 0))
+            lines.append((line, index == 0, color))
     return lines
 
 def rolling_row_height(draw, start_date, width):
@@ -927,6 +941,27 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         centered_text(draw, cx, y + 14, DAY_NAMES[day_dt.weekday()], FONT_DAY, day_name_color)
         centered_text(draw, cx, y + 32, day_dt.strftime("%d.%m."), FONT_DATE, day_date_color)
 
+        # Pro Tag nur ein Punkt je abwesender Rollenfarbe. Rechts nach links:
+        # eigene Rolle (lila), Offizier, Member, Rookie.
+        week_start = monday_of_week(datetime.combine(day_dt, datetime.min.time()))
+        present_roles = set()
+        for absence in ABSENCES:
+            start_dt, end_dt = absence_dates(week_start, absence)
+            if start_dt.date() <= day_dt <= end_dt.date():
+                role = str(absence.get("kalender_rolle") or "").lower()
+                if role in ROLE_COLORS:
+                    present_roles.add(role)
+        dot_radius = 4
+        dot_step = 13
+        dot_right = x1 + cell_w - 13
+        dot_y = y + 15
+        visible_roles = [role for role in ROLE_ORDER if role in present_roles]
+        for dot_index, role in enumerate(visible_roles):
+            dot_x = dot_right - (len(visible_roles) - 1 - dot_index) * dot_step
+            draw.ellipse((S(dot_x - dot_radius), S(dot_y - dot_radius),
+                          S(dot_x + dot_radius), S(dot_y + dot_radius)),
+                         fill=ROLE_COLORS[role])
+
         ev_y = y + DAY_HEADER_H + 7
         day_events = events_for_date(day_dt)
         special = special_launch_kind(day_dt, day_events)
@@ -978,7 +1013,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
         if b_lines:
             birthday_top = y + row_h - DAY_ROW_PAD_BOTTOM - len(b_lines) * BIRTHDAY_LINE_H
             cake = category_icon({"type": "geburtstag"})
-            for line_index, (label, first_line) in enumerate(b_lines):
+            for line_index, (label, first_line, birthday_color) in enumerate(b_lines):
                 line_y = birthday_top + line_index * BIRTHDAY_LINE_H
                 label_w = text_width(draw, label, FONT_BIRTHDAY) / SCALE
                 icon_space = CATEGORY_ICON_SIZE + CATEGORY_ICON_GAP if first_line and cake is not None else 0
@@ -994,7 +1029,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                                              stroke_width=1)
                     text_y = icon_y + cake.height - text_box[3]
                 draw.text((S(block_x + icon_space), text_y),
-                          label, font=FONT_BIRTHDAY, fill=TEXT,
+                          label, font=FONT_BIRTHDAY, fill=birthday_color,
                           stroke_width=1, stroke_fill=(8, 10, 14))
 
     # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
