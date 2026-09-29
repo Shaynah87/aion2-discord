@@ -326,7 +326,7 @@ def should_update(milestone, mode, now, timezone_name):
     # Ein verspäteter Lauf darf das endgültige GESTARTET nicht verpassen.
     # Nach dem Start übernimmt der reguläre tägliche Content-Job.
     if remaining <= 0:
-        return mode == "minute" and remaining > -120
+        return mode == "minute" and remaining > -3600
     if mode == "quarter":
         return 3600 < remaining <= 86400
     if mode == "minute":
