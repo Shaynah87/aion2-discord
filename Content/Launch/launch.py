@@ -41,13 +41,9 @@ COUNTDOWN_NOCH_SIZE = 17
 COUNTDOWN_NOCH_DAYS_GAP = 10
 
 # Launch-Zeit (Europe/Berlin).
-# Early Access ist bestätigt; Global Launch nutzt 15:00 als
-# Countdown-Ziel, die Uhrzeit wird auf der Karte als unbestätigt markiert.
+# Early Access und Global Launch nutzen 15:00 als Countdown-Ziel.
 LAUNCH_HOUR = 15
 LAUNCH_MINUTE = 0
-GLOBAL_TIME_NOTE = "UHRZEIT NOCH NICHT BESTÄTIGT"
-GLOBAL_TIME_NOTE_SIZE = 16
-GLOBAL_TIME_NOTE_GAP = 7
 
 
 # ============================================================
@@ -2720,11 +2716,6 @@ def create_global_launch_full_card(
         bold=True,
     )
 
-    time_note_font = load_font(
-        GLOBAL_TIME_NOTE_SIZE,
-        bold=True,
-    )
-
     noch_font = load_font(
         GLOBAL_NOCH_SIZE,
         bold=True,
@@ -2861,45 +2852,6 @@ def create_global_launch_full_card(
         ),
         shadow_blur=1.7,
         shadow_offset=1,
-    )
-
-
-    # --------------------------------------------------------
-    # HINWEIS ZUR GLOBAL-LAUNCH-UHRZEIT
-    # --------------------------------------------------------
-
-    date_probe = ImageDraw.Draw(image)
-    date_bbox = date_probe.textbbox(
-        (0, 0),
-        date_text,
-        font=date_font,
-    )
-    note_bbox = date_probe.textbbox(
-        (0, 0),
-        GLOBAL_TIME_NOTE,
-        font=time_note_font,
-    )
-    date_visible_top = (
-        upper_layout["date_y"] + date_bbox[1]
-    )
-    date_visible_bottom = (
-        date_visible_top
-        + date_bbox[3]
-        - date_bbox[1]
-    )
-    note_y = (
-        date_visible_bottom
-        + GLOBAL_TIME_NOTE_GAP
-        - note_bbox[1]
-    )
-
-    image = draw_centered_spaced_text(
-        image,
-        GLOBAL_TIME_NOTE,
-        note_y,
-        time_note_font,
-        GLOBAL_MUTED,
-        1.2,
     )
 
 
