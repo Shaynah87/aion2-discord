@@ -612,9 +612,11 @@ def wrap_text_lines(draw, text, fnt, max_width_logical):
 
 
 def event_block_height(draw, event, width):
-    lines = wrap_text_lines(draw, event.get("title", "Termin"), FONT_DAY_EVENT, max(20, width))
-    title_h = len(lines) * 19
-    return title_h + (DAY_EVENT_TIME_H if event.get("time") else 0)
+    label = str(event.get("title", "Termin"))
+    if event.get("time"):
+        label += " · " + str(event["time"])
+    lines = wrap_text_lines(draw, label, FONT_DAY_EVENT, max(20, width))
+    return len(lines) * 19
 
 
 def rolling_row_height(draw, start_date, width):
@@ -634,17 +636,8 @@ def rolling_row_height(draw, start_date, width):
             heights = [event_block_height(draw, e, cell_w - 20) for e in events]
             max_content = max(max_content, sum(heights) +
                               max(0, len(heights) - 1) * DAY_ROW_EVENT_GAP)
-    # Nur Reihen mit Sondergrafiken erhalten mehr Bildhöhe; alle anderen
-    # Kalenderreihen behalten ihre bisherige Berechnung.
-    has_decoration = any(
-        not special_launch_kind(start_date + timedelta(days=i),
-                                events_for_date(start_date + timedelta(days=i)))
-        and calendar_special_kind(start_date + timedelta(days=i),
-                                  events_for_date(start_date + timedelta(days=i)))
-        for i in range(ROLLING_COLS)
-    )
-    min_height = 218 if has_decoration else SPECIAL_ROW_MIN_H
-    return max(min_height,
+    # Sondergrafiken beeinflussen die Feldhöhe nicht.
+    return max(SPECIAL_ROW_MIN_H,
                DAY_HEADER_H + 7 + max_content + DAY_ROW_PAD_BOTTOM)
 
 
@@ -718,7 +711,7 @@ def calendar_special_kind(day_date, events):
 
 
 def draw_calendar_special(image, box, kind):
-    """Fotorealistisches Motiv vollständig rechts; Dekoration weich entlang der Unterkante."""
+    """Feste 100-px-Dekoration, unabhängig von der dynamischen Tagesfeldhöhe."""
     path = SPECIAL_IMAGES[kind]
     if not path.is_file():
         print(f"Sondergrafik fehlt: {path}")
@@ -727,46 +720,37 @@ def draw_calendar_special(image, box, kind):
         with Image.open(path) as source:
             original = source.convert("RGBA")
         x1, y1, x2, y2 = [S(v) for v in box]
-        w, h = max(1, x2 - x1), max(1, y2 - y1)
-
-        # Vollständiges Hauptmotiv: proportional auf die verfügbare Höhe
-        # skalieren, nie oben oder seitlich beschneiden.
-        scale = min(h / original.height, w / original.width)
-        main_w = max(1, round(original.width * scale))
-        main_h = max(1, round(original.height * scale))
-        main = original.resize((main_w, main_h), Image.Resampling.LANCZOS)
+        w, h = max(1, x2-x1), max(1, y2-y1)
+        fixed_h = min(h, S(100))
         layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        main_x, main_y = w - main_w, h - main_h
 
-        # Linke Unterkante aus dem tatsächlichen unteren Bildbereich gewinnen.
-        # Das Hauptmotiv bleibt unverzerrt. Nur die flache Dekorationsleiste
-        # wird horizontal verteilt und nach links/rechts transparent ausgeblendet.
-        # Sie liegt HINTER dem vollständigen Hauptmotiv.
-        if main_x > 18:
-            band_source_h = 115
-            band_source_w = 320
-            band = original.crop((0, original.height - band_source_h,
-                                  band_source_w, original.height))
-            band_h = min(max(26, round(h * 0.28)), 52)
-            band_w = min(w, max(main_x + 35, round(w * 0.73)))
-            band = band.resize((band_w, band_h), Image.Resampling.LANCZOS)
-            alpha = band.getchannel("A")
-            fade = Image.new("L", (band_w, band_h), 0)
-            fade_px = fade.load()
-            edge = max(12, round(band_w * 0.16))
-            for xx in range(band_w):
-                left = min(1.0, xx / edge)
-                right = min(1.0, (band_w - 1 - xx) / max(18, round(band_w * 0.27)))
-                strength = max(0.0, min(left, right))
-                for yy in range(band_h):
-                    fade_px[xx, yy] = round(255 * strength * min(1.0, yy / max(1, round(band_h * 0.52))))
+        # Das vollständige Original proportional auf die feste Höhe reduzieren.
+        # Die untere/rechte Hauptgrafik bleibt erhalten, ohne Ausschnitt oder Streckung.
+        scale = min(fixed_h / original.height, w / original.width)
+        mw = max(1, round(original.width * scale))
+        mh = max(1, round(original.height * scale))
+        main = original.resize((mw, mh), Image.Resampling.LANCZOS)
+        if kind != "season_start":
+            # Originale obere linke Dekoration separat an die obere linke Ecke
+            # der festen Bildzone setzen; das Hauptmotiv bleibt unten rechts.
+            corner_w = round(original.width * 0.39)
+            corner_h = round(original.height * 0.43)
+            corner = original.crop((0, 0, corner_w, corner_h))
+            cw = max(1, round(w * 0.25))
+            ch = max(1, round(corner_h * cw / corner_w))
+            corner = corner.resize((cw, ch), Image.Resampling.LANCZOS)
+            # Nur der originale Eckbereich; bewusst dezenter für Termine.
+            alpha = corner.getchannel("A").point(lambda v: round(v * 0.48))
+            corner.putalpha(alpha)
+            layer.alpha_composite(corner, (0, 0))
+            # Eckdekoration aus der Hauptgrafik ausblenden, damit sie nicht
+            # versehentlich mitten im Feld erscheint.
+            mask = Image.new("L", (mw, mh), 255)
+            md = ImageDraw.Draw(mask)
+            md.rectangle((0, 0, round(mw * 0.43), round(mh * 0.42)), fill=0)
             from PIL import ImageChops
-            band.putalpha(ImageChops.multiply(alpha, fade))
-            layer.alpha_composite(band, (0, h - band_h))
-
-        layer.alpha_composite(main, (main_x, main_y))
-        # Alpha-composite statt paste(..., mask): feine transparente Ränder
-        # behalten ihre korrekte Deckkraft.
+            main.putalpha(ImageChops.multiply(main.getchannel("A"), mask))
+        layer.alpha_composite(main, (w-mw, h-mh))
         base = image.crop((x1, y1, x2, y2)).convert("RGBA")
         image.paste(Image.alpha_composite(base, layer).convert("RGB"), (x1, y1))
     except Exception as exc:
@@ -837,18 +821,15 @@ def draw_special_day_background(image, box, kind):
         print(f"Special-Day-Motiv konnte nicht geladen werden ({path.name}): {exc}")
 
 def draw_compact_event(draw, image, event, x, y, width):
-    # V29: kein bedeutungsloser Farbpunkt mehr. Titel bekommt die volle Zellbreite.
-    lines = wrap_text_lines(draw, event.get("title", "Termin"), FONT_DAY_EVENT, width)
-    cursor_y = y
-    for line in lines:
-        draw.text((S(x), S(cursor_y)), line, font=FONT_DAY_EVENT, fill=TEXT)
-        cursor_y += 19
-    time_text = event.get("time", "")
-    if time_text:
-        draw.text((S(x), S(cursor_y + 1)), time_text, font=FONT_DAY_EVENT_TIME, fill=TEXT_MUTED)
-        cursor_y += DAY_EVENT_TIME_H
-    return max(19, cursor_y - y)
-
+    # Titel und Uhrzeit zusammen; nur bei Platzmangel Zeilenumbruch.
+    label = str(event.get("title", "Termin"))
+    if event.get("time"):
+        label += " · " + str(event["time"])
+    lines = wrap_text_lines(draw, label, FONT_DAY_EVENT, width)
+    for i, line in enumerate(lines):
+        draw.text((S(x), S(y + i*19)), line, font=FONT_DAY_EVENT, fill=TEXT,
+                  stroke_width=1, stroke_fill=(8, 10, 14))
+    return max(19, len(lines)*19)
 
 def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
     cell_w = width / ROLLING_COLS
@@ -920,6 +901,10 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
                       font=time_font, fill=text_color)
 
         for event in display_events:
+            if calendar_special_kind(day_dt, day_events) and not special:
+                line_h = event_block_height(draw, event, cell_w - 20)
+                shade = Image.new("RGBA", (S(cell_w - 12), S(line_h + 4)), (8, 10, 14, 175))
+                image.paste(shade, (S(x1 + 6), S(ev_y - 2)), shade)
             used_h = draw_compact_event(draw, image, event, x1 + 10, ev_y, cell_w - 20)
             ev_y += used_h + DAY_ROW_EVENT_GAP
 
