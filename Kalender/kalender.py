@@ -47,6 +47,16 @@ SPECIAL_IMAGES = {
     "season_start": BASE_DIR / "season_start.png",
 }
 
+# Kleine Kategorie-PNGs liegen ebenfalls neben kalender.py.
+CATEGORY_IMAGES = {
+    "kampf": BASE_DIR / "kampf.png",
+    "event": BASE_DIR / "event.png",
+    "gilde": BASE_DIR / "gilde.png",
+}
+CATEGORY_ICON_SIZE = 21
+CATEGORY_ICON_GAP = 5
+_CATEGORY_ICON_CACHE = {}
+
 WEEK_FILE = BASE_DIR / "kalender_woche.png"
 ABSENCES_FILE = BASE_DIR / "kalender_abwesenheiten.png"
 STATE_FILE = BASE_DIR / "kalender_message.json"
@@ -133,8 +143,8 @@ ABSENCE = (132, 94, 194)
 TYPE_COLORS = {
     "release": RELEASE,
     "season": SEASON,
-    "raid": RAID,
-    "besprechung": MEETING,
+    "kampf": RAID,
+    "gilde": MEETING,
     "event": EVENT,
     "termin": APPOINTMENT,
 }
@@ -241,13 +251,7 @@ def load_calendar_data():
             continue
 
         raw_type = str(row.get("termin_typ") or "termin").strip().lower()
-        type_aliases = {
-            "meeting": "besprechung",
-            "guild": "besprechung",
-            "appointment": "termin",
-            "launch": "release",
-        }
-        event_type = type_aliases.get(raw_type, raw_type)
+        event_type = raw_type
         if event_type not in TYPE_COLORS:
             event_type = "termin"
 
@@ -474,14 +478,14 @@ def make_event_icon(event_type, size, color):
                 if (row+col)%2==0: d.rectangle(box, fill=c)
                 else: d.rectangle(box, outline=c, width=max(1,w//2))
 
-    elif event_type == "raid":
+    elif event_type == "kampf":
         # Gekreuzte Schwerter
         d.line((_pt(size*.22,sc),_pt(size*.18,sc),_pt(size*.76,sc),_pt(size*.78,sc)), fill=c, width=w)
         d.line((_pt(size*.78,sc),_pt(size*.18,sc),_pt(size*.24,sc),_pt(size*.78,sc)), fill=c, width=w)
         d.line((_pt(size*.19,sc),_pt(size*.65,sc),_pt(size*.39,sc),_pt(size*.65,sc)), fill=c, width=w)
         d.line((_pt(size*.61,sc),_pt(size*.65,sc),_pt(size*.81,sc),_pt(size*.65,sc)), fill=c, width=w)
 
-    elif event_type == "besprechung":
+    elif event_type == "gilde":
         # Sprechblase
         box=(_pt(size*.15,sc),_pt(size*.20,sc),_pt(size*.82,sc),_pt(size*.66,sc))
         d.rounded_rectangle(box, radius=_pt(size*.10,sc), outline=c, width=w)
@@ -626,8 +630,39 @@ def wrap_text_lines(draw, text, fnt, max_width_logical):
     return lines or [""]
 
 
+def category_icon_path(event):
+    kind = event.get("type", "termin")
+    return CATEGORY_IMAGES.get(kind)
+
+
+def category_icon(event):
+    path = category_icon_path(event)
+    if path is None:
+        return None
+    if path not in _CATEGORY_ICON_CACHE:
+        try:
+            with Image.open(path) as source:
+                art = source.convert("RGBA")
+                # Transparente Aussenraender entfernen, damit das Motiv auch
+                # bei 21 px tatsaechlich gut erkennbar ist.
+                bounds = art.getchannel("A").getbbox()
+                if bounds:
+                    art = art.crop(bounds)
+                art.thumbnail((S(CATEGORY_ICON_SIZE), S(CATEGORY_ICON_SIZE)), Image.Resampling.LANCZOS)
+                _CATEGORY_ICON_CACHE[path] = art.copy()
+        except (OSError, ValueError) as exc:
+            print(f"Kategorie-Symbol fehlt oder ist ungueltig ({path.name}): {exc}")
+            _CATEGORY_ICON_CACHE[path] = None
+    return _CATEGORY_ICON_CACHE[path]
+
+
+def event_text_width(event, width):
+    return max(20, width - (CATEGORY_ICON_SIZE + CATEGORY_ICON_GAP if category_icon_path(event) else 0))
+
+
 def compact_event_lines(draw, event, width):
     # Titel fett (17 px), Uhrzeit normal (15 px); nur bei Platzmangel umbrechen.
+    width = event_text_width(event, width)
     title = str(event.get("title", "Termin"))
     time = str(event.get("time") or "")
     lines = [(part, FONT_DAY_EVENT) for part in wrap_text_lines(draw, title, FONT_DAY_EVENT, max(20, width))]
@@ -739,8 +774,7 @@ def calendar_special_kind(day_date, events):
     if (day_date.month, day_date.day) == (12, 24):
         return "weihnachten"
     # Kein Season-Start-Datum erfinden: nur bei entsprechendem D1-Termin.
-    if any("season start" in str(e.get("title") or "").casefold().replace("_", " ").replace("-", " ")
-           for e in events):
+    if any(e.get("type") == "season" for e in events):
         return "season_start"
     return None
 
@@ -842,6 +876,11 @@ def draw_special_day_background(image, box, kind):
 def draw_compact_event(draw, image, event, x, y, width):
     # Titel bleibt 17 px fett; Uhrzeit folgt in 15 px normal.
     lines = compact_event_lines(draw, event, width)
+    icon = category_icon(event)
+    if icon is not None:
+        icon_y = S(y) + max(0, (S(21) - icon.height) // 2)
+        image.paste(icon, (S(x), icon_y), icon)
+        x += CATEGORY_ICON_SIZE + CATEGORY_ICON_GAP
     for i, parts in enumerate(lines):
         title, title_font = parts[:2]
         line_y = S(y + i*21)
@@ -934,7 +973,7 @@ def draw_rolling_row(image, draw, start_date, now_date, x, y, width):
             birthday_top = y + row_h - DAY_ROW_PAD_BOTTOM - len(b_lines) * BIRTHDAY_LINE_H
             for line_index, label in enumerate(b_lines):
                 draw.text((S(x1 + 10), S(birthday_top + line_index * BIRTHDAY_LINE_H)),
-                          label, font=FONT_BIRTHDAY, fill=(244, 204, 138),
+                          label, font=FONT_BIRTHDAY, fill=TEXT,
                           stroke_width=1, stroke_fill=(8, 10, 14))
 
     # Rasterlinien zuletzt zeichnen, damit sie auch am Wochenende / über Motiven sichtbar bleiben.
@@ -1438,7 +1477,7 @@ if __name__ == "__main__":
         import sys
         test_day = (date(2026, 10, 10) if len(sys.argv) > 1 and sys.argv[1] == "season" else
                     date.fromisoformat(sys.argv[1]) if len(sys.argv) > 1 else date(2026, 10, 31))
-        EVENTS[:] = ([{"date": test_day, "title": "Season Start", "time": "15:00", "type": "season"}]
+        EVENTS[:] = ([{"date": test_day, "title": "Beliebiger Titel", "time": "15:00", "type": "season"}]
                      if len(sys.argv) > 1 and sys.argv[1] == "season" else [])
         if len(sys.argv) > 1 and sys.argv[1] == "season":
             test_day = date(2026, 10, 10)
