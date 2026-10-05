@@ -1,7 +1,16 @@
+
+    
+  
 name: Kalender
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub-Cron läuft immer in UTC.
+    # 22:00 UTC = 00:00 Uhr Europe/Berlin während MESZ
+    # 23:00 UTC = 00:00 Uhr Europe/Berlin während MEZ
+    - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
 
 permissions:
   contents: write
@@ -11,24 +20,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Prüfen ob Kalender aktualisiert werden soll
+        id: midnight
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Manueller Start - Kalender wird aktualisiert."
+          elif [[ "$(TZ=Europe/Berlin date +%H)" == "00" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "00:00 Uhr Europe/Berlin - Kalender wird aktualisiert."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Nicht 00:00 Uhr Europe/Berlin - dieser UTC-Lauf wird übersprungen."
+          fi
+
       - name: Repository auschecken
+        if: steps.midnight.outputs.run == 'true'
         uses: actions/checkout@v5
 
       - name: Python einrichten
+        if: steps.midnight.outputs.run == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Pillow installieren
+        if: steps.midnight.outputs.run == 'true'
         run: pip install pillow
 
       - name: Kalender erstellen und Discord aktualisieren
+        if: steps.midnight.outputs.run == 'true'
         env:
           KALENDER_WEBHOOK: ${{ secrets.KALENDER_WEBHOOK }}
           KALENDER_API_KEY: ${{ secrets.KALENDER_API_KEY }}
         run: python Kalender/kalender.py
 
       - name: Kalender-State speichern
+        if: steps.midnight.outputs.run == 'true'
         run: |
           if git diff --quiet -- Kalender/kalender_message.json; then
             echo "Keine Änderung am Kalender-State."
@@ -41,3 +70,4 @@ jobs:
           git add Kalender/kalender_message.json
           git commit -m "Update Kalender message state"
           git push
+
