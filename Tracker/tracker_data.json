@@ -1,5 +1,6 @@
 {
   "timezone": "Europe/Berlin",
+
   "rift": {
     "name": "Spacetime Rift",
     "interval_hours": 3,
@@ -7,15 +8,16 @@
     "duration_minutes": 60,
     "entry_minutes": 5
   },
+
   "shugo_festa": {
     "name": "Shugofesta",
     "start_minute": 0,
     "duration_minutes": 10
   },
+
   "resets": {
     "daily_utc": "07:00",
     "weekly_day": "Wednesday",
     "weekly_utc": "07:00"
   }
 }
-
