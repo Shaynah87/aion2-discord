@@ -1,25 +1,51 @@
+
 name: Updates
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: aion2-updates
+  cancel-in-progress: false
+
 jobs:
-  post-updates:
+  check-updates:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Repository auschecken
         uses: actions/checkout@v5
 
-      - name: Set up Python
+      - name: Python installieren
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Install requests
-        run: pip install requests
-
-      - name: Run Updates
+      - name: AION 2 Updates prüfen
         env:
           UPDATES_WEBHOOK_URL: ${{ secrets.UPDATES_WEBHOOK }}
         run: python Updates/updates.py
+
+      - name: Status speichern
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ ! -f Updates/updates_status.json ]; then
+            echo "Keine Statusdatei vorhanden."
+            exit 0
+          fi
+
+          git add Updates/updates_status.json
+
+          if git diff --cached --quiet; then
+            echo "Keine Änderung am Status."
+          else
+            git commit -m "Update AION updates status"
+            git pull --rebase
+            git push
+          fi
