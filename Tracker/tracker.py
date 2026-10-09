@@ -4,13 +4,20 @@ import urllib.request
 import urllib.error
 import time
 import uuid
+
 from io import BytesIO
 from pathlib import Path
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from PIL import Image, ImageDraw, ImageFont
 
+
+# ============================================================
+# GRUNDEINSTELLUNGEN
+# ============================================================
+
 WEBHOOK_URL = os.environ.get('TRACKER_WEBHOOK')
+
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / 'tracker_data.json'
 STATE_FILE = BASE_DIR / 'tracker_message.json'
@@ -31,10 +38,15 @@ DISPLAY_NAMES = {
     'weekly_card': 'WÖCHENTLICH'
 }
 
-OVERVIEW_BACKGROUND_URL = 'https://raw.githubusercontent.com/Shaynah87/aion2-discord/main/Tracker/event_overview.png'
-RIFT_BACKGROUND_URL = 'https://raw.githubusercontent.com/Shaynah87/aion2-discord/main/Tracker/spacetime_rift.png'
-SHUGO_BACKGROUND_URL = 'https://raw.githubusercontent.com/Shaynah87/aion2-discord/main/Tracker/shugo_games.png'
-RESET_BACKGROUND_URL = 'https://raw.githubusercontent.com/Shaynah87/aion2-discord/main/Tracker/resets.png'
+IMAGE_BASE_URL = (
+    'https://raw.githubusercontent.com/'
+    'Shaynah87/aion2-discord/main/Tracker/'
+)
+
+OVERVIEW_BACKGROUND_URL = IMAGE_BASE_URL + 'event_overview.png'
+RIFT_BACKGROUND_URL = IMAGE_BASE_URL + 'spacetime_rift.png'
+SHUGO_BACKGROUND_URL = IMAGE_BASE_URL + 'shugo_games.png'
+RESET_BACKGROUND_URL = IMAGE_BASE_URL + 'resets.png'
 
 OVERVIEW_CARD_FILE = BASE_DIR / 'event_overview_card.png'
 RIFT_CARD_FILE = BASE_DIR / 'spacetime_rift_card.png'
@@ -54,6 +66,10 @@ SHUGO_COLOR = (229, 177, 62, 255)
 RESET_COLOR = (64, 145, 255, 255)
 
 
+# ============================================================
+# DATEN LADEN UND SPEICHERN
+# ============================================================
+
 def load_data():
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -71,6 +87,10 @@ def save_state(data):
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
+
+# ============================================================
+# SCHRIFTEN UND TEXTHILFEN
+# ============================================================
 
 def load_font(size, bold=False):
     if bold:
@@ -97,14 +117,57 @@ def text_y_after(draw, previous_bbox, next_text, next_font, visual_gap):
 
 
 def format_time_range(start, end):
-    return f"{start.strftime('%H:%M')} – {end.strftime('%H:%M')} Uhr"
+    return (
+        f"{start.strftime('%H:%M')} – "
+        f"{end.strftime('%H:%M')} Uhr"
+    )
 
+
+def draw_text_with_shadow(
+    draw,
+    position,
+    text,
+    font,
+    fill,
+    shadow_offset=2
+):
+    x, y = position
+
+    draw.text(
+        (x + shadow_offset, y + shadow_offset),
+        text,
+        font=font,
+        fill=(0, 0, 0, 200)
+    )
+
+    draw.text(
+        position,
+        text,
+        font=font,
+        fill=fill
+    )
+
+
+def draw_event_marker(draw, x, y, color, size=16):
+    draw.ellipse(
+        (x, y, x + size, y + size),
+        fill=color
+    )
+
+
+# ============================================================
+# RESET-ZEITEN
+# ============================================================
 
 def next_daily_reset(reset_data, timezone):
     now = datetime.now(timezone)
     utc = ZoneInfo('UTC')
 
-    hour, minute = map(int, reset_data['daily_utc'].split(':'))
+    hour, minute = map(
+        int,
+        reset_data['daily_utc'].split(':')
+    )
+
     now_utc = now.astimezone(utc)
 
     candidate_utc = now_utc.replace(
@@ -134,11 +197,20 @@ def next_weekly_reset(reset_data, timezone):
         'Sunday': 6
     }
 
-    target_weekday = weekday_map[reset_data['weekly_day']]
-    hour, minute = map(int, reset_data['weekly_utc'].split(':'))
+    target_weekday = weekday_map[
+        reset_data['weekly_day']
+    ]
+
+    hour, minute = map(
+        int,
+        reset_data['weekly_utc'].split(':')
+    )
 
     now_utc = now.astimezone(utc)
-    days_ahead = (target_weekday - now_utc.weekday()) % 7
+
+    days_ahead = (
+        target_weekday - now_utc.weekday()
+    ) % 7
 
     candidate_utc = (
         now_utc + timedelta(days=days_ahead)
@@ -155,12 +227,19 @@ def next_weekly_reset(reset_data, timezone):
     return candidate_utc.astimezone(timezone)
 
 
+# ============================================================
+# RAUMZEIT-RISS ZEITEN
+# ============================================================
+
 def build_rift_times(rift_data, timezone):
     now = datetime.now(timezone)
     utc = ZoneInfo('UTC')
     now_utc = now.astimezone(utc)
 
-    hour, minute = map(int, rift_data['first_start_utc'].split(':'))
+    hour, minute = map(
+        int,
+        rift_data['first_start_utc'].split(':')
+    )
 
     first_start_utc = now_utc.replace(
         hour=hour,
@@ -169,8 +248,13 @@ def build_rift_times(rift_data, timezone):
         microsecond=0
     )
 
-    interval = timedelta(hours=rift_data['interval_hours'])
-    duration = timedelta(minutes=rift_data['duration_minutes'])
+    interval = timedelta(
+        hours=rift_data['interval_hours']
+    )
+
+    duration = timedelta(
+        minutes=rift_data['duration_minutes']
+    )
 
     starts_utc = []
     start_utc = first_start_utc - timedelta(days=1)
@@ -210,10 +294,18 @@ def build_rift_times(rift_data, timezone):
     }
 
 
+# ============================================================
+# SHUGOFESTA ZEITEN
+# ============================================================
+
 def build_shugo_times(shugo_data, timezone):
     now = datetime.now(timezone)
+
     start_minute = shugo_data['start_minute']
-    duration = timedelta(minutes=shugo_data['duration_minutes'])
+
+    duration = timedelta(
+        minutes=shugo_data['duration_minutes']
+    )
 
     candidates = []
 
@@ -256,6 +348,10 @@ def build_shugo_times(shugo_data, timezone):
         'following_start': future_starts[1]
     }
 
+
+# ============================================================
+# EVENT-ÜBERSICHT BERECHNEN
+# ============================================================
 
 def build_event_overview(
     rift_times,
@@ -319,13 +415,19 @@ def build_event_overview(
                 'color': RESET_COLOR
             })
 
-    upcoming_events.sort(key=lambda item: item['time'])
+    upcoming_events.sort(
+        key=lambda item: item['time']
+    )
 
     return {
         'active': active_events,
         'next': upcoming_events[:MAX_OVERVIEW_EVENTS]
     }
 
+
+# ============================================================
+# NETZWERK MIT WIEDERHOLUNGSVERSUCHEN
+# ============================================================
 
 def run_with_retry(operation, description):
     for attempt in range(1, MAX_NETWORK_ATTEMPTS + 1):
@@ -341,9 +443,15 @@ def run_with_retry(operation, description):
             return result
 
         except urllib.error.HTTPError as exc:
-            retryable = exc.code == 429 or 500 <= exc.code <= 599
+            retryable = (
+                exc.code == 429
+                or 500 <= exc.code <= 599
+            )
 
-            if not retryable or attempt >= MAX_NETWORK_ATTEMPTS:
+            if (
+                not retryable
+                or attempt >= MAX_NETWORK_ATTEMPTS
+            ):
                 raise
 
             delay = RETRY_DELAYS[attempt - 1]
@@ -351,7 +459,10 @@ def run_with_retry(operation, description):
 
             if retry_after:
                 try:
-                    delay = max(delay, float(retry_after))
+                    delay = max(
+                        delay,
+                        float(retry_after)
+                    )
                 except (TypeError, ValueError):
                     pass
 
@@ -369,14 +480,23 @@ def run_with_retry(operation, description):
             time.sleep(delay)
 
 
+# ============================================================
+# BILDER LADEN
+# ============================================================
+
 def load_image_from_url(url):
     def download():
         request = urllib.request.Request(
             url,
-            headers={'User-Agent': 'AION2-Schedule-Bot'}
+            headers={
+                'User-Agent': 'AION2-Schedule-Bot'
+            }
         )
 
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(
+            request,
+            timeout=30
+        ) as response:
             return response.read()
 
     image_data = run_with_retry(
@@ -384,59 +504,44 @@ def load_image_from_url(url):
         'Hintergrundbild laden'
     )
 
-    return Image.open(BytesIO(image_data)).convert('RGBA')
+    return Image.open(
+        BytesIO(image_data)
+    ).convert('RGBA')
 
 
 def load_overview_background():
-    return load_image_from_url(OVERVIEW_BACKGROUND_URL)
-
-
-def load_rift_background():
-    return load_image_from_url(RIFT_BACKGROUND_URL)
-
-
-def load_shugo_background():
-    return load_image_from_url(SHUGO_BACKGROUND_URL)
-
-
-def load_reset_background():
-    return load_image_from_url(RESET_BACKGROUND_URL)
-
-
-def crop_and_resize(image, target_width, target_height):
-    source_width, source_height = image.size
-
-    source_ratio = source_width / source_height
-    target_ratio = target_width / target_height
-
-    if source_ratio > target_ratio:
-        new_width = int(source_height * target_ratio)
-        left = (source_width - new_width) // 2
-
-        image = image.crop((
-            left,
-            0,
-            left + new_width,
-            source_height
-        ))
-    else:
-        new_height = int(source_width / target_ratio)
-        top = (source_height - new_height) // 2
-
-        image = image.crop((
-            0,
-            top,
-            source_width,
-            top + new_height
-        ))
-
-    return image.resize(
-        (target_width, target_height),
-        Image.Resampling.LANCZOS
+    return load_image_from_url(
+        OVERVIEW_BACKGROUND_URL
     )
 
 
-def prepare_overview_background(image, target_width, target_height):
+def load_rift_background():
+    return load_image_from_url(
+        RIFT_BACKGROUND_URL
+    )
+
+
+def load_shugo_background():
+    return load_image_from_url(
+        SHUGO_BACKGROUND_URL
+    )
+
+
+def load_reset_background():
+    return load_image_from_url(
+        RESET_BACKGROUND_URL
+    )
+
+
+# ============================================================
+# ÜBERSICHTSBILD – BISHERIGE DARSTELLUNG
+# ============================================================
+
+def prepare_overview_background(
+    image,
+    target_width,
+    target_height
+):
     source_width, source_height = image.size
 
     crop_left = int(source_width * 0.025)
@@ -456,6 +561,79 @@ def prepare_overview_background(image, target_width, target_height):
         Image.Resampling.LANCZOS
     )
 
+
+# ============================================================
+# NEU: HINTERGRUNDBILDER OHNE BESCHNITT
+# ============================================================
+
+def fit_background(
+    image,
+    width=1200,
+    height=440,
+    focus_x=0.70,
+    focus_y=0.50
+):
+    """
+    Originalbild vollständig darstellen.
+
+    - Kein Abschneiden
+    - Keine Verzerrung
+    - Proportionale Skalierung
+    - Rechtsbündige Ausrichtung
+    - Vertikal zentriert
+    - Kartenformat bleibt 1200 x 440
+
+    Die bisherigen focus-Parameter bleiben
+    für die bestehenden Funktionsaufrufe erhalten.
+    """
+
+    image = image.convert('RGBA')
+
+    original_width, original_height = image.size
+
+    if original_width <= 0 or original_height <= 0:
+        raise ValueError('Ungültige Bildgröße')
+
+    scale = min(
+        width / original_width,
+        height / original_height
+    )
+
+    new_width = max(
+        1,
+        min(width, round(original_width * scale))
+    )
+
+    new_height = max(
+        1,
+        min(height, round(original_height * scale))
+    )
+
+    resized_image = image.resize(
+        (new_width, new_height),
+        Image.Resampling.LANCZOS
+    )
+
+    background = Image.new(
+        'RGBA',
+        (width, height),
+        (5, 6, 11, 255)
+    )
+
+    x_position = width - new_width
+    y_position = (height - new_height) // 2
+
+    background.alpha_composite(
+        resized_image,
+        (x_position, y_position)
+    )
+
+    return background
+
+
+# ============================================================
+# DUNKLER VERLAUF FÜR LESBAREN TEXT
+# ============================================================
 
 def add_strong_left_gradient(
     image,
@@ -481,8 +659,15 @@ def add_strong_left_gradient(
         if x <= solid_end:
             alpha = max_alpha
         else:
-            progress = (x - solid_end) / (fade_end - solid_end)
-            alpha = int(max_alpha * (1.0 - progress) ** 1.65)
+            progress = (
+                (x - solid_end)
+                / (fade_end - solid_end)
+            )
+
+            alpha = int(
+                max_alpha
+                * (1.0 - progress) ** 1.65
+            )
 
         for y in range(height):
             pixels[x, y] = (
@@ -492,43 +677,69 @@ def add_strong_left_gradient(
                 alpha
             )
 
-    return Image.alpha_composite(image, overlay)
-
-
-def draw_text_with_shadow(
-    draw,
-    position,
-    text,
-    font,
-    fill,
-    shadow_offset=2
-):
-    x, y = position
-
-    draw.text(
-        (x + shadow_offset, y + shadow_offset),
-        text,
-        font=font,
-        fill=(0, 0, 0, 200)
-    )
-
-    draw.text(
-        position,
-        text,
-        font=font,
-        fill=fill
-    )
-
-
-def draw_event_marker(draw, x, y, color, size=16):
-    draw.ellipse(
-        (x, y, x + size, y + size),
-        fill=color
+    return Image.alpha_composite(
+        image,
+        overlay
     )
 
 
 # ============================================================
-# ÜBERSICHT – UNVERÄNDERT
+# TEXTBLOCK VERTIKAL ZENTRIEREN
+# ============================================================
+
+def draw_centered_text_block(
+    draw,
+    lines,
+    height,
+    x=78,
+    gaps=None
+):
+    if gaps is None:
+        gaps = [10] * (len(lines) - 1)
+
+    boxes = [
+        draw.textbbox(
+            (0, 0),
+            value,
+            font=font
+        )
+        for value, font, _ in lines
+    ]
+
+    sizes = [
+        box[3] - box[1]
+        for box in boxes
+    ]
+
+    block_height = sum(sizes) + sum(gaps)
+    visual_top = (height - block_height) / 2
+
+    for (
+        (value, font, color),
+        box,
+        line_height,
+        gap
+    ) in zip(
+        lines,
+        boxes,
+        sizes,
+        gaps + [0]
+    ):
+        y = round(visual_top - box[1])
+
+        draw_text_with_shadow(
+            draw,
+            (x, y),
+            value,
+            font,
+            color
+        )
+
+        visual_top += line_height + gap
+
+
+# ============================================================
+# ÜBERSICHTSKARTE
 # ============================================================
 
 def create_overview_card(event_overview):
@@ -538,8 +749,8 @@ def create_overview_card(event_overview):
     title_font = load_font(56, bold=True)
     status_font = load_font(31, bold=True)
     active_name_font = load_font(48, bold=True)
-    active_until_font = load_font(30, bold=False)
-    secondary_font = load_font(30, bold=False)
+    active_until_font = load_font(30)
+    secondary_font = load_font(30)
     secondary_bold_font = load_font(30, bold=True)
 
     white = (250, 249, 252, 255)
@@ -581,7 +792,9 @@ def create_overview_card(event_overview):
             font=status_font
         )
 
-        first_active_text = active_events[0]['name'].upper()
+        first_active_text = (
+            active_events[0]['name'].upper()
+        )
 
         current_y = text_y_after(
             measure_draw,
@@ -616,6 +829,7 @@ def create_overview_card(event_overview):
             )
 
             until_y = name_bbox[3] + 4
+
             until_text = (
                 f"bis {event['end'].strftime('%H:%M')} Uhr"
             )
@@ -710,7 +924,10 @@ def create_overview_card(event_overview):
         last_next_bottom = next_title_bbox[3]
 
     target_width = 1200
-    target_height = max(last_next_bottom + 58, 360)
+    target_height = max(
+        last_next_bottom + 58,
+        360
+    )
 
     image = load_overview_background()
 
@@ -769,7 +986,9 @@ def create_overview_card(event_overview):
             font=status_font
         )
 
-        first_active_text = active_events[0]['name'].upper()
+        first_active_text = (
+            active_events[0]['name'].upper()
+        )
 
         current_y = text_y_after(
             draw,
@@ -820,6 +1039,7 @@ def create_overview_card(event_overview):
             )
 
             until_y = name_bbox[3] + 4
+
             until_text = (
                 f"bis {event['end'].strftime('%H:%M')} Uhr"
             )
@@ -942,123 +1162,11 @@ def create_overview_card(event_overview):
 
             last_next_bottom = next_bbox[3]
 
-    image = image.convert('RGB')
-
-    image.save(
+    image.convert('RGB').save(
         OVERVIEW_CARD_FILE,
         'PNG',
         optimize=True
     )
-
-
-# ============================================================
-# HINTERGRUNDBILDER – SCHARF UND RANDLOS
-# ============================================================
-
-def fit_background(
-    image,
-    width=1200,
-    height=440,
-    focus_x=0.70,
-    focus_y=0.50
-):
-    """
-    Fuellt die gesamte Karte mit dem scharfen Originalbild.
-
-    Die Skalierung bleibt proportional.
-    Ein gezielter Ausschnitt bestimmt, welche Bildteile
-    sichtbar bleiben.
-
-    focus_x:
-        0.0 = linker Bildrand bleibt sichtbar
-        0.5 = horizontal zentriert
-        1.0 = rechter Bildrand bleibt sichtbar
-
-    focus_y:
-        0.0 = oberer Bildrand bleibt sichtbar
-        0.5 = vertikal zentriert
-        1.0 = unterer Bildrand bleibt sichtbar
-    """
-
-    image = image.convert('RGBA')
-
-    iw, ih = image.size
-
-    scale = max(
-        width / iw,
-        height / ih
-    )
-
-    nw = max(width, round(iw * scale))
-    nh = max(height, round(ih * scale))
-
-    fitted = image.resize(
-        (nw, nh),
-        Image.Resampling.LANCZOS
-    )
-
-    left = round((nw - width) * focus_x)
-    top = round((nh - height) * focus_y)
-
-    left = max(0, min(left, nw - width))
-    top = max(0, min(top, nh - height))
-
-    return fitted.crop((
-        left,
-        top,
-        left + width,
-        top + height
-    ))
-
-
-# ============================================================
-# TEXTBLOCK ALS GANZES VERTIKAL ZENTRIEREN
-# ============================================================
-
-def draw_centered_text_block(
-    draw,
-    lines,
-    height,
-    x=78,
-    gaps=None
-):
-    if gaps is None:
-        gaps = [10] * (len(lines) - 1)
-
-    boxes = [
-        draw.textbbox(
-            (0, 0),
-            value,
-            font=font
-        )
-        for value, font, _ in lines
-    ]
-
-    sizes = [
-        box[3] - box[1]
-        for box in boxes
-    ]
-
-    block_height = sum(sizes) + sum(gaps)
-    visual_top = (height - block_height) / 2
-
-    for (value, font, color), box, line_height, gap in zip(
-        lines,
-        boxes,
-        sizes,
-        gaps + [0]
-    ):
-        y = round(visual_top - box[1])
-
-        draw_text_with_shadow(
-            draw,
-            (x, y),
-            value,
-            font,
-            color
-        )
-
-        visual_top += line_height + gap
 
 
 # ============================================================
@@ -1137,7 +1245,8 @@ def create_rift_card(rift_data, rift_times):
             (250, 248, 251, 255)
         ),
         (
-            f"→ {second_label}: {format_time_range(second_start, second_end)}",
+            f"→ {second_label}: "
+            f"{format_time_range(second_start, second_end)}",
             secondary_font,
             (225, 222, 225, 255)
         )
@@ -1224,7 +1333,8 @@ def create_shugo_card(shugo_data, shugo_times):
             (250, 248, 245, 255)
         ),
         (
-            f"→ {second_label}: {second_start.strftime('%H:%M')} Uhr",
+            f"→ {second_label}: "
+            f"{second_start.strftime('%H:%M')} Uhr",
             secondary_font,
             (225, 222, 225, 255)
         )
@@ -1329,7 +1439,7 @@ def create_reset_card(daily_reset, weekly_reset):
 
 
 # ============================================================
-# EMBEDS ERSTELLEN
+# ALLE KARTEN UND DISCORD-EMBEDS ERSTELLEN
 # ============================================================
 
 def build_embeds(data):
@@ -1421,7 +1531,7 @@ def build_embeds(data):
 
 
 # ============================================================
-# DISCORD-WEBHOOK
+# DISCORD-WEBHOOK MIT DATEIANHÄNGEN
 # ============================================================
 
 def _webhook_request_with_files_once(
