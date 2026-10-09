@@ -73,6 +73,22 @@
     "6ac754f4e9e73259ce61e41b",
     "6ac7aff0a279104f7d9d604a",
     "6ac7d2fa9ed1202b9b8fb6d6",
-    "6ac7d4ded8339a6f92109a19"
-  ]
+    "6ac7d4ded8339a6f92109a19",
+    "6ac932a8eea53f5d6dbcfbc3",
+    "6ac932a8eea53f5d6dbcfbc6"
+  ],
+  "managed": {
+    "6ac932a8eea53f5d6dbcfbc3": {
+      "discord_message_id": "1558188683893678091",
+      "hash": "739e76a278cfe2141ebd32a5bf3ef9818be375e6591f6e4a1d585aaa03907ed6",
+      "missing_checks": 0,
+      "title": "[Hinweis] Fragen & Antworten zum Servertransfer"
+    },
+    "6ac932a8eea53f5d6dbcfbc6": {
+      "discord_message_id": "1558188724888666205",
+      "hash": "d7460a09fd8676ee2b8ced33836551a3bd4f890829976f4248b01a8552235047",
+      "missing_checks": 0,
+      "title": "[Hinweis] Servertransfer-Artikelinformation 13 Oktober (PDT) / 14 Oktober (CEST)"
+    }
+  }
 }
