@@ -75,7 +75,8 @@
     "6ac7d2fa9ed1202b9b8fb6d6",
     "6ac7d4ded8339a6f92109a19",
     "6ac932a8eea53f5d6dbcfbc3",
-    "6ac932a8eea53f5d6dbcfbc6"
+    "6ac932a8eea53f5d6dbcfbc6",
+    "6ac955d0d97eae18cc40e3d0"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -89,6 +90,12 @@
       "hash": "d7460a09fd8676ee2b8ced33836551a3bd4f890829976f4248b01a8552235047",
       "missing_checks": 0,
       "title": "[Hinweis] Servertransfer-Artikelinformation 13 Oktober (PDT) / 14 Oktober (CEST)"
+    },
+    "6ac955d0d97eae18cc40e3d0": {
+      "discord_message_id": "1558222745613901956",
+      "hash": "540e57229d2b7f952b66e18e6e03c702822d08fe757e70797fdd22a144c6a8cd",
+      "missing_checks": 0,
+      "title": "Neue Server bereitgestellt! (Nordamerika – Ost)"
     }
   }
 }
