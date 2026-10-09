@@ -464,7 +464,7 @@ def make_embed(
             f"?articleId={article_id}"
         ),
         "description": description,
-        "color": 5763719
+        "color": 4231679
     }
 
     if preview_image:
