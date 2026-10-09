@@ -76,7 +76,8 @@
     "6ac7d4ded8339a6f92109a19",
     "6ac932a8eea53f5d6dbcfbc3",
     "6ac932a8eea53f5d6dbcfbc6",
-    "6ac955d0d97eae18cc40e3d0"
+    "6ac955d0d97eae18cc40e3d0",
+    "6ac95cd8fa34c1011d627be2"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -96,6 +97,12 @@
       "hash": "540e57229d2b7f952b66e18e6e03c702822d08fe757e70797fdd22a144c6a8cd",
       "missing_checks": 0,
       "title": "Neue Server bereitgestellt! (Nordamerika – Ost)"
+    },
+    "6ac95cd8fa34c1011d627be2": {
+      "discord_message_id": "1558230261706264597",
+      "hash": "806664f9392db7c579857718ff3f0c34d1871c5176f5a87cc8fd274a5b41033d",
+      "missing_checks": 0,
+      "title": "Brief des Produzenten von AION 2: Willkommen in Atreia!"
     }
   }
 }
