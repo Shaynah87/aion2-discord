@@ -1,13 +1,4 @@
 {
-  "posted_article_ids": [
-    "6ac5e6e8fa34c1011d627b37"
-  ],
-  "managed": {
-    "6ac5e6e8fa34c1011d627b37": {
-      "discord_message_id": "1558094405993234563",
-      "hash": "a372991727d4aebe8f58f9c74e1005667437579788c0f6bfe788c4936f9906b3",
-      "missing_checks": 0,
-      "title": " [Mitteilung] Patch-Notizen | 6 Oktober (PDT) / 7 Oktober (CEST)"
-    }
-  }
+  "posted_article_ids": [],
+  "managed": {}
 }
