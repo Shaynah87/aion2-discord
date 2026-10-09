@@ -170,7 +170,7 @@ def make_embed(item, raw_content, preview_image):
         'title': title[:256],
         'url': f'https://aion2.plaync.com/de-de/board/notice/view?articleId={article_id}',
         'description': description,
-        'color': 3447003
+        'color': 4231679
     }
     if preview_image:
         embed['image'] = {'url': preview_image}
