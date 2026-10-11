@@ -77,7 +77,8 @@
     "6ac932a8eea53f5d6dbcfbc3",
     "6ac932a8eea53f5d6dbcfbc6",
     "6ac955d0d97eae18cc40e3d0",
-    "6ac95cd8fa34c1011d627be2"
+    "6ac95cd8fa34c1011d627be2",
+    "6acaa750d97eae18cc40e3e4"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -103,6 +104,12 @@
       "hash": "806664f9392db7c579857718ff3f0c34d1871c5176f5a87cc8fd274a5b41033d",
       "missing_checks": 0,
       "title": "Brief des Produzenten von AION 2: Willkommen in Atreia!"
+    },
+    "6acaa750d97eae18cc40e3e4": {
+      "discord_message_id": "1558721025959792711",
+      "hash": "0da5ad191d7076812723582188c5ae1a330748b468ad9a8cd7d476c2df008866",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen: Verstöße gegen die Ablaufsicherheitsrichtlinie und vorübe"
     }
   }
 }
