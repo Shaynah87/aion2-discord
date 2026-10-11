@@ -382,7 +382,7 @@ def create_artifact_card(artifact_times):
     image = fit_background(load_artifact_background(), width, height)
     # Nur die Bildposition ändern, nicht das Motiv neu skalieren.
     # Der linke Rand wird später vom dunklen Textverlauf überdeckt.
-    shift_x = 105
+    shift_x = 60
     shifted = Image.new('RGBA', (width, height), (10, 6, 24, 255))
     shifted.alpha_composite(image.crop((0, 0, width - shift_x, height)), (shift_x, 0))
     image = shifted
@@ -1086,6 +1086,19 @@ def create_reset_card(daily_reset, weekly_reset):
         focus_x=0.70,
         focus_y=0.50
     )
+
+    # Reset-Motiv dezent vergroessern, Sanduhr rechts zentriert halten.
+    # Ein wenig Rand wird oben/unten abgeschnitten, nicht die Sanduhr.
+    reset_zoom = 1.10
+    enlarged_width = round(width * reset_zoom)
+    enlarged_height = round(height * reset_zoom)
+    enlarged = image.resize((enlarged_width, enlarged_height), Image.Resampling.LANCZOS)
+    # Zoom-Mittelpunkt auf der rechten Bildseite bei der Sanduhr.
+    focus_x = 0.78
+    focus_y = 0.50
+    crop_left = round((enlarged_width - width) * focus_x)
+    crop_top = round((enlarged_height - height) * focus_y)
+    image = enlarged.crop((crop_left, crop_top, crop_left + width, crop_top + height))
 
     image = add_strong_left_gradient(
         image,
