@@ -35,7 +35,9 @@ DISPLAY_NAMES = {
     'weekly_reset': 'Wöchentlicher Reset',
     'reset_card': 'RESETS',
     'daily_card': 'TÄGLICH',
-    'weekly_card': 'WÖCHENTLICH'
+    'weekly_card': 'WÖCHENTLICH',
+    'artifact': 'Artefakt-Eroberung',
+    'artifact_card': 'ARTEFAKT-EROBERUNG'
 }
 
 IMAGE_BASE_URL = (
@@ -47,11 +49,13 @@ OVERVIEW_BACKGROUND_URL = IMAGE_BASE_URL + 'event_overview.png'
 RIFT_BACKGROUND_URL = IMAGE_BASE_URL + 'spacetime_rift.png'
 SHUGO_BACKGROUND_URL = IMAGE_BASE_URL + 'shugo_games.png'
 RESET_BACKGROUND_URL = IMAGE_BASE_URL + 'resets.png'
+ARTIFACT_BACKGROUND_URL = IMAGE_BASE_URL + 'artifact_conquest.png'
 
 OVERVIEW_CARD_FILE = BASE_DIR / 'event_overview_card.png'
 RIFT_CARD_FILE = BASE_DIR / 'spacetime_rift_card.png'
 SHUGO_CARD_FILE = BASE_DIR / 'shugo_games_card.png'
 RESET_CARD_FILE = BASE_DIR / 'resets_card.png'
+ARTIFACT_CARD_FILE = BASE_DIR / 'artifact_conquest_card.png'
 
 CLOSE_GAP = 20
 SECTION_GAP = 56
@@ -64,6 +68,7 @@ RESET_OVERVIEW_LEAD_HOURS = 3
 RIFT_COLOR = (255, 78, 88, 255)
 SHUGO_COLOR = (229, 177, 62, 255)
 RESET_COLOR = (64, 145, 255, 255)
+ARTIFACT_COLOR = (178, 115, 237, 255)
 
 
 # ============================================================
@@ -350,6 +355,49 @@ def build_shugo_times(shugo_data, timezone):
 
 
 # ============================================================
+# ARTEFAKT-EROBERUNG – MONTAG / DONNERSTAG / SAMSTAG
+# ============================================================
+
+def build_artifact_times(timezone):
+    """21:00 Uhr in der für den Tracker konfigurierten Zeitzone."""
+    now = datetime.now(timezone)
+    weekdays = (0, 3, 5)
+    starts = []
+    for offset in range(0, 15):
+        day = now + timedelta(days=offset)
+        if day.weekday() in weekdays:
+            candidate = day.replace(hour=21, minute=0, second=0, microsecond=0)
+            if candidate > now:
+                starts.append(candidate)
+    starts.sort()
+    return {'next_start': starts[0], 'following_start': starts[1]}
+
+
+def load_artifact_background():
+    return load_image_from_url(ARTIFACT_BACKGROUND_URL)
+
+
+def create_artifact_card(artifact_times):
+    width, height = 1200, 440
+    image = fit_background(load_artifact_background(), width, height)
+    image = add_strong_left_gradient(image, 0.28, 0.78, 235, (4, 2, 9))
+    draw = ImageDraw.Draw(image, 'RGBA')
+
+    weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+    first = artifact_times['next_start']
+    second = artifact_times['following_start']
+    lines = [
+        (DISPLAY_NAMES['artifact_card'], load_font(48, True), (250, 248, 253, 255)),
+        ('Montag · Donnerstag · Samstag', load_font(28), (205, 165, 245, 255)),
+        ('NÄCHSTE EROBERUNG', load_font(30, True), ARTIFACT_COLOR),
+        (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(48, True), (250, 248, 253, 255)),
+        (f"→ Danach: {weekdays[second.weekday()]} · {second.strftime('%H:%M')} Uhr", load_font(30), (225, 222, 230, 255)),
+    ]
+    draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 22])
+    image.convert('RGB').save(ARTIFACT_CARD_FILE, 'PNG', optimize=True)
+
+
+# ============================================================
 # EVENT-ÜBERSICHT BERECHNEN
 # ============================================================
 
@@ -358,7 +406,8 @@ def build_event_overview(
     shugo_times,
     daily_reset,
     weekly_reset,
-    timezone
+    timezone,
+    artifact_times=None
 ):
     now = datetime.now(timezone)
 
@@ -414,6 +463,14 @@ def build_event_overview(
                 'time': daily_reset,
                 'color': RESET_COLOR
             })
+
+    if artifact_times is not None:
+        upcoming_events.append({
+            'key': 'artifact',
+            'name': DISPLAY_NAMES['artifact'],
+            'time': artifact_times['next_start'],
+            'color': ARTIFACT_COLOR
+        })
 
     upcoming_events.sort(
         key=lambda item: item['time']
@@ -1484,12 +1541,16 @@ def build_embeds(data):
         weekly_reset
     )
 
+    artifact_times = build_artifact_times(timezone)
+    create_artifact_card(artifact_times)
+
     event_overview = build_event_overview(
         rift_times,
         shugo_times,
         daily_reset,
         weekly_reset,
-        timezone
+        timezone,
+        artifact_times
     )
 
     create_overview_card(event_overview)
@@ -1522,10 +1583,16 @@ def build_embeds(data):
         }
     }
 
+    artifact_embed = {
+        'color': 11695085,
+        'image': {'url': 'attachment://artifact_conquest_card.png'}
+    }
+
     return [
         overview_embed,
-        rift_embed,
         shugo_embed,
+        rift_embed,
+        artifact_embed,
         reset_embed
     ]
 
@@ -1647,22 +1714,11 @@ def main():
         'content': '',
         'embeds': embeds,
         'attachments': [
-            {
-                'id': 0,
-                'filename': OVERVIEW_CARD_FILE.name
-            },
-            {
-                'id': 1,
-                'filename': RIFT_CARD_FILE.name
-            },
-            {
-                'id': 2,
-                'filename': SHUGO_CARD_FILE.name
-            },
-            {
-                'id': 3,
-                'filename': RESET_CARD_FILE.name
-            }
+            {'id': 0, 'filename': OVERVIEW_CARD_FILE.name},
+            {'id': 1, 'filename': SHUGO_CARD_FILE.name},
+            {'id': 2, 'filename': RIFT_CARD_FILE.name},
+            {'id': 3, 'filename': ARTIFACT_CARD_FILE.name},
+            {'id': 4, 'filename': RESET_CARD_FILE.name}
         ]
     }
 
@@ -1670,8 +1726,9 @@ def main():
 
     files = [
         OVERVIEW_CARD_FILE,
-        RIFT_CARD_FILE,
         SHUGO_CARD_FILE,
+        RIFT_CARD_FILE,
+        ARTIFACT_CARD_FILE,
         RESET_CARD_FILE
     ]
 
