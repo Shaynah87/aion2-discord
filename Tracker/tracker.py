@@ -891,7 +891,7 @@ def create_overview_card(event_overview):
         y = next_items_y + (index // 2) * next_row_height
         label = f"{event['name']} · {event['time'].strftime('%H:%M')} Uhr"
         draw_event_marker(draw, x, y + 8, event['color'], size=14)
-        draw_text_with_shadow(draw, (x + 24, y), label, fitted_font(label, 29), soft_white)
+        draw_text_with_shadow(draw, (x + 24, y), label, fitted_font(label, 33), soft_white)
 
     image.convert('RGB').save(OVERVIEW_CARD_FILE, 'PNG', optimize=True)
 
@@ -935,25 +935,25 @@ def create_rift_card(rift_data, rift_times):
         entry_until = start + timedelta(minutes=RIFT_ENTRY_MINUTES)
         lines = [
             (DISPLAY_NAMES['rift_card'], title_font, (250, 248, 251, 255)),
-            (f"Alle {rift_data['interval_hours']} Stunden", subtitle_font, (255, 135, 140, 255)),
+            (f"Alle {rift_data['interval_hours']} Stunden · 60 Min. Aufenthalt", subtitle_font, (255, 135, 140, 255)),
             (label, status_font, (255, 78, 88, 255)),
             (f"{start.strftime('%H:%M')} Uhr", time_font, (250, 248, 251, 255)),
-            (f"Einlass bis {entry_until.strftime('%H:%M')} Uhr · 60 Min. Aufenthalt", subtitle_font, (255, 135, 140, 255)),
+            (f"Einlass bis {entry_until.strftime('%H:%M')} Uhr", subtitle_font, (255, 135, 140, 255)),
             (f"→ {second_label}: {second_start.strftime('%H:%M')} Uhr", secondary_font, (225, 222, 225, 255))
         ]
-        # Gleiche optische Abstände wie die Artefakt-Karte; Einlasszeile direkt unter der Startzeit.
-        draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 8, 28])
+        # Mehr Luft zwischen Untertitel, Status und Einlasshinweis; zentriert als Gesamtblock.
+        draw_centered_text_block(draw, lines, height, gaps=[12, 38, 13, 17, 31])
     else:
         start = rift_times['next_start']
         second_start = rift_times['following_start']
         lines = [
             (DISPLAY_NAMES['rift_card'], title_font, (250, 248, 251, 255)),
-            (f"Alle {rift_data['interval_hours']} Stunden", subtitle_font, (255, 135, 140, 255)),
+            (f"Alle {rift_data['interval_hours']} Stunden · 60 Min. Aufenthalt", subtitle_font, (255, 135, 140, 255)),
             ('NÄCHSTER', status_font, (255, 78, 88, 255)),
             (f"{start.strftime('%H:%M')} Uhr", time_font, (250, 248, 251, 255)),
             (f"→ Danach: {second_start.strftime('%H:%M')} Uhr", secondary_font, (225, 222, 225, 255))
         ]
-        draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 30])
+        draw_centered_text_block(draw, lines, height, gaps=[12, 38, 13, 31])
 
     image.convert('RGB').save(
         RIFT_CARD_FILE,
