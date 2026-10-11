@@ -1087,17 +1087,18 @@ def create_reset_card(daily_reset, weekly_reset):
         focus_y=0.50
     )
 
-    # Reset-Motiv dezent vergroessern, Sanduhr rechts zentriert halten.
-    # Ein wenig Rand wird oben/unten abgeschnitten, nicht die Sanduhr.
-    reset_zoom = 1.10
+    # Reset-Grafik um weitere 6 % vergroessern (bisher 10 % Zoom).
+    # Der rechte Bildrand bleibt exakt fixiert; der Zoom waechst nach links.
+    # Vertikal mittig beschneiden, ohne das Motiv separat zu verschieben.
+    reset_zoom = 1.10 * 1.06
     enlarged_width = round(width * reset_zoom)
     enlarged_height = round(height * reset_zoom)
-    enlarged = image.resize((enlarged_width, enlarged_height), Image.Resampling.LANCZOS)
-    # Zoom-Mittelpunkt auf der rechten Bildseite bei der Sanduhr.
-    focus_x = 0.78
-    focus_y = 0.50
-    crop_left = round((enlarged_width - width) * focus_x)
-    crop_top = round((enlarged_height - height) * focus_y)
+    enlarged = image.resize(
+        (enlarged_width, enlarged_height),
+        Image.Resampling.LANCZOS
+    )
+    crop_left = enlarged_width - width
+    crop_top = (enlarged_height - height) // 2
     image = enlarged.crop((crop_left, crop_top, crop_left + width, crop_top + height))
 
     image = add_strong_left_gradient(
