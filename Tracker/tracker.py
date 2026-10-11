@@ -64,6 +64,8 @@ NEXT_ENTRY_GAP = 18
 
 MAX_OVERVIEW_EVENTS = 6
 RESET_OVERVIEW_LEAD_HOURS = 3
+RIFT_ENTRY_MINUTES = 10
+ARTIFACT_ACTIVE_MINUTES = 60  # Bei abweichender offizieller Eventdauer hier anpassen
 
 RIFT_COLOR = (255, 78, 88, 255)
 SHUGO_COLOR = (229, 177, 62, 255)
@@ -420,7 +422,8 @@ def build_event_overview(
     active_events = []
     upcoming_events = []
 
-    if rift_times['active_start']:
+    if (rift_times['active_start'] and
+            now < rift_times['active_start'] + timedelta(minutes=RIFT_ENTRY_MINUTES)):
         active_events.append({
             'key': 'rift',
             'name': DISPLAY_NAMES['rift'],
@@ -493,6 +496,13 @@ def build_event_overview(
                 'key': 'artifact',
                 'name': DISPLAY_NAMES['artifact'],
                 'time': start,
+                'color': ARTIFACT_COLOR
+            })
+        elif now < start + timedelta(minutes=ARTIFACT_ACTIVE_MINUTES):
+            active_events.append({
+                'key': 'artifact',
+                'name': DISPLAY_NAMES['artifact'],
+                'end': start + timedelta(minutes=ARTIFACT_ACTIVE_MINUTES),
                 'color': ARTIFACT_COLOR
             })
 
@@ -836,7 +846,7 @@ def create_overview_card(event_overview):
     title_font = load_font(56, True)
     section_font = load_font(31, True)
     item_font = load_font(29)
-    active_font = load_font(32, True)
+    active_font = load_font(36, True)
     small_font = load_font(26)
     probe = ImageDraw.Draw(Image.new('RGBA', (width, 1000)))
 
@@ -852,7 +862,7 @@ def create_overview_card(event_overview):
     next_rows = (len(next_events) + 1) // 2
     active_heading_y = 150
     active_items_y = active_heading_y + 55
-    active_row_height = 92
+    active_row_height = 64
     if active_events:
         next_heading_y = active_items_y + active_rows * active_row_height + 25
     else:
@@ -872,9 +882,8 @@ def create_overview_card(event_overview):
             x = left_x if index % 2 == 0 else right_x
             y = active_items_y + (index // 2) * active_row_height
             name = event['name'].upper()
-            draw_event_marker(draw, x, y + 13, event['color'], size=15)
-            draw_text_with_shadow(draw, (x + 25, y), name, fitted_font(name, 32, True), white)
-            draw_text_with_shadow(draw, (x + 25, y + 39), f"bis {event['end'].strftime('%H:%M')} Uhr", small_font, soft_white)
+            draw_event_marker(draw, x, y + 17, event['color'], size=17)
+            draw_text_with_shadow(draw, (x + 25, y), name, active_font, white)
 
     draw_text_with_shadow(draw, (76, next_heading_y), 'ALS NÄCHSTES', section_font, gray)
     for index, event in enumerate(next_events):
@@ -921,61 +930,30 @@ def create_rift_card(rift_data, rift_times):
     if rift_times['active_start']:
         label = 'JETZT AKTIV'
         start = rift_times['active_start']
-        end = rift_times['active_end']
-
         second_label = 'Nächster'
         second_start = rift_times['next_start']
-
+        entry_until = start + timedelta(minutes=RIFT_ENTRY_MINUTES)
+        lines = [
+            (DISPLAY_NAMES['rift_card'], title_font, (250, 248, 251, 255)),
+            (f"Alle {rift_data['interval_hours']} Stunden", subtitle_font, (255, 135, 140, 255)),
+            (label, status_font, (255, 78, 88, 255)),
+            (f"{start.strftime('%H:%M')} Uhr", time_font, (250, 248, 251, 255)),
+            (f"Einlass bis {entry_until.strftime('%H:%M')} Uhr · 60 Min. Aufenthalt", subtitle_font, (255, 135, 140, 255)),
+            (f"→ {second_label}: {second_start.strftime('%H:%M')} Uhr", secondary_font, (225, 222, 225, 255))
+        ]
+        # Gleiche optische Abstände wie die Artefakt-Karte; Einlasszeile direkt unter der Startzeit.
+        draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 8, 28])
     else:
-        label = 'NÄCHSTER'
         start = rift_times['next_start']
-
-        end = start + timedelta(
-            minutes=rift_data['duration_minutes']
-        )
-
-        second_label = 'Danach'
         second_start = rift_times['following_start']
-
-    second_end = second_start + timedelta(
-        minutes=rift_data['duration_minutes']
-    )
-
-    lines = [
-        (
-            DISPLAY_NAMES['rift_card'],
-            title_font,
-            (250, 248, 251, 255)
-        ),
-        (
-            f"Alle {rift_data['interval_hours']} Stunden",
-            subtitle_font,
-            (255, 135, 140, 255)
-        ),
-        (
-            label,
-            status_font,
-            (255, 78, 88, 255)
-        ),
-        (
-            format_time_range(start, end),
-            time_font,
-            (250, 248, 251, 255)
-        ),
-        (
-            f"→ {second_label}: "
-            f"{format_time_range(second_start, second_end)}",
-            secondary_font,
-            (225, 222, 225, 255)
-        )
-    ]
-
-    draw_centered_text_block(
-        draw,
-        lines,
-        height,
-        gaps=[10, 26, 10, 22]
-    )
+        lines = [
+            (DISPLAY_NAMES['rift_card'], title_font, (250, 248, 251, 255)),
+            (f"Alle {rift_data['interval_hours']} Stunden", subtitle_font, (255, 135, 140, 255)),
+            ('NÄCHSTER', status_font, (255, 78, 88, 255)),
+            (f"{start.strftime('%H:%M')} Uhr", time_font, (250, 248, 251, 255)),
+            (f"→ Danach: {second_start.strftime('%H:%M')} Uhr", secondary_font, (225, 222, 225, 255))
+        ]
+        draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 30])
 
     image.convert('RGB').save(
         RIFT_CARD_FILE,
@@ -1062,7 +1040,7 @@ def create_shugo_card(shugo_data, shugo_times):
         draw,
         lines,
         height,
-        gaps=[10, 26, 10, 22]
+        gaps=[10, 26, 10, 30]
     )
 
     image.convert('RGB').save(
