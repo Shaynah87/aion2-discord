@@ -62,7 +62,7 @@ SECTION_GAP = 56
 ACTIVE_EVENT_GAP = 34
 NEXT_ENTRY_GAP = 18
 
-MAX_OVERVIEW_EVENTS = 5
+MAX_OVERVIEW_EVENTS = 6
 RESET_OVERVIEW_LEAD_HOURS = 3
 
 RIFT_COLOR = (255, 78, 88, 255)
@@ -380,17 +380,23 @@ def load_artifact_background():
 def create_artifact_card(artifact_times):
     width, height = 1200, 440
     image = fit_background(load_artifact_background(), width, height)
+    # Nur die Bildposition ändern, nicht das Motiv neu skalieren.
+    # Der linke Rand wird später vom dunklen Textverlauf überdeckt.
+    shift_x = 105
+    shifted = Image.new('RGBA', (width, height), (10, 6, 24, 255))
+    shifted.alpha_composite(image.crop((0, 0, width - shift_x, height)), (shift_x, 0))
+    image = shifted
     image = add_strong_left_gradient(image, 0.28, 0.78, 235, (4, 2, 9))
     draw = ImageDraw.Draw(image, 'RGBA')
 
-    weekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+    weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
     first = artifact_times['next_start']
     second = artifact_times['following_start']
     lines = [
-        (DISPLAY_NAMES['artifact_card'], load_font(48, True), (250, 248, 253, 255)),
+        (DISPLAY_NAMES['artifact_card'], load_font(56, True), (250, 248, 253, 255)),
         ('Montag · Donnerstag · Samstag', load_font(28), (205, 165, 245, 255)),
-        ('NÄCHSTE EROBERUNG', load_font(30, True), ARTIFACT_COLOR),
-        (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(48, True), (250, 248, 253, 255)),
+        ('NÄCHSTE', load_font(30, True), ARTIFACT_COLOR),
+        (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(44, True), (250, 248, 253, 255)),
         (f"→ Danach: {weekdays[second.weekday()]} · {second.strftime('%H:%M')} Uhr", load_font(30), (225, 222, 230, 255)),
     ]
     draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 22])
@@ -464,13 +470,31 @@ def build_event_overview(
                 'color': RESET_COLOR
             })
 
-    if artifact_times is not None:
+    # Artefakt nur am Veranstaltungstag in der Übersicht anzeigen.
+    # Auf der eigenen Karte bleibt der nächste Termin immer sichtbar.
+    # Wöchentlichen Reset bereits ab 00:00 Uhr des Reset-Tages zeigen.
+    # Täglichen Reset bei gleichem Zeitpunkt nicht zusätzlich anzeigen.
+    if weekly_reset.date() == now.date() and weekly_reset > now:
+        upcoming_events = [
+            event for event in upcoming_events
+            if event['key'] != 'weekly_reset' and not (event['key'] == 'daily_reset' and event['time'] == weekly_reset)
+        ]
         upcoming_events.append({
-            'key': 'artifact',
-            'name': DISPLAY_NAMES['artifact'],
-            'time': artifact_times['next_start'],
-            'color': ARTIFACT_COLOR
+            'key': 'weekly_reset',
+            'name': DISPLAY_NAMES['weekly_reset'],
+            'time': weekly_reset,
+            'color': RESET_COLOR
         })
+
+    if artifact_times is not None and now.weekday() in (0, 3, 5):
+        start = now.replace(hour=21, minute=0, second=0, microsecond=0)
+        if now < start:
+            upcoming_events.append({
+                'key': 'artifact',
+                'name': DISPLAY_NAMES['artifact'],
+                'time': start,
+                'color': ARTIFACT_COLOR
+            })
 
     upcoming_events.sort(
         key=lambda item: item['time']
@@ -800,430 +824,67 @@ def draw_centered_text_block(
 # ============================================================
 
 def create_overview_card(event_overview):
+    """Aktuelle und nächste Events jeweils zweispaltig darstellen."""
     active_events = event_overview['active']
     next_events = event_overview['next']
-
-    title_font = load_font(56, bold=True)
-    status_font = load_font(31, bold=True)
-    active_name_font = load_font(48, bold=True)
-    active_until_font = load_font(30)
-    secondary_font = load_font(30)
-    secondary_bold_font = load_font(30, bold=True)
-
+    width = 1200
+    left_x, right_x = 82, 628
+    col_width = 500
     white = (250, 249, 252, 255)
     soft_white = (225, 222, 225, 255)
-    status_gray = (170, 170, 176, 255)
+    gray = (175, 173, 182, 255)
+    title_font = load_font(56, True)
+    section_font = load_font(31, True)
+    item_font = load_font(29)
+    active_font = load_font(32, True)
+    small_font = load_font(26)
+    probe = ImageDraw.Draw(Image.new('RGBA', (width, 1000)))
 
-    title_x = 74
-    title_y = 58
-    title_text = DISPLAY_NAMES['overview_card']
+    def fitted_font(value, base_size, bold=False):
+        for size in range(base_size, 19, -1):
+            font = load_font(size, bold)
+            if probe.textbbox((0, 0), value, font=font)[2] <= col_width - 28:
+                return font
+        return load_font(20, bold)
 
-    measure_image = Image.new(
-        'RGBA',
-        (1200, 4000),
-        (0, 0, 0, 0)
-    )
-
-    measure_draw = ImageDraw.Draw(measure_image)
-
-    title_bbox = measure_draw.textbbox(
-        (title_x, title_y),
-        title_text,
-        font=title_font
-    )
-
+    # Jede Reihe enthält zwei Events: links, rechts.
+    active_rows = (len(active_events) + 1) // 2
+    next_rows = (len(next_events) + 1) // 2
+    active_heading_y = 150
+    active_items_y = active_heading_y + 55
+    active_row_height = 92
     if active_events:
-        status_text = 'JETZT AKTIV'
-
-        status_y = text_y_after(
-            measure_draw,
-            title_bbox,
-            status_text,
-            status_font,
-            SECTION_GAP
-        )
-
-        status_bbox = measure_draw.textbbox(
-            (76, status_y),
-            status_text,
-            font=status_font
-        )
-
-        first_active_text = (
-            active_events[0]['name'].upper()
-        )
-
-        current_y = text_y_after(
-            measure_draw,
-            status_bbox,
-            first_active_text,
-            active_name_font,
-            CLOSE_GAP
-        )
-
-        last_active_bottom = None
-
-        for event_index, event in enumerate(active_events):
-            event_name = event['name'].upper()
-
-            if event_index > 0:
-                event_probe = measure_draw.textbbox(
-                    (0, 0),
-                    event_name,
-                    font=active_name_font
-                )
-
-                current_y = (
-                    last_active_bottom
-                    + ACTIVE_EVENT_GAP
-                    - event_probe[1]
-                )
-
-            name_bbox = measure_draw.textbbox(
-                (108, current_y),
-                event_name,
-                font=active_name_font
-            )
-
-            until_y = name_bbox[3] + 4
-
-            until_text = (
-                f"bis {event['end'].strftime('%H:%M')} Uhr"
-            )
-
-            until_bbox = measure_draw.textbbox(
-                (108, until_y),
-                until_text,
-                font=active_until_font
-            )
-
-            last_active_bottom = until_bbox[3]
-
-        next_title_text = '→ Als Nächstes:'
-        next_title_font = secondary_bold_font
-        next_title_color = white
-
-        next_title_probe = measure_draw.textbbox(
-            (0, 0),
-            next_title_text,
-            font=next_title_font
-        )
-
-        next_section_y = (
-            last_active_bottom
-            + SECTION_GAP
-            - next_title_probe[1]
-        )
-
+        next_heading_y = active_items_y + active_rows * active_row_height + 25
     else:
-        next_title_text = 'ALS NÄCHSTES'
-        next_title_font = status_font
-        next_title_color = status_gray
+        next_heading_y = active_heading_y
+    next_items_y = next_heading_y + 52
+    next_row_height = 47
+    height = max(360, next_items_y + max(1, next_rows) * next_row_height + 45)
 
-        next_section_y = text_y_after(
-            measure_draw,
-            title_bbox,
-            next_title_text,
-            next_title_font,
-            SECTION_GAP
-        )
-
-    next_title_bbox = measure_draw.textbbox(
-        (76, next_section_y),
-        next_title_text,
-        font=next_title_font
-    )
-
-    if next_events:
-        first_next_text = (
-            f"{next_events[0]['name']} · "
-            f"{next_events[0]['time'].strftime('%H:%M')} Uhr"
-        )
-
-        current_y = text_y_after(
-            measure_draw,
-            next_title_bbox,
-            first_next_text,
-            secondary_font,
-            CLOSE_GAP
-        )
-
-        last_next_bottom = next_title_bbox[3]
-
-        for event_index, event in enumerate(next_events):
-            next_text = (
-                f"{event['name']} · "
-                f"{event['time'].strftime('%H:%M')} Uhr"
-            )
-
-            if event_index > 0:
-                next_probe = measure_draw.textbbox(
-                    (0, 0),
-                    next_text,
-                    font=secondary_font
-                )
-
-                current_y = (
-                    last_next_bottom
-                    + NEXT_ENTRY_GAP
-                    - next_probe[1]
-                )
-
-            next_bbox = measure_draw.textbbox(
-                (106, current_y),
-                next_text,
-                font=secondary_font
-            )
-
-            last_next_bottom = next_bbox[3]
-
-    else:
-        last_next_bottom = next_title_bbox[3]
-
-    target_width = 1200
-    target_height = max(
-        last_next_bottom + 58,
-        360
-    )
-
-    image = load_overview_background()
-
-    image = prepare_overview_background(
-        image,
-        target_width,
-        target_height
-    )
-
-    image = add_strong_left_gradient(
-        image,
-        solid_ratio=0.28,
-        fade_ratio=0.78,
-        max_alpha=230,
-        tone=(2, 2, 3)
-    )
-
+    image = prepare_overview_background(load_overview_background(), width, height)
+    image = add_strong_left_gradient(image, 0.28, 0.78, 230, (2, 2, 3))
     draw = ImageDraw.Draw(image, 'RGBA')
-
-    draw_text_with_shadow(
-        draw,
-        (title_x, title_y),
-        title_text,
-        title_font,
-        white
-    )
-
-    title_bbox = draw.textbbox(
-        (title_x, title_y),
-        title_text,
-        font=title_font
-    )
+    draw_text_with_shadow(draw, (74, 56), DISPLAY_NAMES['overview_card'], title_font, white)
 
     if active_events:
-        status_text = 'JETZT AKTIV'
+        draw_text_with_shadow(draw, (76, active_heading_y), 'JETZT AKTIV', section_font, gray)
+        for index, event in enumerate(active_events):
+            x = left_x if index % 2 == 0 else right_x
+            y = active_items_y + (index // 2) * active_row_height
+            name = event['name'].upper()
+            draw_event_marker(draw, x, y + 13, event['color'], size=15)
+            draw_text_with_shadow(draw, (x + 25, y), name, fitted_font(name, 32, True), white)
+            draw_text_with_shadow(draw, (x + 25, y + 39), f"bis {event['end'].strftime('%H:%M')} Uhr", small_font, soft_white)
 
-        status_y = text_y_after(
-            draw,
-            title_bbox,
-            status_text,
-            status_font,
-            SECTION_GAP
-        )
+    draw_text_with_shadow(draw, (76, next_heading_y), 'ALS NÄCHSTES', section_font, gray)
+    for index, event in enumerate(next_events):
+        x = left_x if index % 2 == 0 else right_x
+        y = next_items_y + (index // 2) * next_row_height
+        label = f"{event['name']} · {event['time'].strftime('%H:%M')} Uhr"
+        draw_event_marker(draw, x, y + 8, event['color'], size=14)
+        draw_text_with_shadow(draw, (x + 24, y), label, fitted_font(label, 29), soft_white)
 
-        draw_text_with_shadow(
-            draw,
-            (76, status_y),
-            status_text,
-            status_font,
-            status_gray
-        )
-
-        status_bbox = draw.textbbox(
-            (76, status_y),
-            status_text,
-            font=status_font
-        )
-
-        first_active_text = (
-            active_events[0]['name'].upper()
-        )
-
-        current_y = text_y_after(
-            draw,
-            status_bbox,
-            first_active_text,
-            active_name_font,
-            CLOSE_GAP
-        )
-
-        last_active_bottom = None
-
-        for event_index, event in enumerate(active_events):
-            event_name = event['name'].upper()
-
-            if event_index > 0:
-                event_probe = draw.textbbox(
-                    (0, 0),
-                    event_name,
-                    font=active_name_font
-                )
-
-                current_y = (
-                    last_active_bottom
-                    + ACTIVE_EVENT_GAP
-                    - event_probe[1]
-                )
-
-            draw_event_marker(
-                draw,
-                78,
-                current_y + 18,
-                event['color'],
-                size=18
-            )
-
-            draw_text_with_shadow(
-                draw,
-                (108, current_y),
-                event_name,
-                active_name_font,
-                white
-            )
-
-            name_bbox = draw.textbbox(
-                (108, current_y),
-                event_name,
-                font=active_name_font
-            )
-
-            until_y = name_bbox[3] + 4
-
-            until_text = (
-                f"bis {event['end'].strftime('%H:%M')} Uhr"
-            )
-
-            draw_text_with_shadow(
-                draw,
-                (108, until_y),
-                until_text,
-                active_until_font,
-                soft_white
-            )
-
-            until_bbox = draw.textbbox(
-                (108, until_y),
-                until_text,
-                font=active_until_font
-            )
-
-            last_active_bottom = until_bbox[3]
-
-        next_title_text = '→ Als Nächstes:'
-        next_title_font = secondary_bold_font
-        next_title_color = white
-
-        next_title_probe = draw.textbbox(
-            (0, 0),
-            next_title_text,
-            font=next_title_font
-        )
-
-        next_section_y = (
-            last_active_bottom
-            + SECTION_GAP
-            - next_title_probe[1]
-        )
-
-    else:
-        next_title_text = 'ALS NÄCHSTES'
-        next_title_font = status_font
-        next_title_color = status_gray
-
-        next_section_y = text_y_after(
-            draw,
-            title_bbox,
-            next_title_text,
-            next_title_font,
-            SECTION_GAP
-        )
-
-    draw_text_with_shadow(
-        draw,
-        (76, next_section_y),
-        next_title_text,
-        next_title_font,
-        next_title_color
-    )
-
-    next_title_bbox = draw.textbbox(
-        (76, next_section_y),
-        next_title_text,
-        font=next_title_font
-    )
-
-    if next_events:
-        first_next_text = (
-            f"{next_events[0]['name']} · "
-            f"{next_events[0]['time'].strftime('%H:%M')} Uhr"
-        )
-
-        current_y = text_y_after(
-            draw,
-            next_title_bbox,
-            first_next_text,
-            secondary_font,
-            CLOSE_GAP
-        )
-
-        last_next_bottom = next_title_bbox[3]
-
-        for event_index, event in enumerate(next_events):
-            next_text = (
-                f"{event['name']} · "
-                f"{event['time'].strftime('%H:%M')} Uhr"
-            )
-
-            if event_index > 0:
-                next_probe = draw.textbbox(
-                    (0, 0),
-                    next_text,
-                    font=secondary_font
-                )
-
-                current_y = (
-                    last_next_bottom
-                    + NEXT_ENTRY_GAP
-                    - next_probe[1]
-                )
-
-            draw_event_marker(
-                draw,
-                78,
-                current_y + 8,
-                event['color'],
-                size=16
-            )
-
-            draw_text_with_shadow(
-                draw,
-                (106, current_y),
-                next_text,
-                secondary_font,
-                soft_white
-            )
-
-            next_bbox = draw.textbbox(
-                (106, current_y),
-                next_text,
-                font=secondary_font
-            )
-
-            last_next_bottom = next_bbox[3]
-
-    image.convert('RGB').save(
-        OVERVIEW_CARD_FILE,
-        'PNG',
-        optimize=True
-    )
+    image.convert('RGB').save(OVERVIEW_CARD_FILE, 'PNG', optimize=True)
 
 
 # ============================================================
