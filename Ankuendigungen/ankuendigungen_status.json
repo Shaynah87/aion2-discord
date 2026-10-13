@@ -79,7 +79,8 @@
     "6ac955d0d97eae18cc40e3d0",
     "6ac95cd8fa34c1011d627be2",
     "6acaa750d97eae18cc40e3e4",
-    "6acdc8e0577e8c01355dff03"
+    "6acdc8e0577e8c01355dff03",
+    "6ace8dc0263e537d356d10c9"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -117,6 +118,12 @@
       "hash": "1c41aef73d02bac2068527ef60a49ca221c5144f3cc9aa141e0452a1d03cb7a6",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen: Verstöße gegen die Betriebsrichtlinien (Oct 13)"
+    },
+    "6ace8dc0263e537d356d10c9": {
+      "discord_message_id": "1559472152414126192",
+      "hash": "47228d07819bc1e89515df67409d0c413dfc724cf789f59e6dd0383ed1712972",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Wartungsarbeiten | 13. Oktober (PDT) / 14. Oktober (CEST)"
     }
   }
 }
