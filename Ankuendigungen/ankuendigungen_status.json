@@ -108,15 +108,15 @@
     },
     "6acaa750d97eae18cc40e3e4": {
       "discord_message_id": "1558721025959792711",
-      "hash": "3e5b1a6278ea77b04e0115c3fe01d506c1dd6850ad70cf47c1fd93b86664fb05",
+      "hash": "d749d9de585e39dc30c5e7dc333103a925c825e8eefa845898da46d584baf11e",
       "missing_checks": 0,
-      "title": "Konto-Einschränkungen: Verstöße gegen die Ablaufsicherheitsrichtlinie"
+      "title": "Konto-Einschränkungen: Verstöße gegen die Betriebsrichtlinien "
     },
     "6acdc8e0577e8c01355dff03": {
       "discord_message_id": "1559457047022665802",
-      "hash": "f0cc503fb370f5fe0219fdcbb3ec236ff26ce65a279e853087c20a4f4b5b7176",
+      "hash": "1c41aef73d02bac2068527ef60a49ca221c5144f3cc9aa141e0452a1d03cb7a6",
       "missing_checks": 0,
-      "title": "Konto-Einschränkungen: Verstöße gegen die Ablaufsicherheitsrichtlinie (Oct 13)"
+      "title": "Konto-Einschränkungen: Verstöße gegen die Betriebsrichtlinien (Oct 13)"
     }
   }
 }
