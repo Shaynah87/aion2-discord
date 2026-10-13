@@ -78,7 +78,8 @@
     "6ac932a8eea53f5d6dbcfbc6",
     "6ac955d0d97eae18cc40e3d0",
     "6ac95cd8fa34c1011d627be2",
-    "6acaa750d97eae18cc40e3e4"
+    "6acaa750d97eae18cc40e3e4",
+    "6acdc8e0577e8c01355dff03"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -110,6 +111,12 @@
       "hash": "3e5b1a6278ea77b04e0115c3fe01d506c1dd6850ad70cf47c1fd93b86664fb05",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen: Verstöße gegen die Ablaufsicherheitsrichtlinie"
+    },
+    "6acdc8e0577e8c01355dff03": {
+      "discord_message_id": "1559457047022665802",
+      "hash": "f0cc503fb370f5fe0219fdcbb3ec236ff26ce65a279e853087c20a4f4b5b7176",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen: Verstöße gegen die Ablaufsicherheitsrichtlinie (Oct 13)"
     }
   }
 }
