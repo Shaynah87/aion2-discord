@@ -81,7 +81,8 @@
     "6acaa750d97eae18cc40e3e4",
     "6acdc8e0577e8c01355dff03",
     "6ace8dc0263e537d356d10c9",
-    "6ace0f306cfe4756db5b8d65"
+    "6ace0f306cfe4756db5b8d65",
+    "6abe63c46cfe4756db5b8d17"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -131,6 +132,12 @@
       "hash": "4a2d5f282a06434cafa11d9926c101cec2f42a4cff81b6efd2c584885e0f0cf9",
       "missing_checks": 0,
       "title": "[Hinweis] Wartungsarbeiten an den Plattformdiensten (13. Oktober)"
+    },
+    "6abe63c46cfe4756db5b8d17": {
+      "discord_message_id": "1559551533882810420",
+      "hash": "9a12fb0912d09f44aed122db10595d30bf5dec23ab74083e491709f13cd49442",
+      "missing_checks": 0,
+      "title": "[Notice] Oct 13 PDT / Oct 14 CEST New Skin Items Info"
     }
   }
 }
