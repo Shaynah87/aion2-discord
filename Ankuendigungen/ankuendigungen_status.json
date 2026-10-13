@@ -80,7 +80,8 @@
     "6ac95cd8fa34c1011d627be2",
     "6acaa750d97eae18cc40e3e4",
     "6acdc8e0577e8c01355dff03",
-    "6ace8dc0263e537d356d10c9"
+    "6ace8dc0263e537d356d10c9",
+    "6ace0f306cfe4756db5b8d65"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -124,6 +125,12 @@
       "hash": "f99d42f97f214e0a6edd2e007606ce6e5cf2274beb2f3cf7678399c6541ab100",
       "missing_checks": 0,
       "title": "[Mitteilung] Wartungsarbeiten | 13. Oktober (PDT) / 14. Oktober (CEST)"
+    },
+    "6ace0f306cfe4756db5b8d65": {
+      "discord_message_id": "1559521340371763222",
+      "hash": "e3a5ea68fb151233c06529016cad10f6817ced4ecf746ffeba3d33f71fa4632b",
+      "missing_checks": 0,
+      "title": "[Hinweis] Wartungsarbeiten an den Plattformdiensten (13. Oktober)"
     }
   }
 }
