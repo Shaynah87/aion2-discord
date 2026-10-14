@@ -82,7 +82,8 @@
     "6acdc8e0577e8c01355dff03",
     "6ace8dc0263e537d356d10c9",
     "6ace0f306cfe4756db5b8d65",
-    "6abe63c46cfe4756db5b8d17"
+    "6abe63c46cfe4756db5b8d17",
+    "6acf287028c7452635072bc0"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -138,6 +139,12 @@
       "hash": "7a6ad26badb92f0736172f3ce08055ddb8ba1f22a136b8a4afd0f1ee21e72fe9",
       "missing_checks": 0,
       "title": "[Benachrichtigung] 13. Okt. PDT / 14. Okt. MESZ Info zu neuen Skin-Gegenständen"
+    },
+    "6acf287028c7452635072bc0": {
+      "discord_message_id": "1559849636859088947",
+      "hash": "cdb55a08dbb20e028e5db7006b2628ed33d2aad4aae5cea416e915c90c8f3a72",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen: Verstöße gegen die Betriebsrichtlinien (Oct 14)"
     }
   }
 }
