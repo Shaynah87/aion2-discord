@@ -6,6 +6,12 @@ on:
 permissions:
   contents: write
 
+# Verhindert parallele Durchläufe dieses Workflows.
+# Ein laufender Durchlauf wird nicht zugunsten eines neuen abgebrochen.
+concurrency:
+  group: aion2-announcements-state
+  cancel-in-progress: false
+
 jobs:
   check-announcements:
     runs-on: ubuntu-latest
@@ -13,6 +19,9 @@ jobs:
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Python installieren
         uses: actions/setup-python@v6
@@ -24,15 +33,38 @@ jobs:
           ANKUENDIGUNGEN_WEBHOOK: ${{ secrets.ANKUENDIGUNGEN_WEBHOOK }}
         run: python Ankuendigungen/ankuendigungen.py
 
-      - name: Status speichern
+      - name: Status sicher speichern
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet Ankuendigungen/ankuendigungen_status.json; then
+          git add -- Ankuendigungen/ankuendigungen_status.json
+          if git diff --cached --quiet; then
             echo "Keine Änderung am Status."
-          else
-            git add Ankuendigungen/ankuendigungen_status.json
-            git commit -m "Update AION announcement status"
-            git push
+            exit 0
           fi
+
+          git commit -m "Update AION announcement status"
+
+          # Andere Workflows können während unseres Durchlaufs main aktualisieren.
+          # Deshalb vor jedem Push den aktuellen Stand übernehmen.
+          for attempt in 1 2 3 4 5; do
+            echo "Push-Versuch $attempt/5"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "Konflikt in den Änderungen. Status nicht automatisch überschreiben."
+              exit 1
+            fi
+            if git push origin HEAD:main; then
+              echo "Ankündigungsstatus erfolgreich gespeichert."
+              exit 0
+            fi
+            echo "main wurde erneut verändert; versuche es erneut."
+            sleep 2
+          done
+
+          echo "Status konnte nach 5 Versuchen nicht gespeichert werden."
+          exit 1
