@@ -83,7 +83,8 @@
     "6ace8dc0263e537d356d10c9",
     "6ace0f306cfe4756db5b8d65",
     "6abe63c46cfe4756db5b8d17",
-    "6acf287028c7452635072bc0"
+    "6acf287028c7452635072bc0",
+    "6acf52a007b77e214688a7c1"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -145,6 +146,12 @@
       "hash": "cdb55a08dbb20e028e5db7006b2628ed33d2aad4aae5cea416e915c90c8f3a72",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen: Verstöße gegen die Betriebsrichtlinien (Oct 14)"
+    },
+    "6acf52a007b77e214688a7c1": {
+      "discord_message_id": "1559872278190227489",
+      "hash": "23114eec452375684530446a8be0f3c035ac3db87c9fc00ebedb432d4ac1ab8e",
+      "missing_checks": 0,
+      "title": "[Notice] Advance Notice of Server Transfer Limits"
     }
   }
 }
