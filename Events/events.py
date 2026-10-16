@@ -1,46 +1,144 @@
 
-"""Nyerk24 Events – Halloween-Veröffentlichung.
-Bestehender Discord-Bot DISCORD_BOT und EVENTS_WEBHOOK; keine neuen Secrets.
-Aktiv: alle Eventinformationen öffentlich. Davor/danach: privater Detailbutton.
-Eine bestehende Eventnachricht wird anhand des Markers aktualisiert.
+"""Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
+
+Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
+Die zentrale events.py kümmert sich ausschließlich um das Veröffentlichen.
 """
 import io
-import json
-import os
-import sys
+import random
 from pathlib import Path
-
-import requests
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / "Halloween"))
-from halloween import EVENT, status
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-API = "https://discord.com/api/v10"
-TOKEN = os.environ["DISCORD_BOT"].strip()
-WEBHOOK = os.environ["EVENTS_WEBHOOK"].strip().rstrip("/")
-SESSION = requests.Session()
-SESSION.headers.update({"Authorization": f"Bot {TOKEN}"})
-MARKER = f'event-id:{EVENT["id"]}'
+EVENT = {
+    "id": "halloween_2026",
+    "name": "Halloween",
+    "timezone": "Europe/Berlin",
+    "start": "2026-10-14T00:00:00+02:00",  # Datum bekannt, genaue Wartungszeit nicht angegeben
+    "end": "2026-11-04T09:00:00+01:00",
+    "date_label": "14.10. – 04.11.2026",
+    "image": "Events/Halloween/halloween.png",
+    "currency": "Halloween-Kürbismünze (Event)",
+    "sections": [
+        {
+            "title": "🎃 Süßes oder Saures – Anwesenheit",
+            "description": "Tägliche Anmeldung über das Eventmenü. Belohnung: Halloween-Kürbismünzen (Event).",
+            "entries": [
+                {"days": "1–6", "coins_per_day": 35},
+                {"days": "7", "coins_per_day": 100},
+                {"days": "8–13", "coins_per_day": 35},
+                {"days": "14", "coins_per_day": 100},
+            ],
+        },
+        {
+            "title": "⚔️ Saisonmissionen – Event",
+            "description": "Im Spiel unter [Saisonmission] > [Event]. Die Missionen werden wöchentlich zurückgesetzt. Belohnungen jeweils in Halloween-Kürbismünzen (Event).",
+            "entries": [
+                {"name": "Abyssus", "task": "10 Monster im Abyssus jagen", "coins": 25},
+                {"name": "Transzendenz", "task": "1-mal den Transzendenz-Dungeon abschließen", "coins": 25},
+                {"name": "Expedition", "task": "1-mal die Expeditions-Eroberung abschließen", "coins": 25},
+                {"name": "Aszensusritus", "task": "1-mal den Aszensusritus abschließen", "coins": 25},
+                {"name": "Albtraum", "task": "1-mal abschließen (beliebige Stufe)", "coins": 25},
+                {"name": "Anmelden", "task": "3-mal anmelden", "coins": 30},
+                {"name": "Ausrüstung erhalten", "task": "1 einzigartiges Ausrüstungsteil erhalten", "coins": 20},
+                {"name": "Schriftrolle benutzen", "task": "5 Schriftrollen benutzen", "coins": 20},
+                {"name": "Dimensionale Invasion", "task": "1-mal an der Dimensionalen Invasion teilnehmen", "coins": 20},
+                {"name": "Shugofesta", "task": "1-mal an der Shugofesta teilnehmen", "coins": 20},
+            ],
+        },
+        {
+            "title": "🛍️ Halloween-Eventshop",
+            "description": "Beim Event-Münzhändler in den Städten. Preise in Halloween-Kürbismünzen (Event); Menge je Kauf: 1.",
+            "entries": [
+                {"name": "Halloween-Spezialtruhe", "price": 250, "limit": "1 pro Server"},
+                {"name": "Odenergie (Gebunden)", "price": 10, "limit": "4 pro Server/Woche"},
+                {"name": "Abyss-Rissstein: Untere Ebene (Gebunden)", "price": 30, "limit": "2 pro Server/Woche"},
+                {"name": "Skin-Truhe (10x) (Gebunden)", "price": 15, "limit": "5 pro Server/Woche"},
+                {"name": "Geiststein der Wiederbelebung (Gebunden)", "price": 2, "limit": "10 pro Server/Woche"},
+                {"name": "Sofortabschluss-Ticket: Täglicher Dungeon (Gebunden)", "price": 3, "limit": "7 pro Server/Woche"},
+                {"name": "Herausforderungsticket: Albtraum-Dungeon (Gebunden)", "price": 7, "limit": "3 pro Server/Woche"},
+                {"name": "Shugofesta-Schlüssel (Gebunden)", "price": 7, "limit": "3 pro Server/Woche"},
+                {"name": "Lebenskristall (Gebunden)", "price": 2, "limit": "20 pro Charakter"},
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "price": 2, "limit": "10 pro Charakter"},
+                {"name": "Halloween-Keks (Gebunden)", "price": 2, "limit": "10 pro Charakter"},
+                {"name": "Hochwertiger Siegelstein (Gebunden)", "price": 1, "limit": "Keine angegebene Begrenzung"},
+            ],
+        },
+        {
+            "title": "🎁 Halloween-Spezialtruhe",
+            "entries": [
+                {"name": "Gruseliges Skelett (Skin: Brustpanzer) (Gebunden)", "quantity": 1},
+                {"name": "Pet-Seelenkristall", "quantity": 10000},
+            ],
+        },
+        {
+            "title": "🍬 Verbrauchsgegenstände",
+            "entries": [
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "duration": "5 Minuten", "effects": ["Angriffskraft +25", "Verteidigung +250", "Max. SP +300", "Natürliche SP-Erholung +40 %"]},
+                {"name": "Halloween-Keks (Gebunden)", "duration": "5 Minuten", "effects": ["Max. LP +500", "Max. MP +250", "Max. SP +300", "Natürliche SP-Erholung +40 %"]},
+            ],
+        },
+        {
+            "title": "🔑 Süßigkeitenschlüssel – Umwandlung",
+            "description": "Süßigkeitenschlüssel-Fragmente (Event) erhältst du bei Expeditions- und Transzendenz-Zusammenstößen. Erfolgsrate aller Umwandlungen: 100 %. Ein mögliches Kauflimit der Schlüssel war in der Vorlage nicht vollständig lesbar.",
+            "entries": [
+                {"name": "Roter Süßigkeitenschlüssel (Event)", "quantity": 1, "fragments": 60},
+                {"name": "Gelber Süßigkeitenschlüssel (Event)", "quantity": 1, "fragments": 60},
+                {"name": "Blauer Süßigkeitenschlüssel (Event)", "quantity": 1, "fragments": 60},
+                {"name": "Hochwertiger Siegelstein (Gebunden)", "quantity": 10, "fragments": 1},
+            ],
+        },
+        {
+            "title": "🔴 Rote Süßigkeiten – Inhalt",
+            "entries": [
+                {"name": "Pet-Truhe des Wachstums (Gebunden)", "quantity": 20},
+                {"name": "Rolle der Kampf-Verstärkung (Gebunden)", "quantity": 10},
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "quantity": 5},
+                {"name": "Halloween-Keks (Gebunden)", "quantity": 5},
+            ],
+        },
+        {
+            "title": "🟡 Gelbe Süßigkeiten – Inhalt",
+            "entries": [
+                {"name": "Abysspunkte", "quantity": 10000},
+                {"name": "Lebenskristall (Gebunden)", "quantity": 10},
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "quantity": 5},
+                {"name": "Halloween-Keks (Gebunden)", "quantity": 5},
+            ],
+        },
+        {
+            "title": "🔵 Blaue Süßigkeiten – Inhalt",
+            "entries": [
+                {"name": "Odenergie (Gebunden)", "quantity": 4},
+                {"name": "Geiststein der Wiederbelebung (Gebunden)", "quantity": 10},
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "quantity": 5},
+                {"name": "Halloween-Keks (Gebunden)", "quantity": 5},
+            ],
+        },
+    ],
+}
 
 
-def api(method, path, **kwargs):
-    response = SESSION.request(method, API + path, timeout=35, **kwargs)
-    if not response.ok:
-        raise RuntimeError(f"Discord API {response.status_code}: {response.text[:1000]}")
-    return response.json() if response.content else None
+def status(now=None):
+    """Gibt 'upcoming', 'active' oder 'finished' zurück."""
+    tz = ZoneInfo(EVENT["timezone"])
+    now = now.astimezone(tz) if now is not None else datetime.now(tz)
+    start = datetime.fromisoformat(EVENT["start"]).astimezone(tz)
+    end = datetime.fromisoformat(EVENT["end"]).astimezone(tz)
+    if now < start:
+        return "upcoming"
+    if now < end:
+        return "active"
+    return "finished"
 
 
-def channel_id():
-    # Der vorhandene Events-Webhook liefert die Kanal-ID, kein neues Secret nötig.
-    response = requests.get(WEBHOOK, timeout=20)
-    response.raise_for_status()
-    value = response.json().get("channel_id")
-    if not value:
-        raise RuntimeError("EVENTS_WEBHOOK enthält keine channel_id")
-    return value
+if __name__ == "__main__":
+    print(f'{EVENT["name"]}: {status()}')
 
+
+# ===== HALLOWEEN-BANNER UND DISCORD-INHALT =====
 
 def font(size, bold=True):
     choices = ([
@@ -59,7 +157,7 @@ def font(size, bold=True):
 def banner(current):
     # Identisches Bannerformat bei allen Status, angelehnt an die Content-Header.
     width, height = 1200, 220
-    source = Image.open(ROOT / "Halloween" / "halloween.png").convert("RGB")
+    source = Image.open(Path(__file__).resolve().parent / "halloween.png").convert("RGB")
     factor = max(width / source.width, height / source.height)
     source = source.resize((round(source.width * factor), round(source.height * factor)), Image.Resampling.LANCZOS)
     left = (source.width - width) // 2
@@ -82,26 +180,85 @@ def banner(current):
     title = EVENT["name"].upper()
     subtitle = f'{EVENT["date_label"]} · {labels[current]}'
     draw = ImageDraw.Draw(base)
-    title_font = font(57)
+    title_font = font(49)
     subtitle_font = font(31)
-    title_box = draw.textbbox((0, 0), title, font=title_font, stroke_width=2)
-    sub_box = draw.textbbox((0, 0), subtitle, font=subtitle_font, stroke_width=1)
+    # Exakte Compact-Typografie aus Content/Launch/launch.py:
+    # 1200 x 220, Titel 49 px, Status 31 px, Buchstabenabstand 5 px,
+    # Abstand 18 px, vertikal anhand sichtbarer Glyphen zentriert.
+    title_spacing = 5
+    title_box = draw.textbbox((0, 0), title, font=title_font)
+    sub_box = draw.textbbox((0, 0), subtitle, font=subtitle_font)
     title_height = title_box[3] - title_box[1]
     sub_height = sub_box[3] - sub_box[1]
-    gap = 15
-    top_y = (height - title_height - gap - sub_height) / 2
+    gap = 18
+    top_y = (height - (title_height + gap + sub_height)) / 2
 
-    def centered(text, fnt, y, color, stroke, stroke_width):
-        box = draw.textbbox((0, 0), text, font=fnt, stroke_width=stroke_width)
-        text_width = draw.textlength(text, font=fnt)
-        x = (width - text_width) / 2
-        draw.text((x, y - box[1]), text, font=fnt, fill=color,
-                  stroke_width=stroke_width, stroke_fill=stroke)
+    # Feuerorange mit eingebrannten dunklen Adern INNERHALB der Buchstaben.
+    # Keine dicke schwarze Außenkontur: Die Textmaske begrenzt alle Strukturen.
+    def ember_text(value, face, y, seed, subtitle=False, spacing=0):
+        bounds = draw.textbbox((0, 0), value, font=face)
+        total_width = sum(draw.textlength(ch, font=face) for ch in value) + max(0, len(value) - 1) * spacing
+        x = (width - total_width) / 2
+        text_y = int(y - bounds[1])
+        mask = Image.new("L", (width, height), 0)
+        mask_draw = ImageDraw.Draw(mask)
+        for index, ch in enumerate(value):
+            mask_draw.text((x, text_y), ch, font=face, fill=255)
+            x += draw.textlength(ch, font=face)
+            if index < len(value) - 1:
+                x += spacing
+        bbox = mask.getbbox()
+        if not bbox:
+            return
 
-    # Kürbisgold und warmes Creme – hohe Lesbarkeit auch im Discord-Miniaturformat.
-    centered(title, title_font, top_y, "#FFC46A", "#271327", 3)
-    centered(subtitle, subtitle_font, top_y + title_height + gap,
-             "#FFE1A5", "#241123", 2)
+        # Nur ein zurückhaltender Schein HINTER der Schrift.
+        glow = Image.new("RGBA", (width, height), (255, 85, 0, 0))
+        blurred = mask.filter(ImageFilter.GaussianBlur(11 if not subtitle else 6))
+        glow.putalpha(blurred.point(lambda a: int(a * (0.53 if not subtitle else 0.25))))
+        base.alpha_composite(glow)
+
+        # Verlauf vollständig IN der Schrift: helle Glut oben, tiefes Orange unten.
+        fill_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        pixels = fill_layer.load()
+        top, bottom = bbox[1], max(bbox[3], bbox[1] + 1)
+        for py in range(top, bottom):
+            t = (py - top) / (bottom - top)
+            if subtitle:
+                color = (255, int(186 - 65*t), int(65 - 42*t), 255)
+            elif t < 0.40:
+                f = t / 0.40
+                color = (255, int(179 - 83*f), int(35 - 28*f), 255)
+            else:
+                f = (t - 0.40) / 0.60
+                color = (int(255 - 28*f), int(96 - 57*f), int(7 - 7*f), 255)
+            for px in range(bbox[0], bbox[2]):
+                pixels[px, py] = color
+        fill_layer.putalpha(mask)
+        base.alpha_composite(fill_layer)
+
+        if not subtitle:
+            # Schwarze, unregelmäßige Brandadern, ausschließlich in den Glyphen.
+            rng = random.Random(seed)
+            crack_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            cracks = ImageDraw.Draw(crack_layer)
+            for _ in range(35):
+                cx = rng.randint(bbox[0], bbox[2] - 1)
+                cy = rng.randint(bbox[1], bbox[3] - 1)
+                length = rng.randint(7, 24)
+                points = [(cx, cy)]
+                for step in range(3):
+                    cx += rng.randint(-7, 7)
+                    cy += max(1, length // 3) + rng.randint(-2, 2)
+                    points.append((cx, cy))
+                cracks.line(points, fill=(22, 5, 3, rng.randint(145, 215)), width=rng.choice((1, 2, 2, 3)))
+            crack_alpha = Image.composite(crack_layer.getchannel("A"),
+                                          Image.new("L", (width, height), 0), mask)
+            crack_layer.putalpha(crack_alpha)
+            base.alpha_composite(crack_layer)
+
+    ember_text(title, title_font, top_y, seed=20261014, spacing=title_spacing)
+    ember_text(subtitle, subtitle_font, top_y + title_height + gap,
+               seed=20261104, subtitle=True)
     result = io.BytesIO()
     base.convert("RGB").save(result, format="PNG", optimize=True)
     return result.getvalue()
@@ -140,7 +297,7 @@ def detail_embeds():
 def payload(current):
     # Nur Bild im ersten Embed: keine doppelte Titel-/Datumsanzeige.
     embeds = [{"image": {"url": "attachment://halloween_banner.png"},
-               "color": 0x9852B8, "footer": {"text": MARKER}}]
+               "color": 0x9852B8, "footer": {"text": f'event-id:{EVENT["id"]}'}}]
     if current == "active":
         embeds.extend(detail_embeds())
     if len(embeds) > 10:
@@ -154,39 +311,3 @@ def payload(current):
     return data
 
 
-def existing_message(channel):
-    before = None
-    for _ in range(10):
-        params = {"limit": 100}
-        if before:
-            params["before"] = before
-        messages = api("GET", f"/channels/{channel}/messages", params=params)
-        if not messages:
-            return None
-        for msg in messages:
-            if any(embed.get("footer", {}).get("text") == MARKER for embed in msg.get("embeds", [])):
-                return msg["id"]
-        before = messages[-1]["id"]
-    return None
-
-
-def publish():
-    current = status()
-    channel = channel_id()
-    data = payload(current)
-    message_id = existing_message(channel)
-    data["attachments"] = [{"id": 0, "filename": "halloween_banner.png"}]
-    files = {
-        "payload_json": (None, json.dumps(data, ensure_ascii=False)),
-        "files[0]": ("halloween_banner.png", banner(current), "image/png"),
-    }
-    if message_id:
-        result = api("PATCH", f"/channels/{channel}/messages/{message_id}", files=files)
-        print(f'Event aktualisiert: {result["id"]} ({current})')
-    else:
-        result = api("POST", f"/channels/{channel}/messages", files=files)
-        print(f'Event veröffentlicht: {result["id"]} ({current})')
-
-
-if __name__ == "__main__":
-    publish()
