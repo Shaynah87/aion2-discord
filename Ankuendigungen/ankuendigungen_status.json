@@ -85,7 +85,8 @@
     "6abe63c46cfe4756db5b8d17",
     "6acf287028c7452635072bc0",
     "6acf52a007b77e214688a7c1",
-    "6ad01832a7ca1a15cf46c0b6"
+    "6ad01832a7ca1a15cf46c0b6",
+    "6ad1af5028c7452635072be8"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -159,6 +160,12 @@
       "hash": "3646d221ef47ad542164d2e84e0e8fba17d1d36dfc830a7779ccb929a9e6a53d",
       "missing_checks": 0,
       "title": "[Benachrichtigung] Problem mit Steam-Zahlung behoben"
+    },
+    "6ad1af5028c7452635072be8": {
+      "discord_message_id": "1560521568625496102",
+      "hash": "aa7de2a25ac42d898fb852772aa17d7f7556d64d1ad167e65f2f053659ea19de",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 15 Oktober (PDT) / 16 Oktober (CEST)"
     }
   }
 }
