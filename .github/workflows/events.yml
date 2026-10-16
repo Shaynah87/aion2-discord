@@ -2,12 +2,6 @@ name: Events
 
 on:
   workflow_dispatch:
-    inputs:
-      initial_publish:
-        description: 'NUR nach Events-Clear für die einmalige Erstveröffentlichung aktivieren'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -32,7 +26,6 @@ jobs:
         env:
           DISCORD_BOT: ${{ secrets.DISCORD_BOT }}
           EVENTS_WEBHOOK: ${{ secrets.EVENTS_WEBHOOK }}
-          INITIAL_PUBLISH: ${{ inputs.initial_publish }}
         run: python Events/events.py
       - name: Discord-Nachrichten-ID dauerhaft speichern
         run: |
