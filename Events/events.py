@@ -1,9 +1,4 @@
 
-"""Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
-
-Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
-Die zentrale events.py kümmert sich ausschließlich um das Veröffentlichen.
-"""
 """Nyerk24 · Events – manuelle Veröffentlichung ohne Doppelposts.
 
 Nur Nachrichten des EVENTS_WEBHOOK für das konfigurierte Event werden
