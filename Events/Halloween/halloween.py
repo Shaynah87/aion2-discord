@@ -157,7 +157,7 @@ def font(size, bold=True):
 
 def banner(current):
     # Identisches Bannerformat bei allen Status, angelehnt an die Content-Header.
-    width, height = 1200, 220
+    width, height = 1200, 390
     source = Image.open(Path(__file__).resolve().parent / "halloween.png").convert("RGB")
     factor = max(width / source.width, height / source.height)
     source = source.resize((round(source.width * factor), round(source.height * factor)), Image.Resampling.LANCZOS)
@@ -181,17 +181,15 @@ def banner(current):
     title = EVENT["name"].upper()
     subtitle = f'{EVENT["date_label"]} · {labels[current]}'
     draw = ImageDraw.Draw(base)
-    title_font = font(49)
-    subtitle_font = font(31)
-    # Exakte Compact-Typografie aus Content/Launch/launch.py:
-    # 1200 x 220, Titel 49 px, Status 31 px, Buchstabenabstand 5 px,
-    # Abstand 18 px, vertikal anhand sichtbarer Glyphen zentriert.
-    title_spacing = 5
+    title_font = font(79)
+    subtitle_font = font(42)
+    # Hoheres Kartenformat fuer bessere Lesbarkeit im Discord-Embed.
+    title_spacing = 7
     title_box = draw.textbbox((0, 0), title, font=title_font)
     sub_box = draw.textbbox((0, 0), subtitle, font=subtitle_font)
     title_height = title_box[3] - title_box[1]
     sub_height = sub_box[3] - sub_box[1]
-    gap = 18
+    gap = 29
     top_y = (height - (title_height + gap + sub_height)) / 2
 
     # Feuerorange mit eingebrannten dunklen Adern INNERHALB der Buchstaben.
