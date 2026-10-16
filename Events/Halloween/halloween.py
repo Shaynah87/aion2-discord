@@ -1,5 +1,6 @@
 
-        {
+    
+  
 """Halloween 2026 – feste Eventdaten für den Discord-Eventkanal.
 
 Keine externen Datenquellen. Zeiten werden in Europe/Berlin interpretiert.
@@ -129,6 +130,3 @@ def status(now=None):
         return "active"
     return "finished"
 
-
-if __name__ == "__main__":
-    print(f'{EVENT["name"]}: {status()}')
