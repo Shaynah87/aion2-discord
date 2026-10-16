@@ -1,9 +1,5 @@
 
-
-
-
-    
-  
+        {
 """Halloween 2026 – feste Eventdaten für den Discord-Eventkanal.
 
 Keine externen Datenquellen. Zeiten werden in Europe/Berlin interpretiert.
@@ -100,4 +96,39 @@ EVENT = {
             ],
         },
         {
+            "title": "🟡 Gelbe Süßigkeiten – Inhalt",
+            "entries": [
+                {"name": "Abysspunkte", "quantity": 10000},
+                {"name": "Lebenskristall (Gebunden)", "quantity": 10},
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "quantity": 5},
+                {"name": "Halloween-Keks (Gebunden)", "quantity": 5},
+            ],
+        },
+        {
+            "title": "🔵 Blaue Süßigkeiten – Inhalt",
+            "entries": [
+                {"name": "Odenergie (Gebunden)", "quantity": 4},
+                {"name": "Geiststein der Wiederbelebung (Gebunden)", "quantity": 10},
+                {"name": "Halloween-Süßigkeiten (Gebunden)", "quantity": 5},
+                {"name": "Halloween-Keks (Gebunden)", "quantity": 5},
+            ],
+        },
+    ],
+}
 
+
+def status(now=None):
+    """Gibt 'upcoming', 'active' oder 'finished' zurück."""
+    tz = ZoneInfo(EVENT["timezone"])
+    now = now.astimezone(tz) if now is not None else datetime.now(tz)
+    start = datetime.fromisoformat(EVENT["start"]).astimezone(tz)
+    end = datetime.fromisoformat(EVENT["end"]).astimezone(tz)
+    if now < start:
+        return "upcoming"
+    if now < end:
+        return "active"
+    return "finished"
+
+
+if __name__ == "__main__":
+    print(f'{EVENT["name"]}: {status()}')
