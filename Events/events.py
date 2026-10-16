@@ -1,6 +1,6 @@
 """Nyerk24 · Events: pro Event eine Discord-Nachricht, danach nur PATCH.
 
-Erstveröffentlichung ausschließlich mit initial_publish=true im manuellen Workflow.
+Erstveröffentlichung automatisch, wenn noch keine Event-ID gespeichert ist.
 Nachrichten-IDs bleiben in Events/events_message.json und werden von Actions committet.
 """
 import importlib.util
@@ -46,7 +46,6 @@ def save_state(state):
 
 def publish(event):
     webhook = os.environ['EVENTS_WEBHOOK'].strip().split('?', 1)[0].rstrip('/')
-    initial = os.getenv('INITIAL_PUBLISH', 'false').lower() == 'true'
     identity = response_json(requests.get(webhook, timeout=30), 'Webhook abrufen')
     event_id = event.EVENT['id']
     state = read_state()
@@ -59,21 +58,13 @@ def publish(event):
     if stored_id:
         check = bot.get(f'{API}/channels/{channel_id}/messages/{stored_id}', timeout=30)
         if check.status_code == 404:
-            if not initial:
-                raise RuntimeError('Gespeicherte Eventnachricht wurde gelöscht. Kein neuer Post. Für Neuveröffentlichung initial_publish aktivieren.')
-            stored_id = ''
-        else:
-            msg = response_json(check, 'Gespeicherte Nachricht prüfen')
-            if str(msg.get('webhook_id', '')) != webhook_id:
-                raise RuntimeError('Gespeicherte Message-ID gehört nicht zum Events-Webhook. Kein Post.')
-            if initial:
-                raise RuntimeError('Die Eventnachricht existiert bereits. initial_publish ausschalten und normal bearbeiten.')
-    elif not initial:
-        raise RuntimeError('Noch keine Eventnachrichten-ID vorhanden. Nur die Erstveröffentlichung mit initial_publish=true erlaubt.')
-
-    # Auch beim ersten Start prüfen, ob eine bereits veröffentlichte Nachricht existiert,
-    # deren ID wegen eines fehlgeschlagenen Git-Commits nicht gespeichert wurde.
-    if initial and not stored_id:
+            raise RuntimeError('Gespeicherte Eventnachricht wurde gelöscht. Kein neuer Post.')
+        msg = response_json(check, 'Gespeicherte Nachricht prüfen')
+        if str(msg.get('webhook_id', '')) != webhook_id:
+            raise RuntimeError('Gespeicherte Message-ID gehört nicht zum Events-Webhook. Kein Post.')
+    else:
+        # Nur beim allerersten Veröffentlichen nach einer bestehenden Nachricht suchen.
+        # Wenn eine passende Nachricht existiert, lieber abbrechen als doppelt posten.
         before = None
         for _ in range(30):
             params = {'limit': 100}
@@ -83,14 +74,14 @@ def publish(event):
             for message in messages:
                 if str(message.get('webhook_id', '')) != webhook_id:
                     continue
-                attachments = message.get('attachments', [])
                 names = {f'{event_id}_banner.png', 'halloween_banner.png'}
                 sections = {section['title'] for section in event.EVENT['sections']}
                 embeds = message.get('embeds', [])
-                if (any(a.get('filename') in names for a in attachments)
+                if (any(a.get('filename') in names for a in message.get('attachments', []))
                         or any(e.get('title') in sections for e in embeds)
-                        or any(n in (e.get('image') or {}).get('url', '') for e in embeds for n in names)):
-                    raise RuntimeError('Halloween ist bereits im Kanal vorhanden, aber die ID fehlt. Kein Doppelpost. Vor der Erstveröffentlichung Events-Clear durchführen.')
+                        or any(n in (e.get('image') or {}).get('url', '') for e in embeds for n in names)
+                        or any(event_id in (e.get('footer') or {}).get('text', '') for e in embeds)):
+                    raise RuntimeError('Event ist bereits im Kanal vorhanden, aber die gespeicherte ID fehlt. Kein Doppelpost.')
             if len(messages) < 100:
                 break
             before = messages[-1]['id']
@@ -113,7 +104,7 @@ def publish(event):
     state[event_id] = message_id
     save_state(state)
     print(f'{event_id}: {"BEARBEITET" if stored_id else "ERSTMALIG ERSTELLT"}; ID {message_id}; Status {current}')
-    print('Keine automatische Kanalsuche/Löschung bei normalen Updates; keine neuen Posts ohne initial_publish.')
+    print('Weitere Updates bearbeiten die gespeicherte Nachricht. Kein Häkchen erforderlich.')
 
 
 if __name__ == '__main__':
