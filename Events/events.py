@@ -1,9 +1,8 @@
 
-"""Nyerk24 · Events – manuelle Veröffentlichung ohne Doppelposts.
+"""Nyerk24 · Events: eine dauerhaft gespeicherte Discord-Nachricht je Event.
 
-Nur Nachrichten des EVENTS_WEBHOOK für das konfigurierte Event werden
-bearbeitet. Alte doppelte Events-Webhook-Nachrichten werden bereinigt.
-Keine Änderungen an Kalender, Content oder Halloween-Gestaltung.
+Die Message-ID wird in Events/events_message.json gespeichert. Der Workflow
+committet diese Datei, damit die ID auch beim nächsten Lauf erhalten bleibt.
 """
 import importlib.util
 import json
@@ -13,132 +12,265 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parent
-API = "https://discord.com/api/v10"
+STATE = ROOT / 'events_message.json'
+API = 'https://discord.com/api/v10'
 
 
-def load_event(folder="Halloween", filename="halloween.py"):
-    path = ROOT / folder / filename
-    if not path.is_file():
-        raise FileNotFoundError(f"Event-Datei fehlt: {path}")
-    spec = importlib.util.spec_from_file_location("nyerk24_event", path)
+def load_event():
+    path = ROOT / 'Halloween' / 'halloween.py'
+    spec = importlib.util.spec_from_file_location('nyerk24_event', path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Event kann nicht geladen werden: {path}")
+        raise RuntimeError(f'Eventmodul kann nicht geladen werden: {path}')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def discord_get(session, url, **kwargs):
-    response = session.get(url, timeout=35, **kwargs)
-    response.raise_for_status()  # Bei fehlendem Zugriff NIEMALS blind neu posten.
+def read_state():
+    if not STATE.exists():
+        return {}
+    data = json.loads(STATE.read_text(encoding='utf-8'))
+    if not isinstance(data, dict):
+        raise RuntimeError('events_message.json muss ein JSON-Objekt sein')
+    return data
+
+
+def save_state(state):
+    STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
+def api_json(response, context):
+    if not response.ok:
+        raise RuntimeError(f'{context}: HTTP {response.status_code}: {response.text[:800]}')
     return response.json()
 
 
-def is_our_event(message, webhook_id, event):
-    # Keine fremden Bots oder Webhooks anfassen.
-    if str(message.get("webhook_id", "")) != str(webhook_id):
+def belongs_to_event(message, webhook_id, event):
+    if str(message.get('webhook_id', '')) != str(webhook_id):
         return False
-
-    event_id = event.EVENT["id"]
-    marker = f"event-id:{event_id}"
-    known_files = {f"{event_id}_banner.png", "halloween_banner.png"}
-    attachments = message.get("attachments") or []
-    embeds = message.get("embeds") or []
-
-    if any(a.get("filename") in known_files for a in attachments):
+    event_id = event.EVENT['id']
+    marker = f'event-id:{event_id}'
+    names = {f'{event_id}_banner.png', 'halloween_banner.png'}
+    if any(a.get('filename') in names for a in message.get('attachments', [])):
         return True
-    if any(e.get("footer", {}).get("text") == marker for e in embeds):
+    embeds = message.get('embeds', [])
+    if any(e.get('footer', {}).get('text') == marker for e in embeds):
         return True
-
-    # Ältere Discord-Nachrichten können ein Embed-Bild statt eines
-    # normalen Anhangs haben. Auch solche Varianten wiedererkennen.
-    for embed in embeds:
-        image_url = (embed.get("image") or {}).get("url", "")
-        if any(name in image_url for name in known_files):
-            return True
-
-    # Die aktuellen neun Inhaltsabschnitte sind ein zusätzlicher Marker.
-    # Ein einzelner Titel genügt nicht: mindestens zwei Titel abgleichen.
-    section_titles = {s["title"] for s in event.EVENT["sections"]}
-    matches = sum(1 for e in embeds if e.get("title") in section_titles)
-    return matches >= 2
+    titles = {s['title'] for s in event.EVENT['sections']}
+    if sum(e.get('title') in titles for e in embeds) >= 2:
+        return True
+    return any(any(n in (e.get('image') or {}).get('url', '') for n in names) for e in embeds)
 
 
-def find_existing_messages(session, channel_id, webhook_id, event):
-    found = []
-    before = None
-    for _ in range(30):  # Bis zu 3.000 neueste Nachrichten, seitenweise.
-        params = {"limit": 100}
+def find_messages(bot, channel_id, webhook_id, event):
+    found, before = [], None
+    for _ in range(30):
+        params = {'limit': 100}
         if before:
-            params["before"] = before
-        messages = discord_get(
-            session, f"{API}/channels/{channel_id}/messages", params=params
-        )
+            params['before'] = before
+        messages = api_json(bot.get(f'{API}/channels/{channel_id}/messages', params=params, timeout=35), 'Nachrichtensuche')
         if not messages:
             break
-        for message in messages:
-            if is_our_event(message, webhook_id, event):
-                found.append(message["id"])
-        before = messages[-1]["id"]
+        found.extend(m['id'] for m in messages if belongs_to_event(m, webhook_id, event))
+        before = messages[-1]['id']
         if len(messages) < 100:
             break
-    # Älteste Nachricht behalten, neuere Duplikate nach Erfolg entfernen.
     return sorted(set(found), key=int)
 
 
 def publish(event):
-    webhook = os.environ["EVENTS_WEBHOOK"].strip().split("?", 1)[0].rstrip("/")
-    token = os.environ["DISCORD_BOT"].strip()
-    identity = discord_get(requests.Session(), webhook)
-    channel_id, webhook_id = identity.get("channel_id"), identity.get("id")
-    if not channel_id or not webhook_id:
-        raise RuntimeError("EVENTS_WEBHOOK liefert keine Kanal- oder Webhook-ID")
+    webhook = os.environ['EVENTS_WEBHOOK'].strip().split('?', 1)[0].rstrip('/')
+    token = os.environ['DISCORD_BOT'].strip()
+    identity = api_json(requests.get(webhook, timeout=30), 'Webhook-Informationen')
+    channel_id, webhook_id = identity['channel_id'], identity['id']
+    bot = requests.Session()
+    bot.headers['Authorization'] = f'Bot {token}'
+    state = read_state()
+    event_id = event.EVENT['id']
+    stored = str(state.get(event_id, ''))
 
-    session = requests.Session()
-    session.headers.update({"Authorization": f"Bot {token}"})
-    existing = find_existing_messages(session, channel_id, webhook_id, event)
-    message_id = existing[0] if existing else None
+    # Gespeicherte ID zunächst direkt prüfen. Bei gelöschter Nachricht neu suchen.
+    if stored:
+        response = bot.get(f'{API}/channels/{channel_id}/messages/{stored}', timeout=30)
+        if response.status_code == 404:
+            stored = ''
+        else:
+            message = api_json(response, 'Gespeicherte Nachricht prüfen')
+            if not belongs_to_event(message, webhook_id, event):
+                raise RuntimeError('Gespeicherte Message-ID gehört nicht zu diesem Events-Webhook/Event; Abbruch ohne neuen Post.')
+
+    # Immer nach weiteren Kopien suchen, auch wenn eine ID gespeichert ist.
+    found = find_messages(bot, channel_id, webhook_id, event)
+    if stored and stored not in found:
+        found.append(stored)
+    found = sorted(set(found), key=int)
+    message_id = found[0] if found else None
 
     current = event.status()
     payload = event.payload(current)
-    filename = f'{event.EVENT["id"]}_banner.png'
-    payload["attachments"] = [{"id": 0, "filename": filename}]
+    filename = f'{event_id}_banner.png'
+    payload['attachments'] = [{'id': 0, 'filename': filename}]
     files = {
-        "payload_json": (None, json.dumps(payload, ensure_ascii=False)),
-        "files[0]": (filename, event.banner(current), "image/png"),
+        'payload_json': (None, json.dumps(payload, ensure_ascii=False)),
+        'files[0]': (filename, event.banner(current), 'image/png'),
     }
-    url = webhook + (f"/messages/{message_id}" if message_id else "")
-    response = requests.request(
-        "PATCH" if message_id else "POST", url,
-        params={"wait": "true"}, files=files, timeout=50,
-    )
+    url = webhook + (f'/messages/{message_id}' if message_id else '')
+    response = requests.request('PATCH' if message_id else 'POST', url,
+                                params={'wait': 'true'}, files=files, timeout=60)
+    published = api_json(response, 'Event veröffentlichen/bearbeiten')
+    new_id = str(published['id'])
+    state[event_id] = new_id
+    save_state(state)
+    print(f'{event_id}: {"bearbeitet" if message_id else "erstellt"}; ID {new_id}; Status {current}')
+
+    # Ausschließlich eindeutig zugeordnete Doppelposts desselben Webhooks entfernen.
+    for duplicate in found:
+        if duplicate == new_id:
+            continue
+        deletion = requests.delete(f'{webhook}/messages/{duplicate}', timeout=35)
+        if deletion.status_code not in (204, 404):
+            raise RuntimeError(f'Duplikat {duplicate} konnte nicht gelöscht werden: HTTP {deletion.status_code}: {deletion.text[:500]}')
+        print(f'Duplikat gelöscht: {duplicate}')
+    print('Helper-Nachrichten und andere Events bleiben unberührt.')
+
+
+if __name__ == '__main__':
+    publish(load_event())
+
+"""Nyerk24 · Events: eine dauerhaft gespeicherte Discord-Nachricht je Event.
+
+Die Message-ID wird in Events/events_message.json gespeichert. Der Workflow
+committet diese Datei, damit die ID auch beim nächsten Lauf erhalten bleibt.
+"""
+import importlib.util
+import json
+import os
+from pathlib import Path
+
+import requests
+
+ROOT = Path(__file__).resolve().parent
+STATE = ROOT / 'events_message.json'
+API = 'https://discord.com/api/v10'
+
+
+def load_event():
+    path = ROOT / 'Halloween' / 'halloween.py'
+    spec = importlib.util.spec_from_file_location('nyerk24_event', path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f'Eventmodul kann nicht geladen werden: {path}')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def read_state():
+    if not STATE.exists():
+        return {}
+    data = json.loads(STATE.read_text(encoding='utf-8'))
+    if not isinstance(data, dict):
+        raise RuntimeError('events_message.json muss ein JSON-Objekt sein')
+    return data
+
+
+def save_state(state):
+    STATE.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
+def api_json(response, context):
     if not response.ok:
-        raise RuntimeError(
-            f"Webhook-Veröffentlichung fehlgeschlagen: HTTP {response.status_code}: "
-            f"{response.text[:1200]}"
-        )
-    published = response.json()
-    print(
-        f'{event.EVENT["name"]}: '
-        f'{"aktualisiert" if message_id else "erstellt"}, '
-        f'Nachricht {published["id"]}, Status {current}'
-    )
-
-    # Erst nach erfolgreichem PATCH weitere, eindeutig erkannte
-    # Duplikate desselben Events UND desselben Webhooks entfernen.
-    for duplicate_id in existing[1:]:
-        delete = requests.delete(
-            f"{webhook}/messages/{duplicate_id}", timeout=35
-        )
-        if delete.status_code not in (204, 404):
-            raise RuntimeError(
-                f"Duplikat {duplicate_id} konnte nicht gelöscht werden: "
-                f"HTTP {delete.status_code}: {delete.text[:600]}"
-            )
-        print(f"Doppelten Events-Beitrag entfernt: {duplicate_id}")
-
-    print("Alte Helper-Nachrichten werden nicht angerührt.")
+        raise RuntimeError(f'{context}: HTTP {response.status_code}: {response.text[:800]}')
+    return response.json()
 
 
-if __name__ == "__main__":
+def belongs_to_event(message, webhook_id, event):
+    if str(message.get('webhook_id', '')) != str(webhook_id):
+        return False
+    event_id = event.EVENT['id']
+    marker = f'event-id:{event_id}'
+    names = {f'{event_id}_banner.png', 'halloween_banner.png'}
+    if any(a.get('filename') in names for a in message.get('attachments', [])):
+        return True
+    embeds = message.get('embeds', [])
+    if any(e.get('footer', {}).get('text') == marker for e in embeds):
+        return True
+    titles = {s['title'] for s in event.EVENT['sections']}
+    if sum(e.get('title') in titles for e in embeds) >= 2:
+        return True
+    return any(any(n in (e.get('image') or {}).get('url', '') for n in names) for e in embeds)
+
+
+def find_messages(bot, channel_id, webhook_id, event):
+    found, before = [], None
+    for _ in range(30):
+        params = {'limit': 100}
+        if before:
+            params['before'] = before
+        messages = api_json(bot.get(f'{API}/channels/{channel_id}/messages', params=params, timeout=35), 'Nachrichtensuche')
+        if not messages:
+            break
+        found.extend(m['id'] for m in messages if belongs_to_event(m, webhook_id, event))
+        before = messages[-1]['id']
+        if len(messages) < 100:
+            break
+    return sorted(set(found), key=int)
+
+
+def publish(event):
+    webhook = os.environ['EVENTS_WEBHOOK'].strip().split('?', 1)[0].rstrip('/')
+    token = os.environ['DISCORD_BOT'].strip()
+    identity = api_json(requests.get(webhook, timeout=30), 'Webhook-Informationen')
+    channel_id, webhook_id = identity['channel_id'], identity['id']
+    bot = requests.Session()
+    bot.headers['Authorization'] = f'Bot {token}'
+    state = read_state()
+    event_id = event.EVENT['id']
+    stored = str(state.get(event_id, ''))
+
+    # Gespeicherte ID zunächst direkt prüfen. Bei gelöschter Nachricht neu suchen.
+    if stored:
+        response = bot.get(f'{API}/channels/{channel_id}/messages/{stored}', timeout=30)
+        if response.status_code == 404:
+            stored = ''
+        else:
+            message = api_json(response, 'Gespeicherte Nachricht prüfen')
+            if not belongs_to_event(message, webhook_id, event):
+                raise RuntimeError('Gespeicherte Message-ID gehört nicht zu diesem Events-Webhook/Event; Abbruch ohne neuen Post.')
+
+    # Immer nach weiteren Kopien suchen, auch wenn eine ID gespeichert ist.
+    found = find_messages(bot, channel_id, webhook_id, event)
+    if stored and stored not in found:
+        found.append(stored)
+    found = sorted(set(found), key=int)
+    message_id = found[0] if found else None
+
+    current = event.status()
+    payload = event.payload(current)
+    filename = f'{event_id}_banner.png'
+    payload['attachments'] = [{'id': 0, 'filename': filename}]
+    files = {
+        'payload_json': (None, json.dumps(payload, ensure_ascii=False)),
+        'files[0]': (filename, event.banner(current), 'image/png'),
+    }
+    url = webhook + (f'/messages/{message_id}' if message_id else '')
+    response = requests.request('PATCH' if message_id else 'POST', url,
+                                params={'wait': 'true'}, files=files, timeout=60)
+    published = api_json(response, 'Event veröffentlichen/bearbeiten')
+    new_id = str(published['id'])
+    state[event_id] = new_id
+    save_state(state)
+    print(f'{event_id}: {"bearbeitet" if message_id else "erstellt"}; ID {new_id}; Status {current}')
+
+    # Ausschließlich eindeutig zugeordnete Doppelposts desselben Webhooks entfernen.
+    for duplicate in found:
+        if duplicate == new_id:
+            continue
+        deletion = requests.delete(f'{webhook}/messages/{duplicate}', timeout=35)
+        if deletion.status_code not in (204, 404):
+            raise RuntimeError(f'Duplikat {duplicate} konnte nicht gelöscht werden: HTTP {deletion.status_code}: {deletion.text[:500]}')
+        print(f'Duplikat gelöscht: {duplicate}')
+    print('Helper-Nachrichten und andere Events bleiben unberührt.')
+
+
+if __name__ == '__main__':
     publish(load_event())
