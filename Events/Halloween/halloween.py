@@ -303,17 +303,22 @@ def detail_embeds():
 
 
 def payload(current):
-    """Großes Banner als Anhang, Quellen-Embed und Details nur während des Events."""
+    """Ein orangefarbener Embed für Banner und anklickbare Quelle.
+
+    Der verlinkte Embed-Titel steht in Discord oberhalb des Bildes.
+    Weitere Eventabschnitte erscheinen nur im aktiven Zustand.
+    """
     source = EVENT["source_url"]
     if not source.startswith("https://"):
         raise ValueError("Gültige HTTPS-Quellen-URL fehlt")
-    link = {
+    filename = f'{EVENT["id"]}_banner.png'
+    header = {
         "title": "🔗 Eventankündigung & Belohnungen ansehen",
         "url": source,
-        "description": "Patchnotes und ursprüngliche Belohnungstabellen öffnen ↗",
         "color": 0xFF7100,
+        "image": {"url": f"attachment://{filename}"},
     }
-    embeds = [link] + (detail_embeds() if current == "active" else [])
+    embeds = [header] + (detail_embeds() if current == "active" else [])
     if len(embeds) > 10:
         raise ValueError("Discord erlaubt maximal 10 Embeds")
     if sum(len(e.get("title", "")) + len(e.get("description", "")) for e in embeds) > 6000:
