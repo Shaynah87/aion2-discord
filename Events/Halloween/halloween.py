@@ -1,4 +1,15 @@
 
+    """Gibt 'upcoming', 'active' oder 'finished' zurück."""
+"""Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
+
+Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
+Die zentrale events.py kümmert sich ausschließlich um das Veröffentlichen.
+"""
+import io
+import random
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
 """Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
 
 Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
@@ -265,43 +276,53 @@ def banner(current):
 
 
 def entry_line(entry):
+    """Einheitliche, kompakte Zeilen mit klar erkennbarer Belohnung."""
     if "days" in entry:
-        return f'**Tag {entry["days"]}:** {entry["coins_per_day"]} Münzen pro Tag'
+        return f'• **Tag {entry["days"]}**  —  **{entry["coins_per_day"]} Münzen/Tag**'
     name = entry.get("name", "")
     if "task" in entry:
-        return f'**{name}:** {entry["task"]} — **{entry["coins"]}** Münzen'
+        return f'• {name}: {entry["task"]}  →  **{entry["coins"]} Münzen**'
     if "price" in entry:
-        return f'**{name}:** {entry["price"]} Münzen · {entry["limit"]}'
+        return f'• **{name}**  —  **{entry["price"]} Münzen**\n  ↳ {entry["limit"]}'
     if "fragments" in entry:
-        return f'**{name} ×{entry["quantity"]}:** {entry["fragments"]} Fragmente'
+        return f'• {name} ×{entry["quantity"]}  —  **{entry["fragments"]} Fragmente**'
     if "effects" in entry:
-        return f'**{name}** ({entry["duration"]}): ' + ", ".join(entry["effects"])
-    return f'**{name}** ×{entry.get("quantity", 1):,}'.replace(",", ".")
+        effects = " · ".join(entry["effects"])
+        return f'• **{name}** ({entry["duration"]})\n  ↳ {effects}'
+    qty = f'{entry.get("quantity", 1):,}'.replace(",", ".")
+    return f'• {name}  —  **×{qty}**'
 
 
 def detail_embeds():
+    """Neun übersichtliche Abschnitte; die Daten bleiben unverändert."""
     embeds = []
     for section in EVENT["sections"]:
         lines = []
         if section.get("description"):
-            lines.append(section["description"])
+            lines.extend((section["description"], ""))
         lines.extend(entry_line(entry) for entry in section["entries"])
         description = "\n".join(lines)
         if len(description) > 4096:
             raise ValueError(f'Eventabschnitt zu lang: {section["title"]}')
-        embeds.append({"title": section["title"], "description": description,
-                       "color": 0x9852B8})
+        embeds.append({
+            "title": section["title"],
+            "description": description,
+            "color": 0xFF7100,
+        })
     return embeds
 
 
 def payload(current):
-    # Nur Bild im ersten Embed: keine doppelte Titel-/Datumsanzeige.
-    embeds = [{"image": {"url": "attachment://halloween_banner.png"},
-               "color": 0x9852B8, "footer": {"text": f'event-id:{EVENT["id"]}'}}]
-    if current == "active":
-        embeds.extend(detail_embeds())
+    """Banner als echtes Bild statt verkleinertem Embed-Bild.
+
+    Das Event wird über den eindeutigen Dateinamen des Bildes erkannt.
+    """
+    embeds = detail_embeds() if current == "active" else []
     if len(embeds) > 10:
         raise ValueError("Discord erlaubt maximal 10 Embeds je Nachricht")
+    if sum(len(e.get("title", "")) + len(e.get("description", ""))
+           for e in embeds) > 6000:
+        raise ValueError("Discord erlaubt maximal 6000 Zeichen in allen Embeds zusammen")
     data = {"embeds": embeds, "allowed_mentions": {"parse": []}, "components": []}
     if current != "active":
         data["components"] = [{"type": 1, "components": [{
