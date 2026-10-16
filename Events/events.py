@@ -1,4 +1,14 @@
 
+    """Gibt 'upcoming', 'active' oder 'finished' zurück."""
+"""Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
+
+Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
+Die zentrale events.py kümmert sich ausschließlich um das Veröffentlichen.
+"""
+import io
+import random
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 """Nyerk24 · Events: manuell gestartete, duplikatfreie Veröffentlichung.
 
 Einmal pro GitHub-Actions-Lauf wird das Event veröffentlicht oder die
@@ -36,7 +46,7 @@ def api_get_messages(session, channel, before=None):
     return response.json()
 
 
-def find_existing(session, channel, webhook_id, marker):
+def find_existing(session, channel, webhook_id, marker, filename):
     # Niemals fremde Webhook- oder Helper-Nachrichten überschreiben.
     before = None
     for _ in range(10):
@@ -46,6 +56,10 @@ def find_existing(session, channel, webhook_id, marker):
         for msg in messages:
             if str(msg.get("webhook_id", "")) != str(webhook_id):
                 continue
+            # Neue Nachrichten: Event-ID steckt im eindeutigen Bild-Dateinamen.
+            if any(a.get("filename") == filename for a in msg.get("attachments", [])):
+                return msg["id"]
+            # Bereits veröffentlichte Nachrichten mit altem Embed wiederfinden.
             if any(e.get("footer", {}).get("text") == marker for e in msg.get("embeds", [])):
                 return msg["id"]
         before = messages[-1]["id"]
@@ -66,13 +80,13 @@ def publish(event):
     session = requests.Session()
     session.headers.update({"Authorization": f"Bot {token}"})
     marker = f'event-id:{event.EVENT["id"]}'
-    message_id = find_existing(session, channel, webhook_id, marker)
+    filename = f'{event.EVENT["id"]}_banner.png'
+    message_id = find_existing(session, channel, webhook_id, marker, filename)
 
     current = event.status()
     payload = event.payload(current)
-    filename = f'{event.EVENT["id"]}_banner.png'
-    # Discord benötigt dieselbe Dateibezeichnung in Embed und Upload.
-    payload["embeds"][0]["image"]["url"] = f"attachment://{filename}"
+    # Direktes Bild im Nachrichtenanhang: Discord zeigt es in voller Breite.
+    # Der Dateiname dient gleichzeitig als dauerhafte Event-Kennung.
     payload["attachments"] = [{"id": 0, "filename": filename}]
     files = {
         "payload_json": (None, json.dumps(payload, ensure_ascii=False)),
