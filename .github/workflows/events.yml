@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: halloween-events
@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -26,3 +28,12 @@ jobs:
           DISCORD_BOT: ${{ secrets.DISCORD_BOT }}
           EVENTS_WEBHOOK: ${{ secrets.EVENTS_WEBHOOK }}
         run: python Events/events.py
+      - name: Discord-Nachrichten-ID dauerhaft speichern
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Events/events_message.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Store Events Discord message ID [skip ci]"
+            git push
+          fi
