@@ -1,5 +1,6 @@
+
 """Discord Events: one persistent message per event, no message-ID JSON.
-Requires EVENTS_BOT_TOKEN and EVENTS_CHANNEL_ID (GitHub Actions secrets).
+Uses existing DISCORD_BOT and EVENTS_WEBHOOK GitHub Actions secrets.
 The existing Cloudflare Helper must handle custom_id 'event:details:halloween_2026'.
 """
 import io
@@ -17,8 +18,14 @@ sys.path.insert(0, str(ROOT / 'Halloween'))
 from halloween import EVENT, status
 
 API = 'https://discord.com/api/v10'
-TOKEN = os.environ['EVENTS_BOT_TOKEN']
-CHANNEL = os.environ['EVENTS_CHANNEL_ID']
+TOKEN = os.environ['DISCORD_BOT']
+WEBHOOK = os.environ['EVENTS_WEBHOOK'].rstrip('/')
+webhook_info = requests.get(WEBHOOK, timeout=20)
+if not webhook_info.ok:
+    raise RuntimeError(f'Events webhook validation failed: HTTP {webhook_info.status_code}')
+CHANNEL = webhook_info.json().get('channel_id')
+if not CHANNEL:
+    raise RuntimeError('Events webhook does not contain channel_id')
 HEADERS = {'Authorization': f'Bot {TOKEN}'}
 MARKER = f'event-id:{EVENT["id"]}'
 
@@ -94,4 +101,69 @@ def section_embeds():
         if len(description) > 4096:
             raise ValueError(f'Abschnitt zu lang: {section["title"]}')
         result.append({'title': section['title'], 'description': description, 'color': 0x7154AA})
+    return result
 
+
+def message_payload(current):
+    heading = {'upcoming': 'Beginnt demnächst', 'active': 'Jetzt aktiv', 'finished': 'Event beendet'}[current]
+    embeds = [{'title': f'🎃 {EVENT["name"]} · {heading}',
+               'description': f'**{EVENT["date_label"]}**' + ('\nAlle Eventinformationen findest du unten.' if current == 'active' else '\nKlicke auf **Details anzeigen**, um die Informationen privat zu öffnen.'),
+               'color': 0x7154AA,
+               'image': {'url': 'attachment://halloween_banner.png'},
+               'footer': {'text': MARKER}}]
+    if current == 'active':
+        embeds.extend(section_embeds())
+    if len(embeds) > 10:
+        raise ValueError('Discord erlaubt maximal 10 Embeds pro Nachricht')
+    payload = {'embeds': embeds, 'allowed_mentions': {'parse': []}}
+    if current != 'active':
+        payload['components'] = [{'type': 1, 'components': [{
+            'type': 2, 'style': 2, 'label': 'Details anzeigen',
+            'custom_id': f'event:details:{EVENT["id"]}'
+        }]}]
+    else:
+        payload['components'] = []
+    return payload
+
+
+def request(method, path, **kwargs):
+    response = requests.request(method, API + path, headers=HEADERS, timeout=35, **kwargs)
+    if not response.ok:
+        raise RuntimeError(f'Discord API {response.status_code}: {response.text[:1000]}')
+    return response.json() if response.content else None
+
+
+def find_existing():
+    before = None
+    for _ in range(10):  # Search up to 1000 recent messages
+        params = {'limit': 100}
+        if before:
+            params['before'] = before
+        messages = request('GET', f'/channels/{CHANNEL}/messages', params=params)
+        if not messages:
+            break
+        for msg in messages:
+            if any(embed.get('footer', {}).get('text') == MARKER for embed in msg.get('embeds', [])):
+                return msg['id']
+        before = messages[-1]['id']
+    return None
+
+
+def publish():
+    current = status()
+    payload = message_payload(current)
+    existing = find_existing()
+    # On editing, retain only the newly uploaded banner attachment.
+    payload['attachments'] = [{'id': 0, 'filename': 'halloween_banner.png'}]
+    multipart = {'payload_json': (None, json.dumps(payload, ensure_ascii=False)),
+                 'files[0]': ('halloween_banner.png', banner(current), 'image/png')}
+    if existing:
+        result = request('PATCH', f'/channels/{CHANNEL}/messages/{existing}', files=multipart)
+        print(f'Updated Halloween message {result["id"]}: {current}')
+    else:
+        result = request('POST', f'/channels/{CHANNEL}/messages', files=multipart)
+        print(f'Created Halloween message {result["id"]}: {current}')
+
+
+if __name__ == '__main__':
+    publish()
