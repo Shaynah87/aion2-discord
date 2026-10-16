@@ -1,5 +1,4 @@
 
-    """Gibt 'upcoming', 'active' oder 'finished' zurück."""
 """Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
 
 Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
