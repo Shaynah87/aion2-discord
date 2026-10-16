@@ -1,8 +1,4 @@
 
-def payload(current):
-def payload(current):
-"""Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
-
 """Halloween 2026: feste Daten, Bannerdesign und Discord-Darstellung.
 
 Änderungen am Event erfolgen hier; keine automatische Inhaltsbeschaffung.
