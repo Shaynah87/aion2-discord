@@ -1131,6 +1131,11 @@ def create_reset_card(daily_reset, weekly_reset):
             ),
             time_font,
             (248, 250, 255, 255)
+        ),
+        (
+            'Serverwartung: 08:30 Uhr · ca. 4 Stunden',
+            label_font,
+            (64, 145, 255, 255)
         )
     ]
 
@@ -1138,7 +1143,7 @@ def create_reset_card(daily_reset, weekly_reset):
         draw,
         lines,
         height,
-        gaps=[22, 8, 22, 8]
+        gaps=[22, 8, 22, 8, 8]
     )
 
     image.convert('RGB').save(
