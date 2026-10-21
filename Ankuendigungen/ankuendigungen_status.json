@@ -88,7 +88,8 @@
     "6ad01832a7ca1a15cf46c0b6",
     "6ad1af5028c7452635072be8",
     "6ad2f2c007b77e214688a7e7",
-    "6ad7900028c7452635072c05"
+    "6ad7900028c7452635072c05",
+    "6ad80e90577e8c01355e00ab"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -180,6 +181,12 @@
       "hash": "2c627686c8415846471215dfe16ca9511432748a905a540d13c93ce48207d7be",
       "missing_checks": 0,
       "title": "[Mitteilung] Wartungsarbeiten | 20. Oktober (PDT) / 21. Oktober (CEST)"
+    },
+    "6ad80e90577e8c01355e00ab": {
+      "discord_message_id": "1562273125821841570",
+      "hash": "e330eb15b4b73ed9e300ce14d2ebb805a6a8c87cdf1103eec1d2563aa892f9de",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 20 Oktober (PDT) / 21 Oktober (CEST)"
     }
   }
 }
