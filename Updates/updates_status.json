@@ -1,7 +1,8 @@
 {
   "posted_article_ids": [
     "6ac5e6e8fa34c1011d627b37",
-    "6acf20d007b77e214688a7af"
+    "6acf20d007b77e214688a7af",
+    "6ad85be86cfe4756db5b8e94"
   ],
   "managed": {
     "6ac5e6e8fa34c1011d627b37": {
@@ -15,6 +16,12 @@
       "hash": "a40773e5ae81892041724ff5bcdb7ccefce0eb4bccfeef21b46b45fbcd2054fb",
       "missing_checks": 0,
       "title": "[Mitteilung] Patch-Notizen | 13. Okt (PDT) / 14. Okt (CEST)"
+    },
+    "6ad85be86cfe4756db5b8e94": {
+      "discord_message_id": "1562352394766000156",
+      "hash": "e8fe7bab0d71443d4c013baf0de94ca2347369b2646b4d3d3c112f4c8a895f77",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Patch-Notizen | 20 Oktober (PDT) / 21 Oktober (CEST)"
     }
   }
 }
