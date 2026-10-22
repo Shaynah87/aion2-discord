@@ -236,20 +236,20 @@ def banner(current):
         base.alpha_composite(fill_layer)
 
         if not subtitle:
-            # Dezente Haarrisse in den Buchstaben, ohne die Lesbarkeit zu stören.
-            # Bewusst kurze, dünne Linien statt tiefer schwarzer Einschnitte.
+            # Schwarze, unregelmäßige Brandadern, ausschließlich in den Glyphen.
             rng = random.Random(seed)
             crack_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             cracks = ImageDraw.Draw(crack_layer)
-            for _ in range(52):
+            for _ in range(35):
                 cx = rng.randint(bbox[0], bbox[2] - 1)
                 cy = rng.randint(bbox[1], bbox[3] - 1)
+                length = rng.randint(7, 24)
                 points = [(cx, cy)]
-                for _segment in range(rng.randint(2, 3)):
-                    cx += rng.randint(-5, 5)
-                    cy += rng.randint(3, 6)
+                for step in range(3):
+                    cx += rng.randint(-7, 7)
+                    cy += max(1, length // 3) + rng.randint(-2, 2)
                     points.append((cx, cy))
-                cracks.line(points, fill=(63, 17, 7, rng.randint(105, 155)), width=1)
+                cracks.line(points, fill=(22, 5, 3, rng.randint(145, 215)), width=rng.choice((1, 2, 2, 3)))
             crack_alpha = Image.composite(crack_layer.getchannel("A"),
                                           Image.new("L", (width, height), 0), mask)
             crack_layer.putalpha(crack_alpha)
