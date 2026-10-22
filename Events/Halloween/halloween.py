@@ -236,29 +236,20 @@ def banner(current):
         base.alpha_composite(fill_layer)
 
         if not subtitle:
-            # Deutliche, verzweigte dunkle Brandrisse, nur INNERHALB der Schrift.
-            # Die feste Zufallsquelle hält das Banner bei jedem Workflow identisch.
+            # Dezente Haarrisse in den Buchstaben, ohne die Lesbarkeit zu stören.
+            # Bewusst kurze, dünne Linien statt tiefer schwarzer Einschnitte.
             rng = random.Random(seed)
             crack_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
             cracks = ImageDraw.Draw(crack_layer)
-            for _ in range(115):
+            for _ in range(52):
                 cx = rng.randint(bbox[0], bbox[2] - 1)
                 cy = rng.randint(bbox[1], bbox[3] - 1)
                 points = [(cx, cy)]
-                segments = rng.randint(3, 6)
-                for step in range(segments):
-                    cx += rng.randint(-11, 11)
-                    cy += rng.randint(3, 11)
+                for _segment in range(rng.randint(2, 3)):
+                    cx += rng.randint(-5, 5)
+                    cy += rng.randint(3, 6)
                     points.append((cx, cy))
-                cracks.line(points, fill=(17, 3, 2, rng.randint(195, 245)),
-                            width=rng.choice((2, 3, 3, 4)))
-                # Kleine seitliche Verästelungen machen die Risse organischer.
-                if rng.random() < 0.60:
-                    branch = rng.choice(points[1:-1])
-                    bx, by = branch
-                    cracks.line([branch, (bx + rng.choice((-1, 1)) * rng.randint(7, 19),
-                                          by + rng.randint(4, 15))],
-                                fill=(20, 4, 2, rng.randint(175, 230)), width=2)
+                cracks.line(points, fill=(63, 17, 7, rng.randint(105, 155)), width=1)
             crack_alpha = Image.composite(crack_layer.getchannel("A"),
                                           Image.new("L", (width, height), 0), mask)
             crack_layer.putalpha(crack_alpha)
