@@ -91,7 +91,8 @@
     "6ad7900028c7452635072c05",
     "6ad80e90577e8c01355e00ab",
     "6acf216828c7452635072ccb",
-    "6abe63c46cfe4756db5b8f13"
+    "6abe63c46cfe4756db5b8f13",
+    "6adbaeb06cfe4756db5b8f1a"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -201,6 +202,12 @@
       "hash": "0b30140b1b6b11e51c034da0472d4c2c93cad75abe52861ecce794dda7d683bf",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 23 Oktober (PDT) / 24 Oktober (CEST)"
+    },
+    "6adbaeb06cfe4756db5b8f1a": {
+      "discord_message_id": "1563364098052194417",
+      "hash": "05eaf25f0ba816a4095888edcc52bfcad011c07ff885a795d9c12bb8d99df725",
+      "missing_checks": 0,
+      "title": "Ludra Awakens on November 4th"
     }
   }
 }
