@@ -90,7 +90,8 @@
     "6ad2f2c007b77e214688a7e7",
     "6ad7900028c7452635072c05",
     "6ad80e90577e8c01355e00ab",
-    "6acf216828c7452635072ccb"
+    "6acf216828c7452635072ccb",
+    "6abe63c46cfe4756db5b8f13"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -194,6 +195,12 @@
       "hash": "ba5ec97b6ef9b323734a00480f4ea61c62b16cde13ea8a501c6fabb491a08bcb",
       "missing_checks": 0,
       "title": "[Mitteilung] Temporäre Wartung (EU) | 24 Oktober (PDT) / 25 Oktober (CEST)"
+    },
+    "6abe63c46cfe4756db5b8f13": {
+      "discord_message_id": "1563345184207671337",
+      "hash": "0b30140b1b6b11e51c034da0472d4c2c93cad75abe52861ecce794dda7d683bf",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 23 Oktober (PDT) / 24 Oktober (CEST)"
     }
   }
 }
