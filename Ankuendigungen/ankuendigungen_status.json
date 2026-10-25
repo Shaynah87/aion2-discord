@@ -92,7 +92,8 @@
     "6ad80e90577e8c01355e00ab",
     "6acf216828c7452635072ccb",
     "6abe63c46cfe4756db5b8f13",
-    "6adbaeb06cfe4756db5b8f1a"
+    "6adbaeb06cfe4756db5b8f1a",
+    "6added73ab04307987fe3235"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -208,6 +209,12 @@
       "hash": "05eaf25f0ba816a4095888edcc52bfcad011c07ff885a795d9c12bb8d99df725",
       "missing_checks": 0,
       "title": "Ludra Awakens on November 4th"
+    },
+    "6added73ab04307987fe3235": {
+      "discord_message_id": "1563885078650683423",
+      "hash": "31c400a9dbb2ee8c8c4c071a2caee26668b342f79a2065a27e793755cb778982",
+      "missing_checks": 0,
+      "title": "Daily Reset Issue (DE) "
     }
   }
 }
