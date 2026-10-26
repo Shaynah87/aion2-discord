@@ -239,60 +239,34 @@ def next_weekly_reset(reset_data, timezone):
 # ============================================================
 
 def build_rift_times(rift_data, timezone):
+    # EU-Riftzeiten bleiben auch nach der Zeitumstellung bei
+    # 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00 Uhr.
+    # Daher die Startzeiten in lokaler Serverzeit statt UTC berechnen.
     now = datetime.now(timezone)
-    utc = ZoneInfo('UTC')
-    now_utc = now.astimezone(utc)
+    interval = timedelta(hours=rift_data['interval_hours'])
+    duration = timedelta(minutes=rift_data['duration_minutes'])
 
-    hour, minute = map(
-        int,
-        rift_data['first_start_utc'].split(':')
-    )
+    starts = []
+    for day_offset in range(-1, 3):
+        day = (now + timedelta(days=day_offset)).date()
+        for hour in range(2, 24, rift_data['interval_hours']):
+            starts.append(datetime(
+                day.year, day.month, day.day, hour, 0,
+                tzinfo=timezone
+            ))
 
-    first_start_utc = now_utc.replace(
-        hour=hour,
-        minute=minute,
-        second=0,
-        microsecond=0
-    )
-
-    interval = timedelta(
-        hours=rift_data['interval_hours']
-    )
-
-    duration = timedelta(
-        minutes=rift_data['duration_minutes']
-    )
-
-    starts_utc = []
-    start_utc = first_start_utc - timedelta(days=1)
-    end_limit_utc = first_start_utc + timedelta(days=2)
-
-    while start_utc <= end_limit_utc:
-        starts_utc.append(start_utc)
-        start_utc += interval
-
-    starts = [
-        start_time.astimezone(timezone)
-        for start_time in starts_utc
-    ]
-
+    starts.sort()
     active_start = None
     active_end = None
 
     for start_time in starts:
         end_time = start_time + duration
-
         if start_time <= now < end_time:
             active_start = start_time
             active_end = end_time
             break
 
-    future_starts = sorted(
-        start_time
-        for start_time in starts
-        if start_time > now
-    )
-
+    future_starts = [start_time for start_time in starts if start_time > now]
     return {
         'active_start': active_start,
         'active_end': active_end,
