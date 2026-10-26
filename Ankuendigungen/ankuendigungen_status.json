@@ -93,7 +93,8 @@
     "6acf216828c7452635072ccb",
     "6abe63c46cfe4756db5b8f13",
     "6adbaeb06cfe4756db5b8f1a",
-    "6added73ab04307987fe3235"
+    "6added73ab04307987fe3235",
+    "6adfa9b39ed1202b9b8fbadc"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -215,6 +216,12 @@
       "hash": "89a05c7080bb19e6229123cfb7ac364378a6e1e7c0a16e707696bd0e41d348e1",
       "missing_checks": 0,
       "title": "[Mitteilung] Problem mit dem Daily Reset (25. Okt) "
+    },
+    "6adfa9b39ed1202b9b8fbadc": {
+      "discord_message_id": "1564360685280956500",
+      "hash": "7aead403a14c267c0b7b436982952543776b37af015bd43f227295d52732af52",
+      "missing_checks": 0,
+      "title": " [Mitteilung] Servertransfer vorübergehend ausgesetzt"
     }
   }
 }
