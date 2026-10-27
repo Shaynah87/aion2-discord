@@ -94,7 +94,8 @@
     "6abe63c46cfe4756db5b8f13",
     "6adbaeb06cfe4756db5b8f1a",
     "6added73ab04307987fe3235",
-    "6adfa9b39ed1202b9b8fbadc"
+    "6adfa9b39ed1202b9b8fbadc",
+    "6ae0ae606cfe4756db5b8f5c"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -222,6 +223,12 @@
       "hash": "6d9b5ccb79e10c52f0fab81e7f1810fa8a3ac48e7d47f6e719a5cc324ca77b19",
       "missing_checks": 0,
       "title": " [Mitteilung] Aktuelles zu Serverumzügen"
+    },
+    "6ae0ae606cfe4756db5b8f5c": {
+      "discord_message_id": "1564594750449778811",
+      "hash": "d7cd661a04e177c4c2312aca42a3af3f2a431b5c68f8ba6ffbbc29f8c3d13bc1",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Wartungsarbeiten | 27. Oktober (PDT) / 28. Oktober (CET)"
     }
   }
 }
