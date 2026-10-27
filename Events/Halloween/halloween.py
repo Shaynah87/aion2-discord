@@ -21,7 +21,7 @@ EVENT = {
     "date_label": "14.10. – 04.11.2026",
     "image": "Events/Halloween/halloween.png",
     "currency": "Halloween-Kürbismünze (Event)",
-    "source_url": "https://patchbot.io/games/aion-2/articles/1777-notice-patch-notes-oct-13-pdt-oct-14-cest",
+    "source_url": "https://aion2.plaync.com/de-de/eventon/board/event_notice/view?articleId=6acf216807b77e214688a773",
     "sections": [
         {
             "title": "🎃 Süßes oder Saures – Anwesenheit",
