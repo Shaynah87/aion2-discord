@@ -98,7 +98,8 @@
     "6ae0ae606cfe4756db5b8f5c",
     "6acf216828c7452635072da2",
     "6acf2168577e8c01355e01d3",
-    "6abe63c428c7452635072cd4"
+    "6abe63c428c7452635072cd4",
+    "6ae057f9ab04307987fe326d"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -250,6 +251,12 @@
       "hash": "9139d76df6a2464a20e0be8b8ecfdc1371a45462da3b6f912c7a5a0364480325",
       "missing_checks": 0,
       "title": "[Benachrichtigung] Info zu neuen Skin-Gegenständen am 28. Okt."
+    },
+    "6ae057f9ab04307987fe326d": {
+      "discord_message_id": "1565002479895187520",
+      "hash": "6b15482ddad62867f1fed1f182554cadd79f02784a762df82e89185a08d7254c",
+      "missing_checks": 0,
+      "title": "Globale Halloween Twitch-Drops: 28. Oktober – 3. November (PDT)"
     }
   }
 }
