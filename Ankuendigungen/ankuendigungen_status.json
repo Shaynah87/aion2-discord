@@ -97,7 +97,8 @@
     "6adfa9b39ed1202b9b8fbadc",
     "6ae0ae606cfe4756db5b8f5c",
     "6acf216828c7452635072da2",
-    "6acf2168577e8c01355e01d3"
+    "6acf2168577e8c01355e01d3",
+    "6abe63c428c7452635072cd4"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -243,6 +244,12 @@
       "hash": "c22990be25791758e5ae7e643bf4ad4a35e5c07232c47349fe470a3937bcb798",
       "missing_checks": 0,
       "title": "[Hinweis] Server-Matchmaking | 28. Oktober"
+    },
+    "6abe63c428c7452635072cd4": {
+      "discord_message_id": "1564911853467865089",
+      "hash": "19722a35493e890bf0f891ea5d5c2308caf125ab2669cf3b716cafe1d29e9a47",
+      "missing_checks": 0,
+      "title": "[Benachrichtigung] Info zu neuen Skin-Gegenständen am 28. Okt."
     }
   }
 }
