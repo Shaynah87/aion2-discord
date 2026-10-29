@@ -99,7 +99,8 @@
     "6acf216828c7452635072da2",
     "6acf2168577e8c01355e01d3",
     "6abe63c428c7452635072cd4",
-    "6ae057f9ab04307987fe326d"
+    "6ae057f9ab04307987fe326d",
+    "6ae2b7befa7da41c727d6a4e"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -257,6 +258,12 @@
       "hash": "6b15482ddad62867f1fed1f182554cadd79f02784a762df82e89185a08d7254c",
       "missing_checks": 0,
       "title": "Globale Halloween Twitch-Drops: 28. Oktober – 3. November (PDT)"
+    },
+    "6ae2b7befa7da41c727d6a4e": {
+      "discord_message_id": "1565202436380168205",
+      "hash": "4ff76598f448debe0805f72e472e1243e8b24f038158fe3712021817b890839f",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 28 Oktober (PDT) / 29 Oktober (CET)"
     }
   }
 }
