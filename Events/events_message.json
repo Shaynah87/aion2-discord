@@ -15,6 +15,7 @@
     "webhook_message_id": "1565642780611575818"
   },
   "anwesenheitslisten": {
-    "webhook_message_id": "1565642784034005072"
+    "webhook_message_id": "1565642784034005072",
+    "helper_message_id": "1565688841866838028"
   }
 }
