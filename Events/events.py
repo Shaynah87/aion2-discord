@@ -1,9 +1,11 @@
 
-"""Nyerk24 – Kategorie-Banner, Eventkarten und EIN Helper-Menü.
+"""Nyerk24 Events – Kategorie-Banner und kompakte Eventkarten.
 
-Halloween-Nachricht bleibt unverändert.
-Alte Posts werden nicht gelöscht.
-Neue Posts werden anhand der State-IDs wiederverwendet.
+Halloween bleibt unverändert.
+Kategorie-Banner bleiben erhalten.
+Eventkarten: exakt 1200 × 65 Pixel.
+Unveränderte Nachrichten werden nicht bearbeitet.
+Vorhandene Nachrichten-IDs werden wiederverwendet.
 """
 
 import hashlib
@@ -16,7 +18,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
@@ -62,19 +64,30 @@ def load(path, name):
         name, ROOT / path
     )
     if not spec or not spec.loader:
-        raise RuntimeError(f"Modul nicht gefunden: {path}")
+        raise RuntimeError(
+            f"Modul nicht gefunden: {path}"
+        )
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def face(size):
-    for path in (
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ):
-        if Path(path).exists():
+def face(size, bold=True):
+    candidates = (
+        [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        ]
+        if bold
+        else [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        ]
+    )
+
+    for path in candidates:
+        if Path(path).is_file():
             return ImageFont.truetype(path, size)
 
     raise RuntimeError("DejaVuSans fehlt")
@@ -83,7 +96,9 @@ def face(size):
 def png(image):
     output = io.BytesIO()
     image.convert("RGB").save(
-        output, format="PNG", optimize=True
+        output,
+        format="PNG",
+        optimize=True,
     )
     return output.getvalue()
 
@@ -98,6 +113,7 @@ def category_banner(path, title):
         image = source.convert("RGB")
 
     draw = ImageDraw.Draw(image)
+
     draw.text(
         (600, 32),
         title,
@@ -107,6 +123,7 @@ def category_banner(path, title):
         stroke_width=2,
         stroke_fill="#171c29",
     )
+
     return png(image)
 
 
@@ -115,27 +132,33 @@ def event_template():
 
     if not path.exists():
         raise FileNotFoundError(
-            f"Vorlage fehlt: {path} – bitte Pfad prüfen"
+            f"Vorlage fehlt: {path}"
         )
 
     with Image.open(path) as source:
-        image = source.convert("RGB")
+        original = source.convert("RGB")
 
-    height = round(image.height * 1200 / image.width)
-
-    return image.resize(
-        (1200, height),
-        Image.Resampling.LANCZOS,
+    # Feste Bannergröße, ohne das Motiv zu verzerren.
+    return ImageOps.fit(
+        original,
+        (1200, 65),
+        method=Image.Resampling.LANCZOS,
+        centering=(0.5, 0.5),
     )
 
 
 def event_card(template, event):
     image = template.copy()
-    name = event["name"]
-    date_label = event.get("date_label") or ""
+    draw = ImageDraw.Draw(image)
+
+    name = str(event["name"])
+    date_label = str(
+        event.get("date_label") or ""
+    )
 
     start = date.fromisoformat(event["start"])
     end = date.fromisoformat(event["end"])
+
     today = datetime.now(
         ZoneInfo("Europe/Berlin")
     ).date()
@@ -147,48 +170,54 @@ def event_card(template, event):
     else:
         status = "Beendet"
 
-    height = image.height
+    # Links: Name und Zeitraum
+    # Rechts: Status
+    # Die Mitte bleibt ruhig und übersichtlich.
 
-    if height < 115:
-        expanded = Image.new(
-            "RGB", (1200, 115), "#202936"
-        )
-        expanded.paste(image, (0, 0))
-        image = expanded
-        height = 115
+    title_font = face(23)
 
-    draw = ImageDraw.Draw(image)
-    title_size = 36 if len(name) < 28 else 29
+    while (
+        draw.textbbox(
+            (0, 0), name, font=title_font
+        )[2] > 870
+        and title_font.size > 15
+    ):
+        title_font = face(title_font.size - 1)
 
     draw.text(
-        (45, height * 0.35),
+        (28, 22),
         name,
-        font=face(title_size),
-        fill="white",
-        anchor="lm",
-        stroke_width=2,
-        stroke_fill="#101621",
-    )
-
-    draw.text(
-        (45, height * 0.77),
-        date_label,
-        font=face(23),
-        fill="#e3e9f0",
+        font=title_font,
+        fill="#FFFFFF",
         anchor="lm",
         stroke_width=1,
-        stroke_fill="#101621",
+        stroke_fill="#10151e",
     )
 
     draw.text(
-        (1155, height * 0.5),
-        status,
-        font=face(25),
-        fill="#eaf3ff",
-        anchor="rm",
-        stroke_width=2,
-        stroke_fill="#101621",
+        (28, 49),
+        date_label,
+        font=face(15, bold=False),
+        fill="#DCE5F0",
+        anchor="lm",
+        stroke_width=1,
+        stroke_fill="#10151e",
     )
+
+    draw.text(
+        (1172, 32),
+        status,
+        font=face(20),
+        fill="#FFFFFF",
+        anchor="rm",
+        stroke_width=1,
+        stroke_fill="#10151e",
+    )
+
+    if image.size != (1200, 65):
+        raise RuntimeError(
+            "Eventkarte hat eine falsche Größe"
+        )
 
     return png(image)
 
@@ -199,6 +228,7 @@ def hash_payload(data):
 
 def save(state):
     temporary = STATE.with_suffix(".tmp")
+
     temporary.write_text(
         json.dumps(
             state,
@@ -207,13 +237,24 @@ def save(state):
         ) + "\n",
         encoding="utf-8",
     )
+
     temporary.replace(STATE)
 
 
 def main():
+    if not STATE.exists():
+        raise RuntimeError(
+            "events_message.json fehlt"
+        )
+
     state = json.loads(
         STATE.read_text(encoding="utf-8")
     )
+
+    if not isinstance(state, dict):
+        raise ValueError(
+            "events_message.json muss ein Objekt sein"
+        )
 
     webhook = (
         os.environ["EVENTS_WEBHOOK"]
@@ -223,12 +264,16 @@ def main():
     )
 
     bot = requests.Session()
+
     bot.headers["Authorization"] = (
         "Bot " + os.environ["DISCORD_BOT"].strip()
     )
 
     info = check(
-        requests.get(webhook, timeout=TIMEOUT),
+        requests.get(
+            webhook,
+            timeout=TIMEOUT,
+        ),
         "Webhook",
     )
 
@@ -236,14 +281,15 @@ def main():
     webhook_id = str(info["id"])
 
     halloween_id = str(
-        state.get("halloween_2026", {}).get(
-            "webhook_message_id"
-        ) or ""
+        state.get(
+            "halloween_2026", {}
+        ).get("webhook_message_id") or ""
     )
 
     if not halloween_id:
         raise RuntimeError(
-            "Halloween-ID fehlt. Abbruch ohne Änderungen."
+            "Halloween-ID fehlt. "
+            "Abbruch ohne Änderungen."
         )
 
     existing_halloween = check(
@@ -255,8 +301,9 @@ def main():
     )
 
     if (
-        str(existing_halloween.get("webhook_id") or "")
-        != webhook_id
+        str(
+            existing_halloween.get("webhook_id") or ""
+        ) != webhook_id
     ):
         raise RuntimeError(
             "Halloween gehört nicht zu diesem Webhook"
@@ -270,11 +317,14 @@ def main():
 
         if response.status_code == 404:
             raise RuntimeError(
-                f"Gespeicherter Post {message_id} fehlt; "
-                "kein automatischer Doppelpost"
+                f"Gespeicherter Beitrag {message_id} fehlt. "
+                "Kein automatischer Doppelpost."
             )
 
-        message = check(response, "Nachricht prüfen")
+        message = check(
+            response,
+            "Nachricht prüfen",
+        )
 
         if expected == "webhook":
             if (
@@ -288,7 +338,8 @@ def main():
         if expected == "bot":
             if message.get("webhook_id"):
                 raise RuntimeError(
-                    f"Helper {message_id} ist eine Webhook-Nachricht"
+                    f"Helper {message_id} "
+                    "ist eine Webhook-Nachricht"
                 )
 
         return message
@@ -302,6 +353,7 @@ def main():
         message_id = str(
             record.get("message_id") or ""
         )
+
         digest = hash_payload(data)
 
         if message_id:
@@ -314,9 +366,14 @@ def main():
         payload = {
             "content": "",
             "embeds": [],
-            "allowed_mentions": {"parse": []},
+            "allowed_mentions": {
+                "parse": []
+            },
             "attachments": [
-                {"id": 0, "filename": filename}
+                {
+                    "id": 0,
+                    "filename": filename,
+                }
             ],
         }
 
@@ -341,7 +398,9 @@ def main():
         else:
             response = requests.post(
                 webhook,
-                params={"wait": "true"},
+                params={
+                    "wait": "true"
+                },
                 files=files,
                 timeout=90,
             )
@@ -355,12 +414,12 @@ def main():
             message_id=str(message["id"]),
             hash=digest,
         )
+
         save(state)
 
         print("OK:", key)
 
-    # Halloween wird NICHT aktualisiert
-    # und NICHT neu veröffentlicht.
+    # Halloween bleibt vollständig unverändert.
 
     attendance = load(
         "Anwesenheit/anwesenheit.py",
@@ -376,8 +435,6 @@ def main():
         "twitch_drops": (),
     }
 
-    # Zuerst alle Kategorie-Banner
-    # mit den jeweiligen Eventkarten.
     for key, title, path in CATEGORIES:
         webhook_post(
             "category:" + key,
@@ -392,10 +449,7 @@ def main():
                 event_card(template, event),
             )
 
-    # Ganz unten EIN Helper-Beitrag.
-    # Öffentlich wird nur die Kategorie gewählt.
-    # Eventauswahl und Details folgen privat.
-
+    # Ein einziger Helper am Ende der Übersicht.
     options = [
         {
             "label": "Halloween",
@@ -429,10 +483,12 @@ def main():
         "content": (
             "🔎 **Eventdetails**\n"
             "Überschrift wählen → "
-            "Event wählen → Details sehen"
+            "Event wählen → Details erscheinen sofort"
         ),
         "components": components,
-        "allowed_mentions": {"parse": []},
+        "allowed_mentions": {
+            "parse": []
+        },
     }
 
     record = (
@@ -471,7 +527,10 @@ def main():
             timeout=TIMEOUT,
         )
 
-    message = check(response, "Helper")
+    message = check(
+        response,
+        "Helper",
+    )
 
     record.update(
         message_id=str(message["id"]),
@@ -479,6 +538,7 @@ def main():
     )
 
     save(state)
+
     print("Helper OK")
 
 
