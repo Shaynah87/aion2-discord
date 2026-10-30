@@ -63,5 +63,9 @@
   "overview_v5": {
     "message_id": "1565725296496484503",
     "hash": "ead91a9e88254c9ed9475d92cf71da10dbcc5fe545bd434a4667fbe0b75cc34e"
+  },
+  "overview_v6": {
+    "message_id": "1565728248959336633",
+    "hash": "f1628ea41984339c0d784aa58a8df392e4d40a9f2ecd2ab7c8d908e1d995c144"
   }
 }
