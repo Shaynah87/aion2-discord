@@ -1,11 +1,14 @@
 
-"""Nyerk24 Events – Kategorie-Banner und kompakte Eventkarten.
+"""
+Nyerk24 · Events
 
-Halloween bleibt unverändert.
-Kategorie-Banner bleiben erhalten.
-Eventkarten: exakt 1200 × 65 Pixel.
-Unveränderte Nachrichten werden nicht bearbeitet.
-Vorhandene Nachrichten-IDs werden wiederverwendet.
+- Halloween bleibt vollständig unverändert
+- Bestehende Kategorie-Banner bleiben erhalten
+- Eventkarten sind exakt 1200 x 65 Pixel
+- Ein Helper-Beitrag mit Kategorieauswahl
+- Unveränderte Nachrichten werden nicht bearbeitet
+- Discord Rate Limits (HTTP 429) werden automatisch behandelt
+- Nachrichten-IDs werden nach jeder Änderung gespeichert
 """
 
 import hashlib
@@ -13,6 +16,9 @@ import importlib.util
 import io
 import json
 import os
+import random
+import time
+
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -20,11 +26,16 @@ from zoneinfo import ZoneInfo
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parent
 STATE = ROOT / "events_message.json"
+
 API = "https://discord.com/api/v10"
 TIMEOUT = 45
+
+MAX_RETRIES = 12
+MAX_RATE_LIMIT_WAIT = 120
 
 CATEGORIES = (
     (
@@ -50,19 +61,179 @@ CATEGORIES = (
 )
 
 
+# --------------------------------------------------
+# DISCORD HTTP / RATE LIMITS
+# --------------------------------------------------
+
+def discord_request(method, url, **kwargs):
+    """
+    Führt eine Discord-Anfrage aus.
+
+    Bei HTTP 429 wird retry_after ausgewertet.
+    Die Anfrage wird anschließend automatisch wiederholt.
+
+    Auch vorübergehende Serverfehler werden behandelt.
+    """
+
+    session = kwargs.pop("session", None)
+
+    if session is None:
+        session = requests
+
+    kwargs.setdefault("timeout", TIMEOUT)
+
+    for attempt in range(1, MAX_RETRIES + 1):
+
+        try:
+            response = session.request(
+                method,
+                url,
+                **kwargs,
+            )
+
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ) as error:
+
+            # Bei POST könnte Discord die Nachricht bereits
+            # erstellt haben. Deshalb keinen automatischen
+            # zweiten POST ausführen.
+            if method.upper() == "POST":
+                raise RuntimeError(
+                    "POST-Verbindung unterbrochen. "
+                    "Discord könnte die Nachricht bereits "
+                    "erstellt haben. Bitte den Kanal prüfen, "
+                    "bevor der Workflow erneut gestartet wird."
+                ) from error
+
+            if attempt == MAX_RETRIES:
+                raise
+
+            delay = min(
+                2 ** (attempt - 1),
+                15,
+            )
+
+            print(
+                f"Verbindungsproblem: "
+                f"Versuch {attempt}/{MAX_RETRIES}, "
+                f"warte {delay}s"
+            )
+
+            time.sleep(delay)
+            continue
+
+        if response.status_code == 429:
+
+            try:
+                body = response.json()
+            except ValueError:
+                body = {}
+
+            retry_after = body.get("retry_after")
+
+            if retry_after is None:
+                retry_after = response.headers.get(
+                    "Retry-After",
+                    1,
+                )
+
+            try:
+                delay = float(retry_after)
+            except (TypeError, ValueError):
+                delay = 1.0
+
+            delay = max(0.5, delay + 0.25)
+
+            if delay > MAX_RATE_LIMIT_WAIT:
+                raise RuntimeError(
+                    "Discord verlangt eine Wartezeit von "
+                    f"{delay:.1f}s. Abbruch ohne "
+                    "automatische Neuanlage."
+                )
+
+            if attempt == MAX_RETRIES:
+                raise RuntimeError(
+                    "Discord Rate Limit nach "
+                    f"{MAX_RETRIES} Versuchen: "
+                    f"{response.text[:500]}"
+                )
+
+            print(
+                f"Discord Rate Limit (429): "
+                f"warte {delay:.2f}s, "
+                f"Versuch {attempt}/{MAX_RETRIES}"
+            )
+
+            time.sleep(delay)
+            continue
+
+        if response.status_code in (
+            500,
+            502,
+            503,
+            504,
+        ):
+
+            # Auch hier kann ein POST bereits angekommen
+            # sein. Keine automatische Doppelveröffentlichung.
+            if method.upper() == "POST":
+                raise RuntimeError(
+                    "Discord-Serverfehler beim Erstellen "
+                    "einer Nachricht. Bitte zuerst "
+                    "den Discord-Kanal prüfen: "
+                    f"HTTP {response.status_code}"
+                )
+
+            if attempt == MAX_RETRIES:
+                return response
+
+            delay = min(
+                2 ** (attempt - 1),
+                15,
+            ) + random.uniform(0, 0.5)
+
+            print(
+                f"Discord HTTP {response.status_code}: "
+                f"warte {delay:.2f}s"
+            )
+
+            time.sleep(delay)
+            continue
+
+        return response
+
+    raise RuntimeError(
+        "Discord-Anfrage konnte nicht "
+        "abgeschlossen werden."
+    )
+
+
 def check(response, name):
     if not response.ok:
         raise RuntimeError(
             f"{name}: HTTP {response.status_code}: "
             f"{response.text[:1000]}"
         )
-    return response.json() if response.content else {}
 
+    return (
+        response.json()
+        if response.content
+        else {}
+    )
+
+
+# --------------------------------------------------
+# DATEIEN / MODULE
+# --------------------------------------------------
 
 def load(path, name):
     spec = importlib.util.spec_from_file_location(
-        name, ROOT / path
+        name,
+        ROOT / path,
     )
+
     if not spec or not spec.loader:
         raise RuntimeError(
             f"Modul nicht gefunden: {path}"
@@ -70,10 +241,12 @@ def load(path, name):
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+
     return module
 
 
 def face(size, bold=True):
+
     candidates = (
         [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -88,28 +261,61 @@ def face(size, bold=True):
 
     for path in candidates:
         if Path(path).is_file():
-            return ImageFont.truetype(path, size)
+            return ImageFont.truetype(
+                path,
+                size,
+            )
 
-    raise RuntimeError("DejaVuSans fehlt")
+    raise RuntimeError(
+        "DejaVuSans-Schriftart fehlt"
+    )
 
 
 def png(image):
     output = io.BytesIO()
+
     image.convert("RGB").save(
         output,
         format="PNG",
         optimize=True,
     )
+
     return output.getvalue()
 
 
+def hash_payload(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def save(state):
+    temporary = STATE.with_suffix(".tmp")
+
+    temporary.write_text(
+        json.dumps(
+            state,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    temporary.replace(STATE)
+
+
+# --------------------------------------------------
+# KATEGORIE-BANNER
+# --------------------------------------------------
+
 def category_banner(path, title):
+
     with Image.open(ROOT / path) as source:
+
         if source.size != (1200, 65):
             raise ValueError(
-                f"{path}: erwartet 1200×65, "
+                f"{path}: erwartet 1200x65, "
                 f"erhalten {source.size}"
             )
+
         image = source.convert("RGB")
 
     draw = ImageDraw.Draw(image)
@@ -127,8 +333,17 @@ def category_banner(path, title):
     return png(image)
 
 
+# --------------------------------------------------
+# EVENTKARTEN
+# --------------------------------------------------
+
 def event_template():
-    path = REPO / "Tracker" / "event_overview.png"
+
+    path = (
+        REPO
+        / "Tracker"
+        / "event_overview.png"
+    )
 
     if not path.exists():
         raise FileNotFoundError(
@@ -138,7 +353,6 @@ def event_template():
     with Image.open(path) as source:
         original = source.convert("RGB")
 
-    # Feste Bannergröße, ohne das Motiv zu verzerren.
     return ImageOps.fit(
         original,
         (1200, 65),
@@ -148,16 +362,23 @@ def event_template():
 
 
 def event_card(template, event):
+
     image = template.copy()
     draw = ImageDraw.Draw(image)
 
     name = str(event["name"])
+
     date_label = str(
         event.get("date_label") or ""
     )
 
-    start = date.fromisoformat(event["start"])
-    end = date.fromisoformat(event["end"])
+    start = date.fromisoformat(
+        event["start"]
+    )
+
+    end = date.fromisoformat(
+        event["end"]
+    )
 
     today = datetime.now(
         ZoneInfo("Europe/Berlin")
@@ -165,24 +386,26 @@ def event_card(template, event):
 
     if today < start:
         status = "Kommend"
+
     elif today <= end:
         status = "Gestartet"
+
     else:
         status = "Beendet"
-
-    # Links: Name und Zeitraum
-    # Rechts: Status
-    # Die Mitte bleibt ruhig und übersichtlich.
 
     title_font = face(23)
 
     while (
         draw.textbbox(
-            (0, 0), name, font=title_font
+            (0, 0),
+            name,
+            font=title_font,
         )[2] > 870
         and title_font.size > 15
     ):
-        title_font = face(title_font.size - 1)
+        title_font = face(
+            title_font.size - 1
+        )
 
     draw.text(
         (28, 22),
@@ -216,44 +439,33 @@ def event_card(template, event):
 
     if image.size != (1200, 65):
         raise RuntimeError(
-            "Eventkarte hat eine falsche Größe"
+            "Eventkarte hat falsche Größe"
         )
 
     return png(image)
 
 
-def hash_payload(data):
-    return hashlib.sha256(data).hexdigest()
-
-
-def save(state):
-    temporary = STATE.with_suffix(".tmp")
-
-    temporary.write_text(
-        json.dumps(
-            state,
-            ensure_ascii=False,
-            indent=2,
-        ) + "\n",
-        encoding="utf-8",
-    )
-
-    temporary.replace(STATE)
-
+# --------------------------------------------------
+# HAUPTPROGRAMM
+# --------------------------------------------------
 
 def main():
+
     if not STATE.exists():
         raise RuntimeError(
             "events_message.json fehlt"
         )
 
     state = json.loads(
-        STATE.read_text(encoding="utf-8")
+        STATE.read_text(
+            encoding="utf-8"
+        )
     )
 
     if not isinstance(state, dict):
         raise ValueError(
-            "events_message.json muss ein Objekt sein"
+            "events_message.json muss "
+            "ein JSON-Objekt sein"
         )
 
     webhook = (
@@ -266,24 +478,35 @@ def main():
     bot = requests.Session()
 
     bot.headers["Authorization"] = (
-        "Bot " + os.environ["DISCORD_BOT"].strip()
+        "Bot "
+        + os.environ["DISCORD_BOT"].strip()
     )
 
     info = check(
-        requests.get(
+        discord_request(
+            "GET",
             webhook,
-            timeout=TIMEOUT,
         ),
         "Webhook",
     )
 
-    channel = str(info["channel_id"])
-    webhook_id = str(info["id"])
+    channel = str(
+        info["channel_id"]
+    )
+
+    webhook_id = str(
+        info["id"]
+    )
+
+    # Halloween nur überprüfen.
+    # Nicht bearbeiten und nicht neu posten.
 
     halloween_id = str(
         state.get(
             "halloween_2026", {}
-        ).get("webhook_message_id") or ""
+        ).get(
+            "webhook_message_id"
+        ) or ""
     )
 
     if not halloween_id:
@@ -293,31 +516,55 @@ def main():
         )
 
     existing_halloween = check(
-        bot.get(
-            f"{API}/channels/{channel}/messages/{halloween_id}",
-            timeout=TIMEOUT,
+        discord_request(
+            "GET",
+            (
+                f"{API}/channels/"
+                f"{channel}/messages/"
+                f"{halloween_id}"
+            ),
+            session=bot,
         ),
         "Halloween prüfen",
     )
 
     if (
         str(
-            existing_halloween.get("webhook_id") or ""
+            existing_halloween.get(
+                "webhook_id"
+            ) or ""
         ) != webhook_id
     ):
         raise RuntimeError(
-            "Halloween gehört nicht zu diesem Webhook"
+            "Halloween gehört nicht "
+            "zu diesem Webhook"
         )
 
+    print(
+        "Halloween unverändert:",
+        halloween_id,
+    )
+
+    # ----------------------------------------------
+    # VORHANDENE NACHRICHTEN PRÜFEN
+    # ----------------------------------------------
+
     def verify(message_id, expected):
-        response = bot.get(
-            f"{API}/channels/{channel}/messages/{message_id}",
-            timeout=TIMEOUT,
+
+        response = discord_request(
+            "GET",
+            (
+                f"{API}/channels/"
+                f"{channel}/messages/"
+                f"{message_id}"
+            ),
+            session=bot,
         )
 
         if response.status_code == 404:
             raise RuntimeError(
-                f"Gespeicherter Beitrag {message_id} fehlt. "
+                f"Gespeicherter Beitrag "
+                f"{message_id} fehlt. "
                 "Kein automatischer Doppelpost."
             )
 
@@ -327,15 +574,21 @@ def main():
         )
 
         if expected == "webhook":
+
             if (
-                str(message.get("webhook_id") or "")
-                != webhook_id
+                str(
+                    message.get(
+                        "webhook_id"
+                    ) or ""
+                ) != webhook_id
             ):
                 raise RuntimeError(
-                    f"Falscher Webhook für {message_id}"
+                    "Falscher Webhook für "
+                    f"{message_id}"
                 )
 
-        if expected == "bot":
+        elif expected == "bot":
+
             if message.get("webhook_id"):
                 raise RuntimeError(
                     f"Helper {message_id} "
@@ -344,10 +597,16 @@ def main():
 
         return message
 
+    # ----------------------------------------------
+    # WEBHOOK-NACHRICHT VERÖFFENTLICHEN
+    # ----------------------------------------------
+
     def webhook_post(key, filename, data):
+
         record = (
-            state.setdefault("overview_v2", {})
-            .setdefault(key, {})
+            state.setdefault(
+                "overview_v2", {}
+            ).setdefault(key, {})
         )
 
         message_id = str(
@@ -357,10 +616,17 @@ def main():
         digest = hash_payload(data)
 
         if message_id:
-            verify(message_id, "webhook")
+
+            verify(
+                message_id,
+                "webhook",
+            )
 
             if record.get("hash") == digest:
-                print("Unverändert:", key)
+                print(
+                    "Unverändert:",
+                    key,
+                )
                 return
 
         payload = {
@@ -390,13 +656,21 @@ def main():
         }
 
         if message_id:
-            response = requests.patch(
-                f"{webhook}/messages/{message_id}",
+
+            response = discord_request(
+                "PATCH",
+                (
+                    f"{webhook}/messages/"
+                    f"{message_id}"
+                ),
                 files=files,
                 timeout=90,
             )
+
         else:
-            response = requests.post(
+
+            response = discord_request(
+                "POST",
                 webhook,
                 params={
                     "wait": "true"
@@ -411,15 +685,22 @@ def main():
         )
 
         record.update(
-            message_id=str(message["id"]),
+            message_id=str(
+                message["id"]
+            ),
             hash=digest,
         )
 
         save(state)
 
-        print("OK:", key)
+        print(
+            "OK:",
+            key,
+        )
 
-    # Halloween bleibt vollständig unverändert.
+    # ----------------------------------------------
+    # EVENTS LADEN
+    # ----------------------------------------------
 
     attendance = load(
         "Anwesenheit/anwesenheit.py",
@@ -429,27 +710,46 @@ def main():
     template = event_template()
 
     event_map = {
-        "anwesenheitslisten": attendance.EVENTS,
+        "anwesenheitslisten":
+            attendance.EVENTS,
+
         "ingame_events": (),
+
         "community_events": (),
+
         "twitch_drops": (),
     }
 
+    # ----------------------------------------------
+    # KATEGORIEN UND EVENTS
+    # ----------------------------------------------
+
     for key, title, path in CATEGORIES:
+
         webhook_post(
             "category:" + key,
             key + ".png",
-            category_banner(path, title),
+            category_banner(
+                path,
+                title,
+            ),
         )
 
         for event in event_map[key]:
+
             webhook_post(
                 "event:" + event["id"],
                 event["id"] + ".png",
-                event_card(template, event),
+                event_card(
+                    template,
+                    event,
+                ),
             )
 
-    # Ein einziger Helper am Ende der Übersicht.
+    # ----------------------------------------------
+    # EIN HELPER-BEITRAG
+    # ----------------------------------------------
+
     options = [
         {
             "label": "Halloween",
@@ -458,6 +758,7 @@ def main():
     ]
 
     for key, title, _ in CATEGORIES:
+
         options.append({
             "label": title,
             "value": key,
@@ -469,10 +770,15 @@ def main():
             "components": [
                 {
                     "type": 3,
-                    "custom_id": "event:menu:category",
-                    "placeholder": "Überschrift wählen",
+                    "custom_id":
+                        "event:menu:category",
+
+                    "placeholder":
+                        "Überschrift wählen",
+
                     "min_values": 1,
                     "max_values": 1,
+
                     "options": options,
                 }
             ],
@@ -483,7 +789,8 @@ def main():
         "content": (
             "🔎 **Eventdetails**\n"
             "Überschrift wählen → "
-            "Event wählen → Details erscheinen sofort"
+            "Event wählen → "
+            "Details erscheinen sofort"
         ),
         "components": components,
         "allowed_mentions": {
@@ -492,8 +799,11 @@ def main():
     }
 
     record = (
-        state.setdefault("overview_v2", {})
-        .setdefault("helper", {})
+        state.setdefault(
+            "overview_v2", {}
+        ).setdefault(
+            "helper", {}
+        )
     )
 
     message_id = str(
@@ -509,22 +819,39 @@ def main():
     ).hexdigest()
 
     if message_id:
-        verify(message_id, "bot")
+
+        verify(
+            message_id,
+            "bot",
+        )
 
         if record.get("hash") == digest:
-            print("Helper unverändert")
+            print(
+                "Helper unverändert"
+            )
             return
 
-        response = bot.patch(
-            f"{API}/channels/{channel}/messages/{message_id}",
+        response = discord_request(
+            "PATCH",
+            (
+                f"{API}/channels/"
+                f"{channel}/messages/"
+                f"{message_id}"
+            ),
+            session=bot,
             json=payload,
-            timeout=TIMEOUT,
         )
+
     else:
-        response = bot.post(
-            f"{API}/channels/{channel}/messages",
+
+        response = discord_request(
+            "POST",
+            (
+                f"{API}/channels/"
+                f"{channel}/messages"
+            ),
+            session=bot,
             json=payload,
-            timeout=TIMEOUT,
         )
 
     message = check(
@@ -533,13 +860,17 @@ def main():
     )
 
     record.update(
-        message_id=str(message["id"]),
+        message_id=str(
+            message["id"]
+        ),
         hash=digest,
     )
 
     save(state)
 
-    print("Helper OK")
+    print(
+        "Helper OK"
+    )
 
 
 if __name__ == "__main__":
