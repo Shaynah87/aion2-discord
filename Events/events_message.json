@@ -1,6 +1,8 @@
 {
   "halloween_2026": {
-    "message_id": "1565502077189492877",
+    "message_id": "1565637591863394334",
+    "webhook_message_id": "1565637591863394334",
+    "helper_message_id": "1565502077189492877",
     "old_webhook_message_id": ""
   }
 }
