@@ -1,9 +1,9 @@
 
-"""Nyerk24 Events – ein gemeinsamer Events-Beitrag mit fünf Bannern.
+"""Nyerk24 – Kategorie-Banner, Eventkarten und EIN Helper-Menü.
 
-Beim ersten Lauf wird ein neuer Gesamtbeitrag als Test veröffentlicht.
-Alte Nachrichten werden NICHT gelöscht.
-Unveränderte Beiträge werden NICHT bearbeitet.
+Halloween-Nachricht bleibt unverändert.
+Alte Posts werden nicht gelöscht.
+Neue Posts werden anhand der State-IDs wiederverwendet.
 """
 
 import hashlib
@@ -11,303 +11,209 @@ import importlib.util
 import io
 import json
 import os
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent
+REPO = ROOT.parent
 STATE = ROOT / "events_message.json"
 API = "https://discord.com/api/v10"
 TIMEOUT = 45
-KEY = "events_gesamt"
 
 CATEGORIES = (
-    ("anwesenheitslisten", "Anwesenheitslisten",
-     "Anwesenheit/anwesenheitslisten.png"),
-    ("ingame_events", "Ingame-Events",
-     "In-Game/ingame_events.png"),
-    ("community_events", "Community-Events",
-     "Community/community_events.png"),
-    ("twitch_drops", "Twitch Drops",
-     "Twitch/twitch_drops.png"),
+    (
+        "anwesenheitslisten",
+        "Anwesenheitslisten",
+        "Anwesenheit/anwesenheitslisten.png",
+    ),
+    (
+        "ingame_events",
+        "Ingame-Events",
+        "In-Game/ingame_events.png",
+    ),
+    (
+        "community_events",
+        "Community-Events",
+        "Community/community_events.png",
+    ),
+    (
+        "twitch_drops",
+        "Twitch Drops",
+        "Twitch/twitch_drops.png",
+    ),
 )
 
 
-def checked(response, context):
+def check(response, name):
     if not response.ok:
         raise RuntimeError(
-            f"{context}: HTTP {response.status_code}: "
-            f"{response.text[:900]}"
+            f"{name}: HTTP {response.status_code}: "
+            f"{response.text[:1000]}"
         )
     return response.json() if response.content else {}
 
 
-def read_state():
-    if not STATE.exists():
-        raise RuntimeError(
-            "events_message.json fehlt. Kein Erstpost."
-        )
-    state = json.loads(STATE.read_text(encoding="utf-8"))
-    if not isinstance(state, dict):
-        raise ValueError(
-            "events_message.json muss ein Objekt sein"
-        )
-    return state
-
-
-def save_state(state):
-    tmp = STATE.with_suffix(".json.tmp")
-    tmp.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(
+        name, ROOT / path
     )
-    tmp.replace(STATE)
+    if not spec or not spec.loader:
+        raise RuntimeError(f"Modul nicht gefunden: {path}")
 
-
-def load_module(path, name):
-    file = ROOT / path
-    spec = importlib.util.spec_from_file_location(name, file)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Modul fehlt: {file}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def font(size):
+def face(size):
     for path in (
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ):
-        if Path(path).is_file():
+        if Path(path).exists():
             return ImageFont.truetype(path, size)
-    raise RuntimeError("Schriftart fehlt")
+
+    raise RuntimeError("DejaVuSans fehlt")
 
 
-def category_banner(relative_path, title):
-    path = ROOT / relative_path
-
-    with Image.open(path) as source:
-        if source.size != (1200, 65):
-            raise ValueError(
-                f"{relative_path}: erwartet 1200×65, "
-                f"ist {source.size}"
-            )
-        base = source.convert("RGBA")
-
-    draw = ImageDraw.Draw(base)
-
-    for size in range(42, 19, -1):
-        face = font(size)
-        bbox = draw.textbbox(
-            (0, 0), title, font=face, stroke_width=1
-        )
-        if (
-            bbox[2] - bbox[0] <= 660
-            and bbox[3] - bbox[1] <= 51
-        ):
-            break
-    else:
-        raise ValueError(f"Titel zu lang: {title}")
-
-    bbox = draw.textbbox(
-        (0, 0), title, font=face, stroke_width=1
-    )
-
-    x = round(600 - (bbox[0] + bbox[2]) / 2)
-    y = round(32.5 - (bbox[1] + bbox[3]) / 2)
-
-    mask = Image.new("L", base.size, 0)
-    ImageDraw.Draw(mask).text(
-        (x, y), title, font=face, fill=255
-    )
-
-    shadow = Image.new("RGBA", base.size, (0, 0, 0, 0))
-    alpha = mask.filter(
-        ImageFilter.GaussianBlur(3)
-    ).point(
-        lambda a: min(255, int(a * 0.75))
-    )
-    shadow.putalpha(alpha)
-
-    base = Image.alpha_composite(base, shadow)
-
-    ImageDraw.Draw(base).text(
-        (x, y),
-        title,
-        font=face,
-        fill=(248, 247, 250, 255),
-        stroke_width=1,
-        stroke_fill=(12, 10, 18, 255),
-    )
-
+def png(image):
     output = io.BytesIO()
-    base.convert("RGB").save(
+    image.convert("RGB").save(
         output, format="PNG", optimize=True
     )
     return output.getvalue()
 
 
-def buttons(attendance):
-    rows = attendance.buttons()
+def category_banner(path, title):
+    with Image.open(ROOT / path) as source:
+        if source.size != (1200, 65):
+            raise ValueError(
+                f"{path}: erwartet 1200×65, "
+                f"erhalten {source.size}"
+            )
+        image = source.convert("RGB")
 
-    if not isinstance(rows, list) or len(rows) != 1:
-        raise ValueError(
-            "Anwesenheit muss genau eine Action-Row liefern"
-        )
-
-    attendance_buttons = rows[0].get("components", [])
-
-    if len(attendance_buttons) != 4:
-        raise ValueError(
-            "Genau vier Anwesenheitsbuttons erwartet"
-        )
-
-    halloween = {
-        "type": 2,
-        "style": 1,
-        "label": "🎃 Halloween · Eventdetails",
-        "custom_id": "event:details:halloween_2026",
-    }
-
-    all_buttons = [halloween, *attendance_buttons]
-    ids = [b.get("custom_id") for b in all_buttons]
-
-    if len(set(ids)) != 5 or any(not x for x in ids):
-        raise ValueError(
-            "Button-IDs fehlen oder sind doppelt"
-        )
-
-    if any(
-        len(b.get("label", "")) > 80
-        or len(b["custom_id"]) > 100
-        for b in all_buttons
-    ):
-        raise ValueError(
-            "Discord-Buttonlimit überschritten"
-        )
-
-    return [
-        {
-            "type": 1,
-            "components": all_buttons,
-        }
-    ]
-
-
-def fetch_message(bot, channel, message_id):
-    response = bot.get(
-        f"{API}/channels/{channel}/messages/{message_id}",
-        timeout=TIMEOUT,
+    draw = ImageDraw.Draw(image)
+    draw.text(
+        (600, 32),
+        title,
+        font=face(37),
+        anchor="mm",
+        fill="white",
+        stroke_width=2,
+        stroke_fill="#171c29",
     )
+    return png(image)
 
-    if response.status_code == 404:
-        raise RuntimeError(
-            f"Nachricht {message_id} fehlt. "
-            "Keine Neuanlage ohne Prüfung."
+
+def event_template():
+    path = REPO / "Tracker" / "event_overview.png"
+
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Vorlage fehlt: {path} – bitte Pfad prüfen"
         )
 
-    return checked(
-        response, "Bestehenden Beitrag prüfen"
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+
+    height = round(image.height * 1200 / image.width)
+
+    return image.resize(
+        (1200, height),
+        Image.Resampling.LANCZOS,
     )
 
 
-def fingerprint(images, components):
-    digest = hashlib.sha256()
+def event_card(template, event):
+    image = template.copy()
+    name = event["name"]
+    date_label = event.get("date_label") or ""
 
-    for filename, data in images:
-        digest.update(filename.encode())
-        digest.update(hashlib.sha256(data).digest())
+    start = date.fromisoformat(event["start"])
+    end = date.fromisoformat(event["end"])
+    today = datetime.now(
+        ZoneInfo("Europe/Berlin")
+    ).date()
 
-    digest.update(
-        json.dumps(
-            components,
-            ensure_ascii=False,
-            sort_keys=True,
-        ).encode()
-    )
-
-    return digest.hexdigest()
-
-
-def send(webhook, message_id, images, components):
-    payload = {
-        "content": "",
-        "embeds": [],
-        "components": components,
-        "allowed_mentions": {"parse": []},
-        "attachments": [
-            {"id": i, "filename": name}
-            for i, (name, _) in enumerate(images)
-        ],
-    }
-
-    files = {
-        "payload_json": (
-            None,
-            json.dumps(payload, ensure_ascii=False),
-        )
-    }
-
-    for i, (filename, data) in enumerate(images):
-        files[f"files[{i}]"] = (
-            filename,
-            data,
-            "image/png",
-        )
-
-    if message_id:
-        response = requests.patch(
-            f"{webhook}/messages/{message_id}",
-            params={"with_components": "true"},
-            files=files,
-            timeout=90,
-        )
+    if today < start:
+        status = "Kommend"
+    elif today <= end:
+        status = "Gestartet"
     else:
-        response = requests.post(
-            webhook,
-            params={
-                "wait": "true",
-                "with_components": "true",
-            },
-            files=files,
-            timeout=90,
-        )
+        status = "Beendet"
 
-    result = checked(
-        response,
-        "Gemeinsamen Eventbeitrag veröffentlichen",
+    height = image.height
+
+    if height < 115:
+        expanded = Image.new(
+            "RGB", (1200, 115), "#202936"
+        )
+        expanded.paste(image, (0, 0))
+        image = expanded
+        height = 115
+
+    draw = ImageDraw.Draw(image)
+    title_size = 36 if len(name) < 28 else 29
+
+    draw.text(
+        (45, height * 0.35),
+        name,
+        font=face(title_size),
+        fill="white",
+        anchor="lm",
+        stroke_width=2,
+        stroke_fill="#101621",
     )
 
-    if not result.get("id"):
-        raise RuntimeError(
-            "Discord hat keine Nachrichten-ID zurückgegeben"
-        )
+    draw.text(
+        (45, height * 0.77),
+        date_label,
+        font=face(23),
+        fill="#e3e9f0",
+        anchor="lm",
+        stroke_width=1,
+        stroke_fill="#101621",
+    )
 
-    if (
-        message_id
-        and str(result["id"]) != str(message_id)
-    ):
-        raise RuntimeError(
-            "Unerwartete Nachrichten-ID"
-        )
+    draw.text(
+        (1155, height * 0.5),
+        status,
+        font=face(25),
+        fill="#eaf3ff",
+        anchor="rm",
+        stroke_width=2,
+        stroke_fill="#101621",
+    )
 
-    if len(result.get("attachments", [])) != 5:
-        raise RuntimeError(
-            "Discord hat nicht alle fünf Banner bestätigt"
-        )
+    return png(image)
 
-    if not result.get("components"):
-        raise RuntimeError(
-            "Discord hat die Buttons nicht bestätigt"
-        )
 
-    return str(result["id"])
+def hash_payload(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def save(state):
+    temporary = STATE.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(
+            state,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(STATE)
 
 
 def main():
-    state = read_state()
+    state = json.loads(
+        STATE.read_text(encoding="utf-8")
+    )
 
     webhook = (
         os.environ["EVENTS_WEBHOOK"]
@@ -316,150 +222,264 @@ def main():
         .rstrip("/")
     )
 
-    identity = checked(
-        requests.get(webhook, timeout=TIMEOUT),
-        "Webhook prüfen",
-    )
-
-    channel = str(identity["channel_id"])
-    webhook_id = str(identity["id"])
-
     bot = requests.Session()
-    bot.headers.update({
-        "Authorization":
-            "Bot " + os.environ["DISCORD_BOT"].strip()
-    })
-
-    # Prüfen, ob der bisherige Halloween-Beitrag
-    # tatsächlich zum Events-Webhook gehört.
-    halloween_record = state.get(
-        "halloween_2026", {}
+    bot.headers["Authorization"] = (
+        "Bot " + os.environ["DISCORD_BOT"].strip()
     )
+
+    info = check(
+        requests.get(webhook, timeout=TIMEOUT),
+        "Webhook",
+    )
+
+    channel = str(info["channel_id"])
+    webhook_id = str(info["id"])
 
     halloween_id = str(
-        halloween_record.get("webhook_message_id") or ""
+        state.get("halloween_2026", {}).get(
+            "webhook_message_id"
+        ) or ""
     )
 
     if not halloween_id:
         raise RuntimeError(
-            "Halloween-Webhook-ID fehlt"
+            "Halloween-ID fehlt. Abbruch ohne Änderungen."
         )
 
-    old = fetch_message(
-        bot, channel, halloween_id
+    existing_halloween = check(
+        bot.get(
+            f"{API}/channels/{channel}/messages/{halloween_id}",
+            timeout=TIMEOUT,
+        ),
+        "Halloween prüfen",
     )
 
-    if str(old.get("webhook_id") or "") != webhook_id:
+    if (
+        str(existing_halloween.get("webhook_id") or "")
+        != webhook_id
+    ):
         raise RuntimeError(
-            "Halloween gehört nicht zum angegebenen Webhook"
+            "Halloween gehört nicht zu diesem Webhook"
         )
 
-    halloween = load_module(
-        "Halloween/halloween.py",
-        "nyerk24_halloween",
-    )
-
-    attendance = load_module(
-        "Anwesenheit/anwesenheit.py",
-        "nyerk24_anwesenheit",
-    )
-
-    halloween_data = halloween.banner(
-        halloween.status()
-    )
-
-    with Image.open(
-        io.BytesIO(halloween_data)
-    ) as image:
-        if image.size != (1200, 180):
-            raise ValueError(
-                "Halloween muss 1200×180 sein: "
-                f"{image.size}"
-            )
-
-    # Reihenfolge bleibt fest:
-    # Halloween, Anwesenheit, Ingame,
-    # Community, Twitch.
-    images = [
-        (
-            "halloween_2026_banner.png",
-            halloween_data,
-        )
-    ]
-
-    for key, title, path in CATEGORIES:
-        images.append(
-            (
-                f"{key}_banner.png",
-                category_banner(path, title),
-            )
+    def verify(message_id, expected):
+        response = bot.get(
+            f"{API}/channels/{channel}/messages/{message_id}",
+            timeout=TIMEOUT,
         )
 
-    components = buttons(attendance)
-    current_hash = fingerprint(
-        images, components
-    )
-
-    record = state.get(KEY, {})
-
-    if not isinstance(record, dict):
-        raise ValueError(
-            f"{KEY} muss ein Objekt sein"
-        )
-
-    message_id = str(
-        record.get("webhook_message_id") or ""
-    )
-
-    if message_id:
-        existing = fetch_message(
-            bot, channel, message_id
-        )
-
-        if (
-            str(existing.get("webhook_id") or "")
-            != webhook_id
-        ):
+        if response.status_code == 404:
             raise RuntimeError(
-                "Gesamtbeitrag gehört nicht "
-                "zum Events-Webhook"
+                f"Gespeicherter Post {message_id} fehlt; "
+                "kein automatischer Doppelpost"
             )
 
-        if record.get("content_hash") == current_hash:
-            print(
-                f"Unverändert – kein Edit: {message_id}"
+        message = check(response, "Nachricht prüfen")
+
+        if expected == "webhook":
+            if (
+                str(message.get("webhook_id") or "")
+                != webhook_id
+            ):
+                raise RuntimeError(
+                    f"Falscher Webhook für {message_id}"
+                )
+
+        if expected == "bot":
+            if message.get("webhook_id"):
+                raise RuntimeError(
+                    f"Helper {message_id} ist eine Webhook-Nachricht"
+                )
+
+        return message
+
+    def webhook_post(key, filename, data):
+        record = (
+            state.setdefault("overview_v2", {})
+            .setdefault(key, {})
+        )
+
+        message_id = str(
+            record.get("message_id") or ""
+        )
+        digest = hash_payload(data)
+
+        if message_id:
+            verify(message_id, "webhook")
+
+            if record.get("hash") == digest:
+                print("Unverändert:", key)
+                return
+
+        payload = {
+            "content": "",
+            "embeds": [],
+            "allowed_mentions": {"parse": []},
+            "attachments": [
+                {"id": 0, "filename": filename}
+            ],
+        }
+
+        files = {
+            "payload_json": (
+                None,
+                json.dumps(payload),
+            ),
+            "files[0]": (
+                filename,
+                data,
+                "image/png",
+            ),
+        }
+
+        if message_id:
+            response = requests.patch(
+                f"{webhook}/messages/{message_id}",
+                files=files,
+                timeout=90,
             )
-            return
+        else:
+            response = requests.post(
+                webhook,
+                params={"wait": "true"},
+                files=files,
+                timeout=90,
+            )
 
-        print(
-            f"Gesamtbeitrag aktualisieren: {message_id}"
+        message = check(
+            response,
+            f"Banner {key}",
         )
 
-    else:
-        print(
-            "Neuen Gesamtbeitrag als Test "
-            "veröffentlichen. Alte Posts bleiben erhalten."
+        record.update(
+            message_id=str(message["id"]),
+            hash=digest,
         )
+        save(state)
 
-    new_id = send(
-        webhook,
-        message_id,
-        images,
-        components,
+        print("OK:", key)
+
+    # Halloween wird NICHT aktualisiert
+    # und NICHT neu veröffentlicht.
+
+    attendance = load(
+        "Anwesenheit/anwesenheit.py",
+        "attendance",
     )
 
-    state[KEY] = {
-        "webhook_message_id": new_id,
-        "content_hash": current_hash,
+    template = event_template()
+
+    event_map = {
+        "anwesenheitslisten": attendance.EVENTS,
+        "ingame_events": (),
+        "community_events": (),
+        "twitch_drops": (),
     }
 
-    save_state(state)
+    # Zuerst alle Kategorie-Banner
+    # mit den jeweiligen Eventkarten.
+    for key, title, path in CATEGORIES:
+        webhook_post(
+            "category:" + key,
+            key + ".png",
+            category_banner(path, title),
+        )
 
-    print(f"Gesamtbeitrag: {new_id}")
-    print(
-        "Bestehende vier Nachrichten bleiben erhalten, "
-        "bis die Ansicht geprüft ist."
+        for event in event_map[key]:
+            webhook_post(
+                "event:" + event["id"],
+                event["id"] + ".png",
+                event_card(template, event),
+            )
+
+    # Ganz unten EIN Helper-Beitrag.
+    # Öffentlich wird nur die Kategorie gewählt.
+    # Eventauswahl und Details folgen privat.
+
+    options = [
+        {
+            "label": "Halloween",
+            "value": "halloween",
+        }
+    ]
+
+    for key, title, _ in CATEGORIES:
+        options.append({
+            "label": title,
+            "value": key,
+        })
+
+    components = [
+        {
+            "type": 1,
+            "components": [
+                {
+                    "type": 3,
+                    "custom_id": "event:menu:category",
+                    "placeholder": "Überschrift wählen",
+                    "min_values": 1,
+                    "max_values": 1,
+                    "options": options,
+                }
+            ],
+        }
+    ]
+
+    payload = {
+        "content": (
+            "🔎 **Eventdetails**\n"
+            "Überschrift wählen → "
+            "Event wählen → Details sehen"
+        ),
+        "components": components,
+        "allowed_mentions": {"parse": []},
+    }
+
+    record = (
+        state.setdefault("overview_v2", {})
+        .setdefault("helper", {})
     )
+
+    message_id = str(
+        record.get("message_id") or ""
+    )
+
+    digest = hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            ensure_ascii=False,
+        ).encode()
+    ).hexdigest()
+
+    if message_id:
+        verify(message_id, "bot")
+
+        if record.get("hash") == digest:
+            print("Helper unverändert")
+            return
+
+        response = bot.patch(
+            f"{API}/channels/{channel}/messages/{message_id}",
+            json=payload,
+            timeout=TIMEOUT,
+        )
+    else:
+        response = bot.post(
+            f"{API}/channels/{channel}/messages",
+            json=payload,
+            timeout=TIMEOUT,
+        )
+
+    message = check(response, "Helper")
+
+    record.update(
+        message_id=str(message["id"]),
+        hash=digest,
+    )
+
+    save(state)
+    print("Helper OK")
 
 
 if __name__ == "__main__":
