@@ -25,19 +25,19 @@
     },
     "event:atreias_ruf": {
       "message_id": "1565711968365711432",
-      "hash": "dcb10fa542844c38ea9c998ec011f295258f4857050516f8d0be873a3e56512c"
+      "hash": "102a5149509a011915125897960c047026d1c1c367422f1f40b1f878af937a51"
     },
     "event:taegliche_anwesenheit": {
       "message_id": "1565711976737275965",
-      "hash": "b517ff579b031381757f85b60fce7a9caec171033248d6ae542d4e7b388d43f8"
+      "hash": "f9825f1bec4d5f43c4d0c6d32e4855cef3c0acb9794671318d4c21afe362cb87"
     },
     "event:shugo_anwesenheit": {
       "message_id": "1565711985331671271",
-      "hash": "0a1ea518180e819ea4c8b78759ed6bdece8a3bf88e051abba5cc096659f1e612"
+      "hash": "7a27189d14a25623b7377976ded5c14c40bd77dae81065fbe0b7b9dc686aed33"
     },
     "event:suesses_oder_saures": {
       "message_id": "1565711993694982194",
-      "hash": "73ef2cf7486187723cf40ab21ac54349e03512f04a86e4d68cfed3240ba964cf"
+      "hash": "68d3c6bac697831ca71f3ed5a0cdf9d3c94844d4edd1199a8c72da1342dc9793"
     },
     "category:ingame_events": {
       "message_id": "1565711996169617528",
