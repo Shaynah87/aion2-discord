@@ -1,11 +1,12 @@
 
-"""Nyerk24 Events: Banner aktualisieren und Anwesenheitsbuttons verwalten.
+"""Nyerk24 Events – ein gemeinsamer Events-Beitrag mit fünf Bannern.
 
-EVENTS_WEBHOOK veröffentlicht ausschließlich Bilder.
-DISCORD_BOT veröffentlicht die Anwesenheitsbuttons.
-Halloween-Helper und Kalender bleiben unverändert.
+Beim ersten Lauf wird ein neuer Gesamtbeitrag als Test veröffentlicht.
+Alte Nachrichten werden NICHT gelöscht.
+Unveränderte Beiträge werden NICHT bearbeitet.
 """
 
+import hashlib
 import importlib.util
 import io
 import json
@@ -19,19 +20,25 @@ ROOT = Path(__file__).resolve().parent
 STATE = ROOT / "events_message.json"
 API = "https://discord.com/api/v10"
 TIMEOUT = 45
+KEY = "events_gesamt"
 
 CATEGORIES = (
-    ("twitch_drops", "Twitch Drops", "Twitch/twitch_drops.png"),
-    ("ingame_events", "Ingame-Events", "In-Game/ingame_events.png"),
-    ("community_events", "Community-Events", "Community/community_events.png"),
-    ("anwesenheitslisten", "Anwesenheitslisten", "Anwesenheit/anwesenheitslisten.png"),
+    ("anwesenheitslisten", "Anwesenheitslisten",
+     "Anwesenheit/anwesenheitslisten.png"),
+    ("ingame_events", "Ingame-Events",
+     "In-Game/ingame_events.png"),
+    ("community_events", "Community-Events",
+     "Community/community_events.png"),
+    ("twitch_drops", "Twitch Drops",
+     "Twitch/twitch_drops.png"),
 )
 
 
 def checked(response, context):
     if not response.ok:
         raise RuntimeError(
-            f"{context}: HTTP {response.status_code}: {response.text[:700]}"
+            f"{context}: HTTP {response.status_code}: "
+            f"{response.text[:900]}"
         )
     return response.json() if response.content else {}
 
@@ -39,11 +46,13 @@ def checked(response, context):
 def read_state():
     if not STATE.exists():
         raise RuntimeError(
-            "events_message.json fehlt. Kein automatischer Erstpost."
+            "events_message.json fehlt. Kein Erstpost."
         )
     state = json.loads(STATE.read_text(encoding="utf-8"))
     if not isinstance(state, dict):
-        raise ValueError("events_message.json muss ein JSON-Objekt sein")
+        raise ValueError(
+            "events_message.json muss ein Objekt sein"
+        )
     return state
 
 
@@ -56,11 +65,11 @@ def save_state(state):
     tmp.replace(STATE)
 
 
-def load_module(relative_path, module_name):
-    path = ROOT / relative_path
-    spec = importlib.util.spec_from_file_location(module_name, path)
+def load_module(path, name):
+    file = ROOT / path
+    spec = importlib.util.spec_from_file_location(name, file)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Modul fehlt: {path}")
+        raise RuntimeError(f"Modul fehlt: {file}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -73,19 +82,17 @@ def font(size):
     ):
         if Path(path).is_file():
             return ImageFont.truetype(path, size)
-    raise RuntimeError("DejaVuSans-Bold oder LiberationSans-Bold fehlt")
+    raise RuntimeError("Schriftart fehlt")
 
 
 def category_banner(relative_path, title):
     path = ROOT / relative_path
-    if not path.is_file():
-        raise FileNotFoundError(f"Banner fehlt: {path}")
 
     with Image.open(path) as source:
         if source.size != (1200, 65):
             raise ValueError(
                 f"{relative_path}: erwartet 1200×65, "
-                f"gefunden {source.size}"
+                f"ist {source.size}"
             )
         base = source.convert("RGBA")
 
@@ -102,33 +109,32 @@ def category_banner(relative_path, title):
         ):
             break
     else:
-        raise ValueError(f"Überschrift zu lang: {title}")
+        raise ValueError(f"Titel zu lang: {title}")
 
     bbox = draw.textbbox(
         (0, 0), title, font=face, stroke_width=1
     )
 
-    x = 600 - (bbox[0] + bbox[2]) / 2
-    y = 32.5 - (bbox[1] + bbox[3]) / 2
+    x = round(600 - (bbox[0] + bbox[2]) / 2)
+    y = round(32.5 - (bbox[1] + bbox[3]) / 2)
 
     mask = Image.new("L", base.size, 0)
     ImageDraw.Draw(mask).text(
-        (round(x), round(y)),
-        title,
-        font=face,
-        fill=255,
+        (x, y), title, font=face, fill=255
     )
 
     shadow = Image.new("RGBA", base.size, (0, 0, 0, 0))
     alpha = mask.filter(
         ImageFilter.GaussianBlur(3)
-    ).point(lambda a: min(255, int(a * 0.75)))
-
+    ).point(
+        lambda a: min(255, int(a * 0.75))
+    )
     shadow.putalpha(alpha)
+
     base = Image.alpha_composite(base, shadow)
 
     ImageDraw.Draw(base).text(
-        (round(x), round(y)),
+        (x, y),
         title,
         font=face,
         fill=(248, 247, 250, 255),
@@ -136,263 +142,168 @@ def category_banner(relative_path, title):
         stroke_fill=(12, 10, 18, 255),
     )
 
-    out = io.BytesIO()
+    output = io.BytesIO()
     base.convert("RGB").save(
-        out, format="PNG", optimize=True
+        output, format="PNG", optimize=True
     )
-    return out.getvalue()
+    return output.getvalue()
 
 
-def get_message(bot, channel, message_id):
+def buttons(attendance):
+    rows = attendance.buttons()
+
+    if not isinstance(rows, list) or len(rows) != 1:
+        raise ValueError(
+            "Anwesenheit muss genau eine Action-Row liefern"
+        )
+
+    attendance_buttons = rows[0].get("components", [])
+
+    if len(attendance_buttons) != 4:
+        raise ValueError(
+            "Genau vier Anwesenheitsbuttons erwartet"
+        )
+
+    halloween = {
+        "type": 2,
+        "style": 1,
+        "label": "🎃 Halloween · Eventdetails",
+        "custom_id": "event:details:halloween_2026",
+    }
+
+    all_buttons = [halloween, *attendance_buttons]
+    ids = [b.get("custom_id") for b in all_buttons]
+
+    if len(set(ids)) != 5 or any(not x for x in ids):
+        raise ValueError(
+            "Button-IDs fehlen oder sind doppelt"
+        )
+
+    if any(
+        len(b.get("label", "")) > 80
+        or len(b["custom_id"]) > 100
+        for b in all_buttons
+    ):
+        raise ValueError(
+            "Discord-Buttonlimit überschritten"
+        )
+
+    return [
+        {
+            "type": 1,
+            "components": all_buttons,
+        }
+    ]
+
+
+def fetch_message(bot, channel, message_id):
     response = bot.get(
         f"{API}/channels/{channel}/messages/{message_id}",
         timeout=TIMEOUT,
     )
+
     if response.status_code == 404:
-        return None
-    return checked(response, "Nachricht prüfen")
-
-
-def verify_webhook_message(bot, channel, webhook_id, message_id):
-    msg = get_message(bot, channel, message_id)
-
-    if msg is None:
         raise RuntimeError(
-            f"Gespeicherte Nachricht {message_id} fehlt. "
-            "Kein Doppelpost."
+            f"Nachricht {message_id} fehlt. "
+            "Keine Neuanlage ohne Prüfung."
         )
 
-    if str(msg.get("webhook_id") or "") != webhook_id:
-        raise RuntimeError(
-            f"Nachricht {message_id} gehört nicht "
-            "zum Events-Webhook"
-        )
-
-    return msg
-
-
-def find_existing_filename(
-    bot, channel, webhook_id, filename
-):
-    before = None
-
-    for _ in range(30):
-        params = {"limit": 100}
-
-        if before:
-            params["before"] = before
-
-        messages = checked(
-            bot.get(
-                f"{API}/channels/{channel}/messages",
-                params=params,
-                timeout=TIMEOUT,
-            ),
-            "Vorhandene Events prüfen",
-        )
-
-        for msg in messages:
-            if str(msg.get("webhook_id") or "") != webhook_id:
-                continue
-
-            if any(
-                a.get("filename") == filename
-                for a in msg.get("attachments", [])
-            ):
-                raise RuntimeError(
-                    f"{filename} ist bereits in Discord, "
-                    "aber ohne gespeicherte ID. "
-                    "Kein Doppelpost; bitte ID nachtragen."
-                )
-
-        if len(messages) < 100:
-            return
-
-        before = messages[-1]["id"]
-
-    raise RuntimeError(
-        f"Kanalhistorie zu lang, Erstpost von "
-        f"{filename} nicht sicher"
+    return checked(
+        response, "Bestehenden Beitrag prüfen"
     )
 
 
-def upload(webhook, message_id, filename, data):
+def fingerprint(images, components):
+    digest = hashlib.sha256()
+
+    for filename, data in images:
+        digest.update(filename.encode())
+        digest.update(hashlib.sha256(data).digest())
+
+    digest.update(
+        json.dumps(
+            components,
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode()
+    )
+
+    return digest.hexdigest()
+
+
+def send(webhook, message_id, images, components):
     payload = {
         "content": "",
         "embeds": [],
-        "components": [],
-        "attachments": [
-            {"id": 0, "filename": filename}
-        ],
+        "components": components,
         "allowed_mentions": {"parse": []},
+        "attachments": [
+            {"id": i, "filename": name}
+            for i, (name, _) in enumerate(images)
+        ],
     }
 
     files = {
         "payload_json": (
             None,
             json.dumps(payload, ensure_ascii=False),
-        ),
-        "files[0]": (
+        )
+    }
+
+    for i, (filename, data) in enumerate(images):
+        files[f"files[{i}]"] = (
             filename,
             data,
             "image/png",
-        ),
-    }
+        )
 
     if message_id:
-        result = checked(
-            requests.patch(
-                f"{webhook}/messages/{message_id}",
-                files=files,
-                timeout=70,
-            ),
-            "Banner aktualisieren",
+        response = requests.patch(
+            f"{webhook}/messages/{message_id}",
+            params={"with_components": "true"},
+            files=files,
+            timeout=90,
         )
     else:
-        result = checked(
-            requests.post(
-                webhook,
-                params={"wait": "true"},
-                files=files,
-                timeout=70,
-            ),
-            "Banner veröffentlichen",
+        response = requests.post(
+            webhook,
+            params={
+                "wait": "true",
+                "with_components": "true",
+            },
+            files=files,
+            timeout=90,
         )
+
+    result = checked(
+        response,
+        "Gemeinsamen Eventbeitrag veröffentlichen",
+    )
 
     if not result.get("id"):
         raise RuntimeError(
-            "Discord lieferte keine Nachrichten-ID"
+            "Discord hat keine Nachrichten-ID zurückgegeben"
         )
 
-    if message_id and str(result["id"]) != str(message_id):
+    if (
+        message_id
+        and str(result["id"]) != str(message_id)
+    ):
         raise RuntimeError(
-            "Discord lieferte unerwartete Nachrichten-ID"
+            "Unerwartete Nachrichten-ID"
+        )
+
+    if len(result.get("attachments", [])) != 5:
+        raise RuntimeError(
+            "Discord hat nicht alle fünf Banner bestätigt"
+        )
+
+    if not result.get("components"):
+        raise RuntimeError(
+            "Discord hat die Buttons nicht bestätigt"
         )
 
     return str(result["id"])
-
-
-def validate_attendance_buttons(rows):
-    if not isinstance(rows, list) or not rows:
-        raise ValueError(
-            "Anwesenheit.buttons() muss eine "
-            "nichtleere Liste zurückgeben"
-        )
-
-    ids = []
-
-    for row in rows:
-        components = row.get("components", [])
-
-        if (
-            row.get("type") != 1
-            or not 1 <= len(components) <= 5
-        ):
-            raise ValueError(
-                "Ungültige Discord-Action-Row "
-                "für Anwesenheit"
-            )
-
-        for button in components:
-            label = button.get("label", "")
-            custom_id = button.get("custom_id", "")
-
-            if (
-                button.get("type") != 2
-                or button.get("style") not in (1, 2, 3, 4)
-            ):
-                raise ValueError(
-                    f"Ungültiger Button: {label}"
-                )
-
-            if (
-                not label
-                or len(label) > 80
-                or not custom_id
-                or len(custom_id) > 100
-            ):
-                raise ValueError(
-                    f"Button-Länge ungültig: {label}"
-                )
-
-            ids.append(custom_id)
-
-    if (
-        len(rows) > 5
-        or len(ids) != 4
-        or len(set(ids)) != 4
-    ):
-        raise ValueError(
-            "Erwartet genau vier eindeutige "
-            "Anwesenheitsbuttons"
-        )
-
-
-def update_attendance_helper(
-    bot, channel, state, rows, bot_id
-):
-    record = state["anwesenheitslisten"]
-    helper_id = str(
-        record.get("helper_message_id") or ""
-    )
-
-    payload = {
-        "content": (
-            "📅 **Anwesenheitslisten – "
-            "Eventdetails anzeigen**"
-        ),
-        "components": rows,
-        "allowed_mentions": {"parse": []},
-    }
-
-    if helper_id:
-        msg = get_message(bot, channel, helper_id)
-
-        if msg is None:
-            raise RuntimeError(
-                f"Anwesenheits-Helper {helper_id} fehlt. "
-                "Kein Doppelpost."
-            )
-
-        if str(
-            msg.get("author", {}).get("id") or ""
-        ) != bot_id:
-            raise RuntimeError(
-                f"Anwesenheits-Helper {helper_id} "
-                "gehört nicht zum Bot."
-            )
-
-        result = checked(
-            bot.patch(
-                f"{API}/channels/{channel}/messages/{helper_id}",
-                json=payload,
-                timeout=TIMEOUT,
-            ),
-            "Anwesenheitsbuttons aktualisieren",
-        )
-
-        print(
-            "Anwesenheitsbuttons aktualisiert: "
-            f'{result["id"]}'
-        )
-
-    else:
-        result = checked(
-            bot.post(
-                f"{API}/channels/{channel}/messages",
-                json=payload,
-                timeout=TIMEOUT,
-            ),
-            "Anwesenheitsbuttons veröffentlichen",
-        )
-
-        record["helper_message_id"] = str(result["id"])
-        save_state(state)
-
-        print(
-            "Anwesenheitsbuttons veröffentlicht: "
-            f'{result["id"]}'
-        )
 
 
 def main():
@@ -407,7 +318,7 @@ def main():
 
     identity = checked(
         requests.get(webhook, timeout=TIMEOUT),
-        "Events-Webhook prüfen",
+        "Webhook prüfen",
     )
 
     channel = str(identity["channel_id"])
@@ -415,20 +326,33 @@ def main():
 
     bot = requests.Session()
     bot.headers.update({
-        "Authorization": (
+        "Authorization":
             "Bot " + os.environ["DISCORD_BOT"].strip()
-        )
     })
 
-    bot_identity = checked(
-        bot.get(
-            f"{API}/users/@me",
-            timeout=TIMEOUT,
-        ),
-        "Helper-Bot prüfen",
+    # Prüfen, ob der bisherige Halloween-Beitrag
+    # tatsächlich zum Events-Webhook gehört.
+    halloween_record = state.get(
+        "halloween_2026", {}
     )
 
-    bot_id = str(bot_identity["id"])
+    halloween_id = str(
+        halloween_record.get("webhook_message_id") or ""
+    )
+
+    if not halloween_id:
+        raise RuntimeError(
+            "Halloween-Webhook-ID fehlt"
+        )
+
+    old = fetch_message(
+        bot, channel, halloween_id
+    )
+
+    if str(old.get("webhook_id") or "") != webhook_id:
+        raise RuntimeError(
+            "Halloween gehört nicht zum angegebenen Webhook"
+        )
 
     halloween = load_module(
         "Halloween/halloween.py",
@@ -440,118 +364,101 @@ def main():
         "nyerk24_anwesenheit",
     )
 
-    rows = attendance.buttons()
-    validate_attendance_buttons(rows)
-
-    # Halloween bleibt unverändert.
-    halloween_record = state.get("halloween_2026")
-
-    if not isinstance(halloween_record, dict):
-        raise RuntimeError(
-            "Halloween-State fehlt. "
-            "Keine neue Halloween-Nachricht erstellen."
-        )
-
-    halloween_id = str(
-        halloween_record.get("webhook_message_id") or ""
-    )
-
-    if not halloween_id:
-        raise RuntimeError(
-            "webhook_message_id für Halloween fehlt. "
-            "Kein Doppelpost."
-        )
-
-    verify_webhook_message(
-        bot, channel, webhook_id, halloween_id
-    )
-
     halloween_data = halloween.banner(
         halloween.status()
     )
 
     with Image.open(
         io.BytesIO(halloween_data)
-    ) as im:
-        if im.size != (1200, 180):
+    ) as image:
+        if image.size != (1200, 180):
             raise ValueError(
-                "Halloween muss 1200×180 bleiben, "
-                f"ist {im.size}"
+                "Halloween muss 1200×180 sein: "
+                f"{image.size}"
             )
 
-    upload(
-        webhook,
-        halloween_id,
-        "halloween_2026_banner.png",
-        halloween_data,
-    )
+    # Reihenfolge bleibt fest:
+    # Halloween, Anwesenheit, Ingame,
+    # Community, Twitch.
+    images = [
+        (
+            "halloween_2026_banner.png",
+            halloween_data,
+        )
+    ]
 
-    print(
-        f"Halloween aktualisiert: {halloween_id}"
-    )
-
-    # Bestehende Kategorie-Banner aktualisieren.
-    for key, title, relative_path in CATEGORIES:
-        filename = f"{key}_banner.png"
-        data = category_banner(
-            relative_path, title
+    for key, title, path in CATEGORIES:
+        images.append(
+            (
+                f"{key}_banner.png",
+                category_banner(path, title),
+            )
         )
 
-        record = state.get(key)
+    components = buttons(attendance)
+    current_hash = fingerprint(
+        images, components
+    )
 
-        if record is not None and not isinstance(
-            record, dict
+    record = state.get(KEY, {})
+
+    if not isinstance(record, dict):
+        raise ValueError(
+            f"{KEY} muss ein Objekt sein"
+        )
+
+    message_id = str(
+        record.get("webhook_message_id") or ""
+    )
+
+    if message_id:
+        existing = fetch_message(
+            bot, channel, message_id
+        )
+
+        if (
+            str(existing.get("webhook_id") or "")
+            != webhook_id
         ):
-            raise ValueError(
-                f"State für {key} muss ein Objekt sein"
+            raise RuntimeError(
+                "Gesamtbeitrag gehört nicht "
+                "zum Events-Webhook"
             )
 
-        record = record or {}
+        if record.get("content_hash") == current_hash:
+            print(
+                f"Unverändert – kein Edit: {message_id}"
+            )
+            return
 
-        message_id = str(
-            record.get("webhook_message_id") or ""
+        print(
+            f"Gesamtbeitrag aktualisieren: {message_id}"
         )
 
-        if message_id:
-            verify_webhook_message(
-                bot,
-                channel,
-                webhook_id,
-                message_id,
-            )
-        else:
-            find_existing_filename(
-                bot,
-                channel,
-                webhook_id,
-                filename,
-            )
-
-        new_id = upload(
-            webhook,
-            message_id,
-            filename,
-            data,
+    else:
+        print(
+            "Neuen Gesamtbeitrag als Test "
+            "veröffentlichen. Alte Posts bleiben erhalten."
         )
 
-        record["webhook_message_id"] = new_id
-        state[key] = record
-        save_state(state)
-
-        print(f"{title}: {new_id}")
-
-    # Einmalige Helper-Nachricht mit vier Buttons.
-    update_attendance_helper(
-        bot,
-        channel,
-        state,
-        rows,
-        bot_id,
+    new_id = send(
+        webhook,
+        message_id,
+        images,
+        components,
     )
 
+    state[KEY] = {
+        "webhook_message_id": new_id,
+        "content_hash": current_hash,
+    }
+
+    save_state(state)
+
+    print(f"Gesamtbeitrag: {new_id}")
     print(
-        "Fertig. Halloween-Helper und "
-        "Kalender unverändert."
+        "Bestehende vier Nachrichten bleiben erhalten, "
+        "bis die Ansicht geprüft ist."
     )
 
 
