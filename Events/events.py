@@ -5,21 +5,22 @@ import io
 import json
 import os
 import time
+
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
 ROOT = Path(__file__).resolve().parent
-REPO = ROOT.parent
 STATE_FILE = ROOT / "events_message.json"
 API = "https://discord.com/api/v10"
 
 WIDTH = 1200
-ROW_HEIGHT = 58
+HEADER_HEIGHT = 110
+ROW_HEIGHT = 64
 
 CATEGORIES = (
     (
@@ -48,22 +49,39 @@ CATEGORIES = (
     ),
 )
 
+HELPER_CATEGORIES = (
+    ("Halloween", "halloween_2026", "🎃"),
+    ("Anwesenheitslisten", "anwesenheitslisten", "📅"),
+    ("Ingame-Events", "ingame_events", "⚔️"),
+    ("Community-Events", "community_events", "🎉"),
+    ("Twitch Drops", "twitch_drops", "🎁"),
+)
 
-def request(method, url, session=None, **kwargs):
+
+# ==================================================
+# HTTP
+# ==================================================
+
+def api_request(method, url, session=None, **kwargs):
     client = session or requests
     kwargs.setdefault("timeout", 60)
 
     for attempt in range(12):
         try:
             response = client.request(method, url, **kwargs)
-        except (requests.ConnectionError, requests.Timeout):
+        except (
+            requests.ConnectionError,
+            requests.Timeout,
+        ) as error:
             if method.upper() == "POST":
                 raise RuntimeError(
                     "POST-Verbindung unterbrochen. "
-                    "Vor erneutem Start Discord prüfen."
-                )
+                    "Bitte Discord vor erneutem Start prüfen."
+                ) from error
+
             if attempt == 11:
                 raise
+
             time.sleep(min(2 ** attempt, 15))
             continue
 
@@ -85,10 +103,12 @@ def request(method, url, session=None, **kwargs):
             if method.upper() == "POST":
                 raise RuntimeError(
                     "Discord-Serverfehler beim POST. "
-                    "Vor erneutem Lauf Discord prüfen."
+                    "Vor erneutem Start Discord prüfen."
                 )
+
             if attempt == 11:
                 return response
+
             time.sleep(min(2 ** attempt, 15))
             continue
 
@@ -101,10 +121,15 @@ def checked(response, label):
     if not response.ok:
         raise RuntimeError(
             f"{label}: HTTP {response.status_code}: "
-            f"{response.text[:1000]}"
+            f"{response.text[:800]}"
         )
+
     return response.json() if response.content else {}
 
+
+# ==================================================
+# STATUSDATEI
+# ==================================================
 
 def load_state():
     if not STATE_FILE.is_file():
@@ -128,14 +153,18 @@ def save_state(state):
     temporary.write_text(
         json.dumps(
             state,
-            indent=2,
             ensure_ascii=False,
+            indent=2,
         ) + "\n",
         encoding="utf-8",
     )
 
     temporary.replace(STATE_FILE)
 
+
+# ==================================================
+# MODULE UND SCHRIFTEN
+# ==================================================
 
 def load_module(relative_path, name):
     path = ROOT / relative_path
@@ -148,7 +177,7 @@ def load_module(relative_path, name):
         path,
     )
 
-    if spec is None or spec.loader is None:
+    if not spec or not spec.loader:
         raise RuntimeError(
             f"Modul kann nicht geladen werden: {path}"
         )
@@ -171,102 +200,28 @@ def font(size, bold=True):
         / filename
     )
 
+    if not path.is_file():
+        raise RuntimeError(f"Schrift fehlt: {path}")
+
     return ImageFont.truetype(str(path), size)
 
 
 def to_png(image):
-    buffer = io.BytesIO()
+    output = io.BytesIO()
 
     image.convert("RGB").save(
-        buffer,
+        output,
         format="PNG",
         optimize=True,
     )
 
-    return buffer.getvalue()
-
-
-def validate_png(data, expected_size, label):
-    with Image.open(io.BytesIO(data)) as image:
-        if image.size != expected_size:
-            raise RuntimeError(
-                f"{label}: erwartet {expected_size}, "
-                f"erhalten {image.size}"
-            )
-
-
-def halloween_banner():
-    halloween = load_module(
-        "Halloween/halloween.py",
-        "nyerk24_halloween",
-    )
-
-    data = halloween.banner(
-        halloween.status()
-    )
-
-    validate_png(
-        data,
-        (1200, 180),
-        "Halloween",
-    )
-
-    return data
-
-
-def category_banner(relative_path, title):
-    path = ROOT / relative_path
-
-    if not path.is_file():
-        raise RuntimeError(
-            f"Kategorie-Banner fehlt: {path}"
-        )
-
-    with Image.open(path) as original:
-        if original.size != (1200, 65):
-            raise RuntimeError(
-                f"{path}: erwartet 1200x65, "
-                f"erhalten {original.size}"
-            )
-
-        image = original.convert("RGB")
-
-    draw = ImageDraw.Draw(image)
-
-    draw.text(
-        (600, 32),
-        title,
-        font=font(37),
-        anchor="mm",
-        fill="white",
-        stroke_width=2,
-        stroke_fill="#171C29",
-    )
-
-    return to_png(image)
-
-
-def event_background():
-    path = REPO / "Tracker" / "event_overview.png"
-
-    if not path.is_file():
-        raise RuntimeError(
-            f"Eventvorlage fehlt: {path}"
-        )
-
-    with Image.open(path) as source:
-        original = source.convert("RGB")
-
-    return ImageOps.fit(
-        original,
-        (WIDTH, ROW_HEIGHT),
-        method=Image.Resampling.LANCZOS,
-    )
+    return output.getvalue()
 
 
 def fit_font(draw, text, maximum, initial):
     for size in range(initial, 15, -1):
         candidate = font(size)
+
         bounds = draw.textbbox(
             (0, 0),
             text,
@@ -278,6 +233,76 @@ def fit_font(draw, text, maximum, initial):
 
     return font(16)
 
+
+# ==================================================
+# HALLOWEEN – ORIGINALFUNKTION
+# ==================================================
+
+def halloween_banner():
+    halloween = load_module(
+        "Halloween/halloween.py",
+        "nyerk24_halloween",
+    )
+
+    result = halloween.banner(
+        halloween.status()
+    )
+
+    with Image.open(io.BytesIO(result)) as image:
+        if image.size != (1200, 180):
+            raise RuntimeError(
+                "Halloween muss 1200x180 sein."
+            )
+
+    return result
+
+
+# ==================================================
+# BANNER
+# ==================================================
+
+def category_background(relative_path):
+    path = ROOT / relative_path
+
+    if not path.is_file():
+        raise RuntimeError(
+            f"Banner fehlt: {path}"
+        )
+
+    with Image.open(path) as source:
+        if source.size != (1200, 65):
+            raise RuntimeError(
+                f"Falsches Bannerformat: {path}"
+            )
+
+        return source.convert("RGB")
+
+
+def draw_category_header(image, title):
+    draw = ImageDraw.Draw(image)
+
+    draw.text(
+        (WIDTH // 2, image.height // 2),
+        title,
+        font=font(39),
+        anchor="mm",
+        fill="white",
+        stroke_width=2,
+        stroke_fill="#121923",
+    )
+
+
+def standalone_banner(relative_path, title):
+    image = category_background(relative_path)
+
+    draw_category_header(image, title)
+
+    return to_png(image)
+
+
+# ==================================================
+# NEUER ANTHRAZIT-EVENTBLOCK
+# ==================================================
 
 def event_status(event):
     today = datetime.now(
@@ -296,69 +321,162 @@ def event_status(event):
     return "Beendet"
 
 
-def event_block(events):
-    events = list(events)
+def draw_event_area(image, events, top):
+    draw = ImageDraw.Draw(image)
 
-    if not events:
-        return None
+    # Ruhiger, gleichmäßiger Hintergrund.
+    # Kein Zuschnitt aus Tracker/event_overview.png.
+    for y in range(top, image.height):
+        distance = y - top
+        shade = max(27, 37 - distance // 75)
 
-    background = event_background()
-
-    block = Image.new(
-        "RGB",
-        (WIDTH, len(events) * ROW_HEIGHT),
-        "#24272E",
-    )
+        draw.line(
+            (0, y, WIDTH, y),
+            fill=(shade, shade + 3, shade + 9),
+        )
 
     for index, event in enumerate(events):
-        row = background.copy()
-        draw = ImageDraw.Draw(row)
+        y0 = top + index * ROW_HEIGHT
+        center = y0 + ROW_HEIGHT // 2
+
+        if index % 2 == 1:
+            draw.rectangle(
+                (
+                    0,
+                    y0,
+                    WIDTH - 1,
+                    y0 + ROW_HEIGHT - 1,
+                ),
+                fill=(34, 38, 46),
+            )
+
+        if index:
+            draw.line(
+                (28, y0, WIDTH - 28, y0),
+                fill=(63, 70, 81),
+                width=1,
+            )
 
         name = str(event["name"])
         period = str(event.get("date_label") or "")
 
         if event.get("time_label"):
-            period += " · " + str(event["time_label"])
+            period += (
+                " · " + str(event["time_label"])
+            )
 
         status = event_status(event)
 
         draw.text(
-            (25, ROW_HEIGHT // 2),
+            (30, center),
             name,
-            font=fit_font(draw, name, 530, 26),
+            font=fit_font(
+                draw, name, 525, 27
+            ),
             anchor="lm",
-            fill="white",
-            stroke_width=1,
-            stroke_fill="#10151E",
+            fill="#F5F7FB",
         )
 
         draw.text(
-            (790, ROW_HEIGHT // 2),
+            (785, center),
             period,
-            font=fit_font(draw, period, 350, 22),
+            font=fit_font(
+                draw, period, 355, 23
+            ),
             anchor="mm",
-            fill="#E5EAF2",
-            stroke_width=1,
-            stroke_fill="#10151E",
+            fill="#CDD6E3",
         )
+
+        status_color = {
+            "Gestartet": "#A9E6CF",
+            "Kommend": "#F2D59C",
+            "Beendet": "#AEB7C5",
+        }[status]
 
         draw.text(
-            (1175, ROW_HEIGHT // 2),
+            (1170, center),
             status,
-            font=font(23),
+            font=font(24),
             anchor="rm",
-            fill="white",
-            stroke_width=1,
-            stroke_fill="#10151E",
+            fill=status_color,
         )
 
-        block.paste(
-            row,
-            (0, index * ROW_HEIGHT),
-        )
 
-    return to_png(block)
+def combined_category(relative_path, title, events):
+    events = list(events)
 
+    if not events:
+        return standalone_banner(relative_path, title)
+
+    original = category_background(relative_path)
+
+    # Die vorhandene Banner-Grafik wird nicht
+    # zugeschnitten. Sie erhält einen sanften
+    # Übergang in den größeren Kopfbereich.
+    total_height = (
+        HEADER_HEIGHT + len(events) * ROW_HEIGHT
+    )
+
+    image = Image.new(
+        "RGB",
+        (WIDTH, total_height),
+        "#22262E",
+    )
+
+    # Originalbanner vollständig erhalten.
+    image.paste(original, (0, 0))
+
+    # Die zusätzlichen 45 Pixel bilden einen
+    # farblich passenden Übergang.
+    bottom_colors = [
+        original.getpixel((x, original.height - 1))
+        for x in range(WIDTH)
+    ]
+
+    draw = ImageDraw.Draw(image)
+
+    for y in range(65, HEADER_HEIGHT):
+        progress = (y - 65) / (HEADER_HEIGHT - 65)
+        progress = progress ** 0.75
+
+        for x in range(WIDTH):
+            r, g, b = bottom_colors[x]
+
+            target = (37, 40, 48)
+
+            color = (
+                round(r * (1 - progress) + target[0] * progress),
+                round(g * (1 - progress) + target[1] * progress),
+                round(b * (1 - progress) + target[2] * progress),
+            )
+
+            draw.point((x, y), fill=color)
+
+    # Titel mittig im ursprünglichen Bannerbereich.
+    title_draw = ImageDraw.Draw(image)
+
+    title_draw.text(
+        (600, 37),
+        title,
+        font=font(39),
+        anchor="mm",
+        fill="white",
+        stroke_width=2,
+        stroke_fill="#121923",
+    )
+
+    draw_event_area(
+        image,
+        events,
+        HEADER_HEIGHT,
+    )
+
+    return to_png(image)
+
+
+# ==================================================
+# EMBEDS
+# ==================================================
 
 def prepare_overview():
     attendance = load_module(
@@ -373,10 +491,11 @@ def prepare_overview():
         "twitch_drops": (),
     }
 
-    # Jedes Bild erhält einen eigenen Embed.
-    # Dadurch soll Discord keine Galerie erzeugen.
     images = [
-        ("00_halloween.png", halloween_banner())
+        (
+            "00_halloween.png",
+            halloween_banner(),
+        )
     ]
 
     embeds = [
@@ -392,51 +511,27 @@ def prepare_overview():
         CATEGORIES,
         start=1,
     ):
-        banner_name = f"{index:02d}_{key}.png"
+        filename = f"{index:02d}_{key}.png"
 
-        images.append((
-            banner_name,
-            category_banner(path, title),
-        ))
+        data = combined_category(
+            path,
+            title,
+            event_map[key],
+        )
+
+        images.append((filename, data))
 
         embeds.append({
             "color": color,
             "image": {
-                "url": f"attachment://{banner_name}"
+                "url": f"attachment://{filename}"
             },
         })
-
-        block = event_block(event_map[key])
-
-        if block is not None:
-            block_name = f"{index:02d}_{key}_events.png"
-
-            images.append((
-                block_name,
-                block,
-            ))
-
-            embeds.append({
-                "color": color,
-                "image": {
-                    "url": f"attachment://{block_name}"
-                },
-            })
-
-    if len(images) > 10:
-        raise RuntimeError(
-            "Discord erlaubt maximal zehn Anhänge."
-        )
-
-    if len(embeds) > 10:
-        raise RuntimeError(
-            "Discord erlaubt maximal zehn Embeds."
-        )
 
     return images, embeds
 
 
-def calculate_hash(images, embeds):
+def overview_hash(images, embeds):
     digest = hashlib.sha256()
 
     for filename, data in images:
@@ -453,6 +548,126 @@ def calculate_hash(images, embeds):
     return digest.hexdigest()
 
 
+# ==================================================
+# HELPER
+# ==================================================
+
+def helper_payload():
+    options = [
+        {
+            "label": label,
+            "value": value,
+            "emoji": {"name": emoji},
+        }
+        for label, value, emoji in HELPER_CATEGORIES
+    ]
+
+    return {
+        "content": "",
+        "embeds": [
+            {
+                "title": "Nyerk24 · Event Helper",
+                "description": (
+                    "Wähle eine Eventkategorie aus, "
+                    "um die verfügbaren Events und "
+                    "ihre Details aufzurufen.\n\n"
+                    "Die Auswahl ist nur für dich sichtbar."
+                ),
+                "color": 0x596DDB,
+            }
+        ],
+        "components": [
+            {
+                "type": 1,
+                "components": [
+                    {
+                        "type": 3,
+                        "custom_id": "event:menu:category",
+                        "placeholder": "Eventkategorie auswählen",
+                        "min_values": 1,
+                        "max_values": 1,
+                        "options": options,
+                    }
+                ],
+            }
+        ],
+        "allowed_mentions": {
+            "parse": [],
+        },
+    }
+
+
+def ensure_helper(bot, channel_id, state):
+    version = state.setdefault("overview_v6", {})
+
+    helper_id = str(
+        version.get("helper_message_id") or ""
+    )
+
+    payload = helper_payload()
+
+    if helper_id:
+        response = api_request(
+            "GET",
+            (
+                f"{API}/channels/{channel_id}"
+                f"/messages/{helper_id}"
+            ),
+            session=bot,
+        )
+
+        if response.status_code == 200:
+            message = response.json()
+
+            if not message.get("webhook_id"):
+                api_request(
+                    "PATCH",
+                    (
+                        f"{API}/channels/{channel_id}"
+                        f"/messages/{helper_id}"
+                    ),
+                    session=bot,
+                    json=payload,
+                )
+
+                print(
+                    "Vorhandener Helper aktualisiert."
+                )
+                return
+
+        elif response.status_code != 404:
+            checked(response, "Helper prüfen")
+
+    # Ein neuer Helper wird unter dem
+    # Gesamtbeitrag veröffentlicht.
+    response = api_request(
+        "POST",
+        f"{API}/channels/{channel_id}/messages",
+        session=bot,
+        json=payload,
+    )
+
+    message = checked(
+        response,
+        "Helper veröffentlichen",
+    )
+
+    version["helper_message_id"] = str(
+        message["id"]
+    )
+
+    save_state(state)
+
+    print(
+        "Helper unter Übersicht erstellt:",
+        message["id"],
+    )
+
+
+# ==================================================
+# MAIN
+# ==================================================
+
 def main():
     state = load_state()
 
@@ -464,25 +679,30 @@ def main():
     )
 
     bot = requests.Session()
+
     bot.headers["Authorization"] = (
         "Bot " + os.environ["DISCORD_BOT"].strip()
     )
 
-    info = checked(
-        request("GET", webhook),
+    webhook_info = checked(
+        api_request("GET", webhook),
         "Webhook",
     )
 
-    channel_id = str(info["channel_id"])
-    webhook_id = str(info["id"])
+    channel_id = str(
+        webhook_info["channel_id"]
+    )
+
+    webhook_id = str(
+        webhook_info["id"]
+    )
 
     images, embeds = prepare_overview()
-    digest = calculate_hash(images, embeds)
 
-    # Neuer State-Bereich für Embed-Version.
-    # Alle bisherigen State-Bereiche bleiben erhalten.
+    digest = overview_hash(images, embeds)
+
     record = state.setdefault(
-        "overview_v5",
+        "overview_v6",
         {},
     )
 
@@ -490,8 +710,10 @@ def main():
         record.get("message_id") or ""
     )
 
+    needs_update = True
+
     if message_id:
-        response = request(
+        response = api_request(
             "GET",
             (
                 f"{API}/channels/{channel_id}"
@@ -502,13 +724,13 @@ def main():
 
         if response.status_code == 404:
             raise RuntimeError(
-                "Gespeicherter Embed-Beitrag fehlt. "
+                "Gespeicherte Übersicht fehlt. "
                 "Kein automatischer Doppelpost."
             )
 
         message = checked(
             response,
-            "Embed-Beitrag prüfen",
+            "Übersicht prüfen",
         )
 
         if (
@@ -516,83 +738,98 @@ def main():
             != webhook_id
         ):
             raise RuntimeError(
-                "Beitrag gehört nicht zu diesem Webhook."
+                "Übersicht gehört nicht zu diesem Webhook."
             )
 
-        if record.get("hash") == digest:
-            print("Übersicht unverändert.")
-            return
-
-    payload = {
-        "content": "",
-        "embeds": embeds,
-        "allowed_mentions": {
-            "parse": [],
-        },
-        "attachments": [
-            {
-                "id": index,
-                "filename": filename,
-            }
-            for index, (filename, _) in enumerate(images)
-        ],
-    }
-
-    multipart = {
-        "payload_json": (
-            None,
-            json.dumps(
-                payload,
-                ensure_ascii=False,
-            ),
-        ),
-    }
-
-    for index, (filename, data) in enumerate(images):
-        multipart[f"files[{index}]"] = (
-            filename,
-            data,
-            "image/png",
+        needs_update = (
+            record.get("hash") != digest
         )
 
-    if message_id:
-        print("Aktualisiere Embed-Testbeitrag.")
+    if needs_update:
+        payload = {
+            "content": "",
+            "embeds": embeds,
+            "allowed_mentions": {
+                "parse": [],
+            },
+            "attachments": [
+                {
+                    "id": index,
+                    "filename": filename,
+                }
+                for index, (filename, _) in enumerate(images)
+            ],
+        }
 
-        response = request(
-            "PATCH",
-            f"{webhook}/messages/{message_id}",
-            files=multipart,
-            timeout=120,
+        multipart = {
+            "payload_json": (
+                None,
+                json.dumps(payload),
+            )
+        }
+
+        for index, (filename, data) in enumerate(images):
+            multipart[f"files[{index}]"] = (
+                filename,
+                data,
+                "image/png",
+            )
+
+        if message_id:
+            response = api_request(
+                "PATCH",
+                (
+                    f"{webhook}/messages/"
+                    f"{message_id}"
+                ),
+                files=multipart,
+                timeout=120,
+            )
+
+        else:
+            response = api_request(
+                "POST",
+                webhook,
+                params={"wait": "true"},
+                files=multipart,
+                timeout=120,
+            )
+
+        message = checked(
+            response,
+            "Übersicht veröffentlichen",
+        )
+
+        record["message_id"] = str(
+            message["id"]
+        )
+
+        record["hash"] = digest
+
+        save_state(state)
+
+        print(
+            "Übersicht veröffentlicht:",
+            message["id"],
         )
 
     else:
-        print("Erstelle Embed-Testbeitrag.")
-
-        response = request(
-            "POST",
-            webhook,
-            params={"wait": "true"},
-            files=multipart,
-            timeout=120,
+        print(
+            "Übersicht unverändert."
         )
 
-    message = checked(
-        response,
-        "Eventübersicht veröffentlichen",
+    # Helper kommt NACH der Übersicht.
+    ensure_helper(
+        bot,
+        channel_id,
+        state,
     )
 
-    record["message_id"] = str(message["id"])
-    record["hash"] = digest
-
-    save_state(state)
-
-    print("Erfolgreich:", message["id"])
-    print("Embeds:", len(embeds))
-    print("Anhänge:", len(images))
-    print("Halloween: 1200x180")
-    print("Kategorie-Banner: 1200x65")
-    print("Alte Beiträge nicht gelöscht")
-    print("Helper unverändert")
+    print("Fertig.")
+    print("Halloween unverändert.")
+    print("Anwesenheitslisten zusammengefasst.")
+    print("Neuer Anthrazit-Hintergrund.")
+    print("Keine alten Beiträge gelöscht.")
 
 
 if __name__ == "__main__":
