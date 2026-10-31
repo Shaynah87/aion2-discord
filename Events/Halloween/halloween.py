@@ -5,7 +5,10 @@ Nyerk24 · Halloween 2026
 Originalbanner unverändert: 1200 × 180 Pixel.
 Keine Skalierung, kein Zuschneiden, keine neuen Motive.
 
-Größerer Halloween-Schriftzug mit Feuer- und Risseffekt.
+Halloween-Schriftzug mit Feuerverlauf, dunkler Kontur,
+verkohlten Rändern und dezenten Glutpunkten.
+
+Datum und Status: gleiche Schriftgröße, gemeinsame Zeile.
 Die neun Eventbereiche bleiben vollständig erhalten.
 """
 
@@ -203,57 +206,109 @@ def load_background():
 
 def draw_halloween_text(base, text, face, center_y, spacing=0,
                         subtitle=False, seed=20261030):
+    """
+    Glühende Halloween-Schrift mit verkohlten Rändern,
+    Schatten und dezenten Glutpunkten.
+    Keine zufälligen schwarzen Kratzer.
+    """
     w, h = base.size
     draw = ImageDraw.Draw(base)
 
-    widths = [draw.textlength(c, font=face) for c in text]
-    text_width = sum(widths) + spacing * max(0, len(text) - 1)
+    widths = [
+        draw.textlength(char, font=face)
+        for char in text
+    ]
+    text_width = (
+        sum(widths)
+        + spacing * max(0, len(text) - 1)
+    )
 
     bbox = draw.textbbox((0, 0), text, font=face)
-    visible_height = bbox[3] - bbox[1]
-
     x = (w - text_width) / 2
-    y = center_y - visible_height / 2 - bbox[1]
+    y = (
+        center_y
+        - (bbox[3] - bbox[1]) / 2
+        - bbox[1]
+    )
 
     mask = Image.new("L", (w, h), 0)
-    md = ImageDraw.Draw(mask)
+    mask_draw = ImageDraw.Draw(mask)
 
-    for index, character in enumerate(text):
-        md.text((round(x), round(y)), character, font=face, fill=255)
+    for index, char in enumerate(text):
+        mask_draw.text(
+            (round(x), round(y)),
+            char,
+            font=face,
+            fill=255,
+        )
         x += widths[index] + spacing
 
     bounds = mask.getbbox()
-    if bounds is None:
+
+    if not bounds:
         return
 
-    # Dunkler Schatten für plastische, unheimliche Schrift.
-    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    shadow_mask = mask.filter(ImageFilter.GaussianBlur(5 if subtitle else 9))
-    shadow_layer = Image.new("RGBA", (w, h), (8, 0, 0, 0))
-    shadow_layer.putalpha(
-        shadow_mask.point(lambda a: int(a * (0.75 if not subtitle else 0.55)))
+    # Breiter dunkler Schlagschatten.
+    shadow_mask = mask.filter(
+        ImageFilter.MaxFilter(15)
     )
-    shadow.alpha_composite(shadow_layer, (0, 0))
+    shadow_mask = shadow_mask.filter(
+        ImageFilter.GaussianBlur(9)
+    )
+
+    shadow = Image.new(
+        "RGBA",
+        (w, h),
+        (8, 1, 1, 0),
+    )
+    shadow.putalpha(
+        shadow_mask.point(
+            lambda a: int(a * 0.88)
+        )
+    )
     base.alpha_composite(shadow)
 
-    # Kräftiger, orange-roter Feuerschein.
-    for radius, color, strength in (
-        (14, (255, 40, 0), 0.35),
-        (7, (255, 85, 0), 0.58),
-        (3, (255, 165, 20), 0.45),
+    # Warmer Feuerschein hinter der Schrift.
+    for radius, color, opacity in (
+        (16, (255, 49, 0), 0.32),
+        (8, (255, 98, 0), 0.42),
+        (3, (255, 176, 32), 0.42),
     ):
-        glow_mask = mask.filter(ImageFilter.GaussianBlur(radius))
-        glow = Image.new("RGBA", (w, h), (*color, 0))
+        blurred = mask.filter(
+            ImageFilter.GaussianBlur(radius)
+        )
+
+        glow = Image.new(
+            "RGBA",
+            (w, h),
+            (*color, 0),
+        )
         glow.putalpha(
-            glow_mask.point(
-                lambda a, s=strength: int(a * (s * 0.6 if subtitle else s))
+            blurred.point(
+                lambda a, k=opacity: int(a * k)
             )
         )
         base.alpha_composite(glow)
 
-    # Verlauf: glühende Oberkante, tieforange Unterkante.
-    gradient = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    gp = gradient.load()
+    # Kräftige, fast schwarze Außenkontur.
+    rim = mask.filter(
+        ImageFilter.MaxFilter(9)
+    )
+    rim_layer = Image.new(
+        "RGBA",
+        (w, h),
+        (23, 5, 3, 0),
+    )
+    rim_layer.putalpha(rim)
+    base.alpha_composite(rim_layer)
+
+    # Orange-goldener Feuerverlauf.
+    gradient = Image.new(
+        "RGBA",
+        (w, h),
+        (0, 0, 0, 0),
+    )
+    pixels = gradient.load()
 
     top, bottom = bounds[1], bounds[3]
     span = max(1, bottom - top)
@@ -261,14 +316,7 @@ def draw_halloween_text(base, text, face, center_y, spacing=0,
     for py in range(top, bottom):
         t = (py - top) / span
 
-        if subtitle:
-            color = (
-                255,
-                int(207 - 75 * t),
-                int(98 - 80 * t),
-                255,
-            )
-        elif t < 0.35:
+        if t < 0.35:
             f = t / 0.35
             color = (
                 255,
@@ -285,134 +333,298 @@ def draw_halloween_text(base, text, face, center_y, spacing=0,
                 255,
             )
 
-        for px in range(bounds[0], bounds[2]):
-            gp[px, py] = color
+        for px in range(
+            bounds[0], bounds[2]
+        ):
+            pixels[px, py] = color
 
     gradient.putalpha(mask)
     base.alpha_composite(gradient)
 
-    if subtitle:
-        return
+    # Schmaler verkohlter Innenrand.
+    inner = mask.filter(
+        ImageFilter.MinFilter(5)
+    )
+    edge = Image.new("L", (w, h), 0)
 
-    # Risse ausschließlich innerhalb der Buchstaben.
+    edge_px = edge.load()
+    mask_px = mask.load()
+    inner_px = inner.load()
+
+    for py in range(top, bottom):
+        for px in range(
+            bounds[0], bounds[2]
+        ):
+            edge_px[px, py] = max(
+                0,
+                mask_px[px, py]
+                - inner_px[px, py],
+            )
+
+    char = Image.new(
+        "RGBA",
+        (w, h),
+        (64, 12, 3, 0),
+    )
+    char.putalpha(
+        edge.point(
+            lambda a: int(a * 0.65)
+        )
+    )
+    base.alpha_composite(char)
+
+    # Kleine Glutpunkte statt Zickzack-Kratzern.
     rng = random.Random(seed)
-    crack_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    cd = ImageDraw.Draw(crack_layer)
 
-    for _ in range(65):
-        cx = rng.randrange(bounds[0], bounds[2])
-        cy = rng.randrange(bounds[1], bounds[3])
+    embers = Image.new(
+        "RGBA",
+        (w, h),
+        (0, 0, 0, 0),
+    )
+    ember_draw = ImageDraw.Draw(embers)
 
-        if mask.getpixel((cx, cy)) < 200:
+    for _ in range(75):
+        px = rng.randrange(
+            bounds[0], bounds[2]
+        )
+        py = rng.randrange(top, bottom)
+
+        if inner.getpixel((px, py)) < 240:
             continue
 
-        points = [(cx, cy)]
-
-        for _ in range(rng.randint(2, 4)):
-            cx += rng.randint(-8, 8)
-            cy += rng.randint(3, 8)
-            points.append((cx, cy))
-
-        cd.line(
-            points,
-            fill=(18, 3, 1, rng.randint(175, 235)),
-            width=rng.choice((1, 2, 2, 3)),
+        radius = rng.choice(
+            (1, 1, 1, 2)
         )
 
-    clipped_alpha = Image.composite(
-        crack_layer.getchannel("A"),
+        ember_draw.ellipse(
+            (
+                px - radius,
+                py - radius,
+                px + radius,
+                py + radius,
+            ),
+            fill=(
+                255,
+                rng.randint(180, 240),
+                75,
+                rng.randint(90, 190),
+            ),
+        )
+
+    clipped = Image.composite(
+        embers.getchannel("A"),
         Image.new("L", (w, h), 0),
-        mask,
+        inner,
     )
-    crack_layer.putalpha(clipped_alpha)
-    base.alpha_composite(crack_layer)
+    embers.putalpha(clipped)
+    base.alpha_composite(embers)
+
+
+def draw_halloween_subtitle(
+    base,
+    current,
+    center_y=139,
+):
+    """
+    Datum und Status in einer gemeinsamen Zeile.
+    Beide exakt 30 px und dieselbe Grundlinie.
+    Nur die Statusfarbe ändert sich.
+    """
+
+    labels = {
+        "upcoming": (
+            "BALD VERFÜGBAR",
+            "#F29B72",
+        ),
+        "active": (
+            "GESTARTET",
+            "#83D9AC",
+        ),
+        "finished": (
+            "BEENDET",
+            "#AEB5C1",
+        ),
+    }
+
+    status_text, status_color = labels[current]
+
+    date_text = EVENT["date_label"]
+    separator = " · "
+
+    face = font(30, bold=False)
+    draw = ImageDraw.Draw(base)
+
+    date_width = draw.textlength(
+        date_text,
+        font=face,
+    )
+    separator_width = draw.textlength(
+        separator,
+        font=face,
+    )
+    status_width = draw.textlength(
+        status_text,
+        font=face,
+    )
+
+    total_width = (
+        date_width
+        + separator_width
+        + status_width
+    )
+
+    x = (WIDTH - total_width) / 2
+
+    common = {
+        "font": face,
+        "anchor": "lm",
+        "stroke_width": 2,
+        "stroke_fill": "#180802",
+    }
+
+    # Datum in warmem Gold.
+    draw.text(
+        (x, center_y),
+        date_text,
+        fill="#FFD28A",
+        **common,
+    )
+
+    x += date_width
+
+    # Trennpunkt in derselben Schrift.
+    draw.text(
+        (x, center_y),
+        separator,
+        fill="#FFD28A",
+        **common,
+    )
+
+    x += separator_width
+
+    # Status: gleiche Schriftgröße,
+    # aber eigene Farbe.
+    draw.text(
+        (x, center_y),
+        status_text,
+        fill=status_color,
+        **common,
+    )
 
 
 def banner(current):
     """
-    Fertiges Halloween-Banner: exakt 1200 × 180 Pixel.
-    Das Original wird weder skaliert noch zugeschnitten.
+    Fertiges Halloween-Banner: 1200 x 180 Pixel.
+    Das Originalbild wird nicht skaliert
+    und nicht zugeschnitten.
     """
 
-    labels = {
-        "upcoming": "BALD VERFÜGBAR",
-        "active": "GESTARTET",
-        "finished": "BEENDET",
-    }
-
-    if current not in labels:
-        raise ValueError(f"Unbekannter Eventstatus: {current}")
+    if current not in (
+        "upcoming",
+        "active",
+        "finished",
+    ):
+        raise ValueError(
+            f"Unbekannter Eventstatus: {current}"
+        )
 
     base = load_background()
 
-    # Nur die Textmitte leicht abdunkeln.
-    # Die Motive links und rechts bleiben unverändert.
-    overlay = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    alpha = Image.new("L", (WIDTH, HEIGHT), 0)
+    # Nur die Bildmitte abdunkeln.
+    # Die Motive links und rechts bleiben erhalten.
+    overlay = Image.new(
+        "RGBA",
+        (WIDTH, HEIGHT),
+        (0, 0, 0, 0),
+    )
+    alpha = Image.new(
+        "L",
+        (WIDTH, HEIGHT),
+        0,
+    )
     ap = alpha.load()
 
     for x in range(WIDTH):
-        distance = abs(x - WIDTH / 2) / 310
-        strength = max(0, 1 - distance)
-        value = int(95 * strength ** 1.3)
+        distance = (
+            abs(x - WIDTH / 2) / 325
+        )
+        strength = max(
+            0,
+            1 - distance,
+        )
+        value = int(
+            135 * strength ** 1.3
+        )
 
         for y in range(HEIGHT):
             ap[x, y] = value
 
-    overlay.putalpha(alpha.filter(ImageFilter.GaussianBlur(12)))
-    base = Image.alpha_composite(base, overlay)
+    overlay.putalpha(
+        alpha.filter(
+            ImageFilter.GaussianBlur(12)
+        )
+    )
+    base = Image.alpha_composite(
+        base,
+        overlay,
+    )
 
     title = "HALLOWEEN"
-    subtitle = f'{EVENT["date_label"]} · {labels[current]}'
-
     draw = ImageDraw.Draw(base)
 
-    # Groß, aber auf die freie Bildmitte begrenzt.
+    # Großer Schriftzug, innerhalb der
+    # freien Banner-Mitte.
     title_size = 78
     title_spacing = 3
 
     while title_size >= 35:
-        title_font = font(title_size)
+        title_face = font(title_size)
+
         title_width = (
-            draw.textlength(title, font=title_font)
-            + title_spacing * (len(title) - 1)
+            draw.textlength(
+                title,
+                font=title_face,
+            )
+            + title_spacing
+            * (len(title) - 1)
         )
+
         if title_width <= 650:
             break
+
         title_size -= 1
 
-    subtitle_size = 25
-
-    while subtitle_size >= 14:
-        subtitle_font = font(subtitle_size)
-        if draw.textlength(subtitle, font=subtitle_font) <= 610:
-            break
-        subtitle_size -= 1
-
+    # Halloween-Spezialschrift.
     draw_halloween_text(
         base,
         title,
-        title_font,
-        center_y=78,
+        title_face,
+        center_y=76,
         spacing=title_spacing,
-        subtitle=False,
     )
 
-    draw_halloween_text(
+    # Datum und Status: gemeinsam, 30 px.
+    draw_halloween_subtitle(
         base,
-        subtitle,
-        subtitle_font,
-        center_y=137,
-        subtitle=True,
+        current,
+        center_y=139,
     )
 
-    output = io.BytesIO()
     result = base.convert("RGB")
 
     if result.size != (1200, 180):
-        raise RuntimeError("Bannerformat stimmt nicht.")
+        raise RuntimeError(
+            "Bannerformat stimmt nicht."
+        )
 
-    result.save(output, format="PNG", optimize=True)
+    output = io.BytesIO()
+
+    result.save(
+        output,
+        format="PNG",
+        optimize=True,
+    )
+
     return output.getvalue()
 
 
@@ -460,7 +672,9 @@ def detail_embeds():
         lines = []
 
         if section.get("description"):
-            lines.extend((section["description"], ""))
+            lines.extend(
+                (section["description"], "")
+            )
 
         lines.extend(
             entry_line(entry)
@@ -486,15 +700,20 @@ def detail_embeds():
 def payload(current):
     """
     Kompatibilität zur bisherigen Eventstruktur.
-    Die zentrale events.py verwaltet den öffentlichen Button.
+    Die zentrale events.py verwaltet
+    den öffentlichen Button.
     """
 
     source = EVENT["source_url"]
 
     if not source.startswith("https://"):
-        raise ValueError("Gültige HTTPS-Quellen-URL fehlt.")
+        raise ValueError(
+            "Gültige HTTPS-Quellen-URL fehlt."
+        )
 
-    filename = f'{EVENT["id"]}_banner.png'
+    filename = (
+        f'{EVENT["id"]}_banner.png'
+    )
 
     labels = {
         "upcoming": "Bald verfügbar",
@@ -535,10 +754,16 @@ def payload(current):
                 ],
             }
         ],
-        "allowed_mentions": {"parse": []},
+        "allowed_mentions": {
+            "parse": []
+        },
     }
 
 
 if __name__ == "__main__":
-    print(f'{EVENT["name"]}: {status()}')
-    print(f"Bannerformat: {WIDTH} × {HEIGHT}")
+    print(
+        f'{EVENT["name"]}: {status()}'
+    )
+    print(
+        f"Bannerformat: {WIDTH} × {HEIGHT}"
+    )
