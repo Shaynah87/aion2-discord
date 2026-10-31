@@ -369,7 +369,7 @@ def draw_category_title(image, category, center_y):
     title = category["title"]
     accent = TITLE_EFFECT_COLORS.get(key, (140, 165, 190))
     # Anwesenheit bleibt exakt die freigegebene Referenz.
-    accent_strength = 0.72 if key == "anwesenheitslisten" else 0.90
+    accent_strength = 0.72 if key == "anwesenheitslisten" else 0.78
 
     # Exakte Buchstabenmaske in bisheriger Groesse und Position.
     mask = Image.new("L", image.size, 0)
@@ -397,6 +397,11 @@ def draw_category_title(image, category, center_y):
             color = blend_color(blend_color((228, 240, 243), accent, 0.32),
                                 blend_color((228, 240, 243), accent, accent_strength),
                                 (t - 0.72) / 0.28)
+        if key != "anwesenheitslisten" and t >= 0.72:
+            # Sanftes Ausblenden der Akzentfarbe am unteren Buchstabenende:
+            # verhindert die auffaelligen farbigen Stiele bei Y und G.
+            taper = (t - 0.72) / 0.28
+            color = blend_color(color, (227, 224, 235), 0.36 * taper * taper)
         face_draw.line((x0, y, x1, y), fill=color)
     image.paste(face, (0, 0), mask)
 
@@ -527,11 +532,18 @@ def halloween_banner():
 
     with Image.open(io.BytesIO(data)) as image:
         if image.size != (1200, 180):
-            raise RuntimeError(
-                "Halloween-Banner muss 1200x180 sein"
-            )
-
-    return data
+            raise RuntimeError("Halloween-Quelle muss 1200x180 sein")
+        # Dezente Vergroesserung, ohne das Motiv zu verzerren:
+        # 180 -> 194 px, proportional skalieren und seitlich mittig beschneiden.
+        target_height = 194
+        scale = target_height / image.height
+        new_width = round(image.width * scale)
+        enlarged = image.convert("RGB").resize(
+            (new_width, target_height), Image.Resampling.LANCZOS
+        )
+        left = (new_width - WIDTH) // 2
+        result = enlarged.crop((left, 0, left + WIDTH, target_height))
+        return image_to_png(result)
 
 
 # ============================================================
