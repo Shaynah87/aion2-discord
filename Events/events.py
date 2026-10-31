@@ -854,12 +854,12 @@ def ensure_helper(bot, channel_id, state, overview_message_id):
             json=helper_payload(),
         )
 
-        if response.status_code == 403:
-            print(
-                "WARNUNG: Keine Berechtigung "
-                "zum Erstellen des Helpers."
-            )
-            return
+if response.status_code == 403:
+    print(
+        "FEHLER: Helper HTTP 403:",
+        response.text,
+    )
+    return
 
         message = checked(
             response,
