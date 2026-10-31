@@ -10,7 +10,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 
 # ============================================================
@@ -361,15 +361,16 @@ def draw_events(image, events, top, attendance=False):
 
 
 # ============================================================
-# LEUCHTENDE KATEGORIE-UEBERSCHRIFTEN
-# Nur der Titel wird gezeichnet; Banner und Eventzeilen bleiben gleich.
+# DEZENTE KATEGORIE-UEBERSCHRIFTEN
+# Kein Glow, keine Aussenkontur, kein Schlagschatten.
+# Nur ein sanfter Farbverlauf innerhalb der Schrift.
 # ============================================================
 
 TITLE_EFFECT_COLORS = {
-    "anwesenheitslisten": (88, 219, 228),
-    "ingame_events": (110, 176, 255),
-    "community_events": (255, 139, 195),
-    "twitch_drops": (179, 133, 255),
+    "anwesenheitslisten": (216, 237, 238),  # sanftes Silbertuerkis
+    "ingame_events": (216, 229, 245),      # Silberblau
+    "community_events": (245, 221, 233),   # zartes Silberrosa
+    "twitch_drops": (230, 220, 245),       # zartes Silberviolett
 }
 
 
@@ -378,38 +379,24 @@ def draw_category_title(image, category, center_y):
     size = ATTENDANCE_TITLE_SIZE if key == "anwesenheitslisten" else TITLE_FONT_SIZE
     title_font = font(size)
     title = category["title"]
-    accent = TITLE_EFFECT_COLORS.get(key, (151, 205, 236))
+    bottom = TITLE_EFFECT_COLORS.get(key, (229, 234, 242))
 
-    # Vollstaendig transparente Maske, exakt in Bannergroesse.
     mask = Image.new("L", image.size, 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.text((WIDTH // 2, center_y), title, font=title_font,
-                   anchor="mm", fill=255)
+    ImageDraw.Draw(mask).text(
+        (WIDTH // 2, center_y), title,
+        font=title_font, anchor="mm", fill=255
+    )
 
-    # Nur eine schmale, helle Lichtkante – kein dunkler Schatten.
-    outer = mask.filter(ImageFilter.MaxFilter(5))
-    edge = Image.new("L", image.size, 0)
-    edge.paste(outer)
-    from PIL import ImageChops
-    edge = ImageChops.subtract(edge, mask)
-
-    # Dezentes Licht direkt um die Buchstaben.
-    glow = outer.filter(ImageFilter.GaussianBlur(3))
-    layer = Image.new("RGB", image.size, accent)
-    image.paste(layer, (0, 0), glow.point(lambda v: int(v * 0.28)))
-    image.paste(layer, (0, 0), edge.point(lambda v: int(v * 0.90)))
-
-    # Vertikaler Silber-/Eisverlauf im Schriftkern.
-    gradient = Image.new("RGB", image.size)
-    gradient_draw = ImageDraw.Draw(gradient)
+    # Fast weisser Schriftkern, nur nach unten ein Hauch der Bannerfarbe.
+    gradient = Image.new("RGB", image.size, (248, 250, 252))
+    draw = ImageDraw.Draw(gradient)
     y0 = max(0, center_y - size // 2 - 5)
     y1 = min(image.height, center_y + size // 2 + 6)
-    top = (255, 255, 255)
-    bottom = tuple(round(205 * 0.55 + c * 0.45) for c in accent)
+    top = (252, 253, 255)
     for y in range(y0, y1):
         t = (y - y0) / max(1, y1 - y0 - 1)
         color = tuple(round(top[i] * (1 - t) + bottom[i] * t) for i in range(3))
-        gradient_draw.line((0, y, WIDTH, y), fill=color)
+        draw.line((0, y, WIDTH, y), fill=color)
     image.paste(gradient, (0, 0), mask)
 
 
