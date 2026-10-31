@@ -1,3 +1,4 @@
+
 import hashlib
 import importlib.util
 import io
@@ -62,18 +63,18 @@ CATEGORIES = (
         "color": 0x25A9A6,
     },
     {
-        "key": "community_events",
-        "title": "Community-Events",
-        "module": "Community/community.py",
-        "banner": "Community/community_events.png",
-        "color": 0xB83B91,
-    },
-    {
         "key": "ingame_events",
         "title": "Ingame-Events",
         "module": "In-Game/ingame.py",
         "banner": "In-Game/ingame_events.png",
         "color": 0x2779BB,
+    },
+    {
+        "key": "community_events",
+        "title": "Community-Events",
+        "module": "Community/community.py",
+        "banner": "Community/community_events.png",
+        "color": 0xB83B91,
     },
     {
         "key": "twitch_drops",
@@ -347,10 +348,10 @@ def draw_events(image, events, top, attendance=False):
 # ============================================================
 
 TITLE_EFFECT_COLORS = {
-    "anwesenheitslisten": (49, 133, 147),  # Gedaempftes Petrol-Tuerkis passend zu den Seitenmotiven
-    "ingame_events": (35, 105, 182),      # Gedaempftes Silberblau
-    "community_events": (181, 48, 126),   # Gedaempftes Rose
-    "twitch_drops": (111, 58, 184),       # Gedaempftes Violett
+    "anwesenheitslisten": (49, 133, 147),
+    "ingame_events": (35, 105, 182),
+    "community_events": (181, 48, 126),
+    "twitch_drops": (111, 58, 184),
 }
 
 
@@ -368,10 +369,8 @@ def draw_category_title(image, category, center_y):
     title_font = font(size)
     title = category["title"]
     accent = TITLE_EFFECT_COLORS.get(key, (140, 165, 190))
-    # Anwesenheit bleibt exakt die freigegebene Referenz.
     accent_strength = 0.72 if key == "anwesenheitslisten" else 0.78
 
-    # Exakte Buchstabenmaske in bisheriger Groesse und Position.
     mask = Image.new("L", image.size, 0)
     ImageDraw.Draw(mask).text(
         (WIDTH // 2, center_y), title,
@@ -383,8 +382,6 @@ def draw_category_title(image, category, center_y):
     x0, y0, x1, y1 = bounds
     letter_height = max(1, y1 - y0 - 1)
 
-    # Weiss oben, kuehles Silber in der Mitte, Bannerfarbe unten.
-    # Der Farbverlauf bleibt AUSSCHLIESSLICH innerhalb der Buchstaben.
     face = Image.new("RGB", image.size, (250, 252, 254))
     face_draw = ImageDraw.Draw(face)
     for y in range(y0, y1):
@@ -398,17 +395,13 @@ def draw_category_title(image, category, center_y):
                                 blend_color((228, 240, 243), accent, accent_strength),
                                 (t - 0.72) / 0.28)
         if key != "anwesenheitslisten" and t >= 0.72:
-            # Sanftes Ausblenden der Akzentfarbe am unteren Buchstabenende:
-            # verhindert die auffaelligen farbigen Stiele bei Y und G.
             taper = (t - 0.72) / 0.28
             color = blend_color(color, (227, 224, 235), 0.36 * taper * taper)
         face_draw.line((x0, y, x1, y), fill=color)
     image.paste(face, (0, 0), mask)
 
-    # Sehr feines inneres Relief; keine dicke Aussenkontur/Neon-Aura.
     relief = Image.new("RGBA", image.size, (0, 0, 0, 0))
     relief_draw = ImageDraw.Draw(relief)
-    # Nur an den oberen Pixelkanten ein heller Reflex.
     upper = Image.new("L", image.size, 0)
     upper.paste(mask, (0, -1))
     upper_edge = Image.new("L", image.size, 0)
@@ -418,8 +411,6 @@ def draw_category_title(image, category, center_y):
     highlight.putalpha(upper_edge)
     image.paste(highlight, (0, 0), highlight)
 
-    # Mittig heller Lichtstrich, nach links und rechts sanft auslaufend.
-    # Darunter eine sehr schwache vertikale Spiegelung, wie bei den Seitenmotiven.
     line_y = min(image.height - 16, y1 + 9)
     half_width = min(245, max(150, (x1 - x0) // 2 + 32))
     glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
@@ -430,14 +421,12 @@ def draw_category_title(image, category, center_y):
         x = WIDTH // 2 + dx
         gd.point((x, line_y), fill=(*blend_color(accent, (216, 238, 242), 0.55), round(205 * fade)))
         gd.point((x, line_y + 1), fill=(*accent, round(115 * fade)))
-        # Reflexion: direkt unter der Linie am staerksten, schnell abklingend.
         for depth in range(2, 17):
             alpha = round(29 * fade * ((17 - depth) / 15) ** 2)
             if alpha:
                 gd.point((x, line_y + depth), fill=(*accent, alpha))
     image.paste(glow, (0, 0), glow)
 
-    # Weicher Lichtsaum um die Linie, bewusst schwach gehalten.
     soft = Image.new("RGBA", image.size, (*accent, 0))
     alpha = glow.getchannel("A").filter(ImageFilter.GaussianBlur(3.0))
     alpha = alpha.point(lambda p: round(p * 0.12))
@@ -482,7 +471,6 @@ def create_category_image(category, events):
     image.paste(banner, (0, 0))
     draw = ImageDraw.Draw(image)
 
-    # Übergang vom Banner zur Eventliste
     edge_colors = [
         banner.getpixel((x, banner_height - 1))
         for x in range(WIDTH)
@@ -558,8 +546,6 @@ def prepare_overview():
         module_path = ROOT / category["module"]
         banner_path = ROOT / category["banner"]
 
-        # Anwesenheitslisten sind bereits aktiv und müssen vorhanden sein.
-        # Weitere Kategorien werden erst eingeblendet, wenn ihre Dateien existieren.
         if category["key"] != "anwesenheitslisten":
             if not module_path.is_file():
                 print(f"Überspringe {category['title']}: Modul fehlt ({category['module']})")
@@ -778,7 +764,7 @@ def helper_candidates(state):
     return candidates
 
 
-def ensure_helper(bot, channel_id, state):
+def ensure_helper(bot, channel_id, state, overview_message_id):
     try:
         me = checked(
             api_request(
@@ -811,6 +797,9 @@ def ensure_helper(bot, channel_id, state):
             if str(
                 message.get("author", {}).get("id", "")
             ) != bot_id:
+                continue
+
+            if int(message_id) < int(overview_message_id):
                 continue
 
             component_ids = [
@@ -877,6 +866,32 @@ def ensure_helper(bot, channel_id, state):
             "Helper veröffentlichen",
         )
 
+        old_helper_ids = helper_candidates(state)
+        for old_id in old_helper_ids:
+            if old_id == str(message["id"]):
+                continue
+            old_response = api_request(
+                "GET",
+                f"{API}/channels/{channel_id}/messages/{old_id}",
+                session=bot,
+            )
+            if not old_response.ok:
+                continue
+            old_message = old_response.json()
+            if str(old_message.get("author", {}).get("id", "")) != bot_id:
+                continue
+            old_component_ids = [
+                component.get("custom_id")
+                for row in old_message.get("components", [])
+                for component in row.get("components", [])
+            ]
+            if "event:menu:category" in old_component_ids:
+                api_request(
+                    "DELETE",
+                    f"{API}/channels/{channel_id}/messages/{old_id}",
+                    session=bot,
+                )
+
         state.setdefault(
             "overview_v6", {}
         )["helper_message_id"] = str(
@@ -928,12 +943,9 @@ def main():
         webhook_info["id"]
     )
 
-    # Erst alle Module laden und Bilder erstellen.
-    # Bei einem Fehler wird nichts veröffentlicht.
     images, embeds = prepare_overview()
     digest = overview_hash(images, embeds)
 
-    # Bestehende Nachrichten-ID weiterverwenden.
     record = state.setdefault(
         "overview_v6", {}
     )
@@ -1051,6 +1063,7 @@ def main():
         bot,
         channel_id,
         state,
+        record["message_id"],
     )
 
     print("Events-Synchronisierung abgeschlossen.")
