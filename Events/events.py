@@ -11,7 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
 
 
 # ============================================================
@@ -33,7 +33,6 @@ NAME_FONT_SIZE = 36
 DATE_FONT_SIZE = 30
 STATUS_FONT_SIZE = 31
 
-# Nur Anwesenheitslisten: festgelegte Test-Typografie
 ATTENDANCE_TITLE_SIZE = 48
 ATTENDANCE_NAME_SIZE = 36
 ATTENDANCE_DATE_SIZE = 30
@@ -48,10 +47,6 @@ UPCOMING_COLOR = "#F29B72"
 
 # ============================================================
 # BEREICHSMODULE
-#
-# Neue Events werden NICHT hier eingetragen.
-#
-# Jedes Modul verwaltet seine eigenen Events.
 # ============================================================
 
 CATEGORIES = (
@@ -108,9 +103,7 @@ def load_module(relative_path, name):
             f"Bereichsmodul fehlt: {relative_path}"
         )
 
-    spec = importlib.util.spec_from_file_location(
-        name, path
-    )
+    spec = importlib.util.spec_from_file_location(name, path)
 
     if spec is None or spec.loader is None:
         raise RuntimeError(
@@ -227,13 +220,19 @@ def font(size, bold=True):
 
 
 def ellipsize(draw, value, max_width, text_font):
-    """Kuerzt nur den angezeigten Text, niemals die Schriftgroesse."""
+    """Kürzt nur den angezeigten Text, nie die Schriftgröße."""
     value = str(value)
+
     if draw.textbbox((0, 0), value, font=text_font)[2] <= max_width:
         return value
+
     ellipsis = "…"
-    while value and draw.textbbox((0, 0), value + ellipsis, font=text_font)[2] > max_width:
+
+    while value and draw.textbbox(
+        (0, 0), value + ellipsis, font=text_font
+    )[2] > max_width:
         value = value[:-1]
+
     return value.rstrip() + ellipsis if value else ellipsis
 
 
@@ -303,12 +302,12 @@ def draw_events(image, events, top, attendance=False):
         if status is None:
             continue
 
-        # Einheitliche, feste Schriftgroessen fuer ALLE Kategorien.
-        # Lange Namen werden gekuerzt, niemals kleiner skaliert.
         name_font = font(NAME_FONT_SIZE)
         date_font = font(DATE_FONT_SIZE, bold=False)
-        shown_name = ellipsize(draw, name, 525, name_font)
-        shown_period = period
+
+        shown_name = ellipsize(
+            draw, name, 525, name_font
+        )
 
         draw.text(
             (30, center),
@@ -320,7 +319,7 @@ def draw_events(image, events, top, attendance=False):
 
         draw.text(
             (785, center),
-            shown_period,
+            period,
             font=date_font,
             anchor="mm",
             fill=DATE_COLOR,
@@ -342,9 +341,7 @@ def draw_events(image, events, top, attendance=False):
 
 
 # ============================================================
-# DEZENTE KATEGORIE-UEBERSCHRIFTEN
-# Kein Glow, keine Aussenkontur, kein Schlagschatten.
-# Nur ein sanfter Farbverlauf innerhalb der Schrift.
+# KATEGORIE-ÜBERSCHRIFTEN
 # ============================================================
 
 TITLE_EFFECT_COLORS = {
@@ -356,80 +353,180 @@ TITLE_EFFECT_COLORS = {
 
 
 def blend_color(a, b, fraction):
-    return tuple(round(x * (1 - fraction) + y * fraction) for x, y in zip(a, b))
+    return tuple(
+        round(x * (1 - fraction) + y * fraction)
+        for x, y in zip(a, b)
+    )
 
 
 def draw_category_title(image, category, center_y):
-    """Dezenter Materialverlauf nach dem bisherigen Nyerk24-Events-Prinzip.
-
-    Die bestehenden Banner und Eventzeilen werden nicht veraendert.
-    """
     key = category["key"]
-    size = TITLE_FONT_SIZE
-    title_font = font(size)
+    title_font = font(TITLE_FONT_SIZE)
     title = category["title"]
-    accent = TITLE_EFFECT_COLORS.get(key, (140, 165, 190))
-    accent_strength = 0.72 if key == "anwesenheitslisten" else 0.78
+
+    accent = TITLE_EFFECT_COLORS.get(
+        key, (140, 165, 190)
+    )
+
+    accent_strength = (
+        0.72 if key == "anwesenheitslisten" else 0.78
+    )
 
     mask = Image.new("L", image.size, 0)
+
     ImageDraw.Draw(mask).text(
-        (WIDTH // 2, center_y), title,
-        font=title_font, anchor="mm", fill=255,
+        (WIDTH // 2, center_y),
+        title,
+        font=title_font,
+        anchor="mm",
+        fill=255,
     )
+
     bounds = mask.getbbox()
+
     if bounds is None:
         return
+
     x0, y0, x1, y1 = bounds
     letter_height = max(1, y1 - y0 - 1)
 
-    face = Image.new("RGB", image.size, (250, 252, 254))
+    face = Image.new(
+        "RGB", image.size, (250, 252, 254)
+    )
+
     face_draw = ImageDraw.Draw(face)
+
     for y in range(y0, y1):
         t = (y - y0) / letter_height
+
         if t < 0.34:
-            color = blend_color((253, 254, 255), (228, 240, 243), t / 0.34)
+            color = blend_color(
+                (253, 254, 255),
+                (228, 240, 243),
+                t / 0.34,
+            )
         elif t < 0.72:
-            color = blend_color((228, 240, 243), blend_color((228, 240, 243), accent, 0.32), (t - 0.34) / 0.38)
+            color = blend_color(
+                (228, 240, 243),
+                blend_color(
+                    (228, 240, 243),
+                    accent,
+                    0.32,
+                ),
+                (t - 0.34) / 0.38,
+            )
         else:
-            color = blend_color(blend_color((228, 240, 243), accent, 0.32),
-                                blend_color((228, 240, 243), accent, accent_strength),
-                                (t - 0.72) / 0.28)
+            color = blend_color(
+                blend_color(
+                    (228, 240, 243),
+                    accent,
+                    0.32,
+                ),
+                blend_color(
+                    (228, 240, 243),
+                    accent,
+                    accent_strength,
+                ),
+                (t - 0.72) / 0.28,
+            )
+
         if key != "anwesenheitslisten" and t >= 0.72:
             taper = (t - 0.72) / 0.28
-            color = blend_color(color, (227, 224, 235), 0.36 * taper * taper)
-        face_draw.line((x0, y, x1, y), fill=color)
+
+            color = blend_color(
+                color,
+                (227, 224, 235),
+                0.36 * taper * taper,
+            )
+
+        face_draw.line(
+            (x0, y, x1, y),
+            fill=color,
+        )
+
     image.paste(face, (0, 0), mask)
 
-    relief = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    relief_draw = ImageDraw.Draw(relief)
     upper = Image.new("L", image.size, 0)
     upper.paste(mask, (0, -1))
-    upper_edge = Image.new("L", image.size, 0)
-    from PIL import ImageChops
-    upper_edge = ImageChops.subtract(mask, upper).point(lambda p: round(p * 0.22))
-    highlight = Image.new("RGBA", image.size, (255, 255, 255, 0))
+
+    upper_edge = ImageChops.subtract(
+        mask, upper
+    ).point(lambda p: round(p * 0.22))
+
+    highlight = Image.new(
+        "RGBA",
+        image.size,
+        (255, 255, 255, 0),
+    )
+
     highlight.putalpha(upper_edge)
     image.paste(highlight, (0, 0), highlight)
 
     line_y = min(image.height - 16, y1 + 9)
-    half_width = min(245, max(150, (x1 - x0) // 2 + 32))
-    glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+
+    half_width = min(
+        245,
+        max(150, (x1 - x0) // 2 + 32),
+    )
+
+    glow = Image.new(
+        "RGBA",
+        image.size,
+        (0, 0, 0, 0),
+    )
+
     gd = ImageDraw.Draw(glow)
+
     for dx in range(-half_width, half_width + 1):
         t = 1 - abs(dx) / half_width
         fade = t * t * (3 - 2 * t)
         x = WIDTH // 2 + dx
-        gd.point((x, line_y), fill=(*blend_color(accent, (216, 238, 242), 0.55), round(205 * fade)))
-        gd.point((x, line_y + 1), fill=(*accent, round(115 * fade)))
+
+        gd.point(
+            (x, line_y),
+            fill=(
+                *blend_color(
+                    accent,
+                    (216, 238, 242),
+                    0.55,
+                ),
+                round(205 * fade),
+            ),
+        )
+
+        gd.point(
+            (x, line_y + 1),
+            fill=(*accent, round(115 * fade)),
+        )
+
         for depth in range(2, 17):
-            alpha = round(29 * fade * ((17 - depth) / 15) ** 2)
+            alpha = round(
+                29 * fade *
+                ((17 - depth) / 15) ** 2
+            )
+
             if alpha:
-                gd.point((x, line_y + depth), fill=(*accent, alpha))
+                gd.point(
+                    (x, line_y + depth),
+                    fill=(*accent, alpha),
+                )
+
     image.paste(glow, (0, 0), glow)
 
-    soft = Image.new("RGBA", image.size, (*accent, 0))
-    alpha = glow.getchannel("A").filter(ImageFilter.GaussianBlur(3.0))
-    alpha = alpha.point(lambda p: round(p * 0.12))
+    soft = Image.new(
+        "RGBA",
+        image.size,
+        (*accent, 0),
+    )
+
+    alpha = glow.getchannel("A").filter(
+        ImageFilter.GaussianBlur(3.0)
+    )
+
+    alpha = alpha.point(
+        lambda p: round(p * 0.12)
+    )
+
     soft.putalpha(alpha)
     image.paste(soft, (0, 0), soft)
 
@@ -492,20 +589,32 @@ def create_category_image(category, events):
                 for channel in range(3)
             )
 
-            draw.point((x, y), fill=color)
+            draw.point(
+                (x, y),
+                fill=color,
+            )
 
-    draw_category_title(image, category, banner_height // 2)
+    draw_category_title(
+        image,
+        category,
+        banner_height // 2,
+    )
 
     if events:
-        draw_events(image, events, header_height, attendance=category["key"] == "anwesenheitslisten")
+        draw_events(
+            image,
+            events,
+            header_height,
+            attendance=(
+                category["key"] == "anwesenheitslisten"
+            ),
+        )
 
     return image_to_png(image)
 
 
 # ============================================================
 # HALLOWEEN
-#
-# Halloween behält seine eigene Darstellung.
 # ============================================================
 
 def halloween_banner():
@@ -520,12 +629,17 @@ def halloween_banner():
 
     with Image.open(io.BytesIO(data)) as image:
         if image.size != (1200, 220):
-            raise RuntimeError("Halloween-Banner muss 1200x220 sein")
-        return image_to_png(image.convert("RGB"))
+            raise RuntimeError(
+                "Halloween-Banner muss 1200x220 sein"
+            )
+
+        return image_to_png(
+            image.convert("RGB")
+        )
 
 
 # ============================================================
-# GESAMTÜBERSICHT ZUSAMMENSTELLEN
+# GESAMTÜBERSICHT
 # ============================================================
 
 def prepare_overview():
@@ -548,10 +662,17 @@ def prepare_overview():
 
         if category["key"] != "anwesenheitslisten":
             if not module_path.is_file():
-                print(f"Überspringe {category['title']}: Modul fehlt ({category['module']})")
+                print(
+                    f"Überspringe {category['title']}: "
+                    f"Modul fehlt ({category['module']})"
+                )
                 continue
+
             if not banner_path.is_file():
-                print(f"Überspringe {category['title']}: Banner fehlt ({category['banner']})")
+                print(
+                    f"Überspringe {category['title']}: "
+                    f"Banner fehlt ({category['banner']})"
+                )
                 continue
 
         events = load_events(category)
@@ -561,10 +682,13 @@ def prepare_overview():
         )
 
         data = create_category_image(
-            category, events
+            category,
+            events,
         )
 
-        images.append((filename, data))
+        images.append(
+            (filename, data)
+        )
 
         embeds.append({
             "color": category["color"],
@@ -590,12 +714,15 @@ def overview_hash(images, embeds):
     digest = hashlib.sha256()
 
     for filename, data in images:
-        digest.update(filename.encode("utf-8"))
+        digest.update(
+            filename.encode("utf-8")
+        )
         digest.update(data)
 
     digest.update(
         json.dumps(
-            embeds, sort_keys=True
+            embeds,
+            sort_keys=True,
         ).encode("utf-8")
     )
 
@@ -647,7 +774,9 @@ def api_request(method, url, session=None, **kwargs):
 
     for attempt in range(10):
         response = client.request(
-            method, url, **kwargs
+            method,
+            url,
+            **kwargs,
         )
 
         if response.status_code == 429:
@@ -656,12 +785,16 @@ def api_request(method, url, session=None, **kwargs):
 
             try:
                 delay = float(
-                    response.json().get("retry_after", 1)
+                    response.json().get(
+                        "retry_after", 1
+                    )
                 )
             except (ValueError, TypeError):
                 delay = 1
 
-            time.sleep(max(0.5, delay + 0.3))
+            time.sleep(
+                max(0.5, delay + 0.3)
+            )
             continue
 
         if response.status_code in (
@@ -677,7 +810,9 @@ def api_request(method, url, session=None, **kwargs):
             if attempt == 9:
                 return response
 
-            time.sleep(min(2 ** attempt, 15))
+            time.sleep(
+                min(2 ** attempt, 15)
+            )
             continue
 
         return response
@@ -702,7 +837,7 @@ def checked(response, label):
 
 
 # ============================================================
-# EVENT-HELPER
+# EVENT HELPER
 # ============================================================
 
 def helper_payload():
@@ -711,13 +846,10 @@ def helper_payload():
         "embeds": [{
             "title": "Nyerk24 · Event Helper",
             "description": (
-                "Wähle eine Eventkategorie aus, "
-                "um die verfügbaren Events und "
-                "ihre Details aufzurufen.\n\n"
-                "Deine Auswahl ist nur für "
-                "dich sichtbar."
+                "Hier findest du die Belohnungen "
+                "zu den jeweiligen Events."
             ),
-            "color": 0x596DDB,
+            "color": 0xD6B05E,
         }],
         "components": [{
             "type": 1,
@@ -738,7 +870,9 @@ def helper_payload():
                 ],
             }],
         }],
-        "allowed_mentions": {"parse": []},
+        "allowed_mentions": {
+            "parse": []
+        },
     }
 
 
@@ -746,25 +880,34 @@ def helper_candidates(state):
     candidates = []
 
     records = [
-        state.get("overview_v6", {}).get(
-            "helper_message_id"
-        ),
-        state.get("overview_v2", {}).get(
-            "helper", {}
-        ).get("message_id"),
-        state.get("halloween_2026", {}).get(
-            "helper_message_id"
-        ),
+        state.get(
+            "overview_v6", {}
+        ).get("helper_message_id"),
+
+        state.get(
+            "overview_v2", {}
+        ).get("helper", {}).get("message_id"),
+
+        state.get(
+            "halloween_2026", {}
+        ).get("helper_message_id"),
     ]
 
     for value in records:
         if value and str(value) not in candidates:
-            candidates.append(str(value))
+            candidates.append(
+                str(value)
+            )
 
     return candidates
 
 
-def ensure_helper(bot, channel_id, state, overview_message_id):
+def ensure_helper(
+    bot,
+    channel_id,
+    state,
+    overview_message_id,
+):
     try:
         me = checked(
             api_request(
@@ -791,46 +934,39 @@ def ensure_helper(bot, channel_id, state, overview_message_id):
                 continue
 
             message = checked(
-                response, "Helper prüfen"
+                response,
+                "Helper prüfen",
             )
 
             if str(
-                message.get("author", {}).get("id", "")
+                message.get(
+                    "author", {}
+                ).get("id", "")
             ) != bot_id:
                 continue
 
             if int(message_id) < int(overview_message_id):
                 continue
 
-            component_ids = [
-                component.get("custom_id")
-                for row in message.get("components", [])
-                for component in row.get(
-                    "components", []
-                )
-            ]
+            # Bestehenden Helper aktualisieren:
+            # neuer Text, goldene Farbe, gleiche Auswahl.
+            response = api_request(
+                "PATCH",
+                (
+                    f"{API}/channels/{channel_id}"
+                    f"/messages/{message_id}"
+                ),
+                session=bot,
+                json=helper_payload(),
+            )
 
-            if (
-                "event:menu:category"
-                not in component_ids
-            ):
-                response = api_request(
-                    "PATCH",
-                    (
-                        f"{API}/channels/{channel_id}"
-                        f"/messages/{message_id}"
-                    ),
-                    session=bot,
-                    json=helper_payload(),
+            if not response.ok:
+                print(
+                    "WARNUNG: Helper-Update:",
+                    response.status_code,
+                    response.text[:300],
                 )
-
-                if not response.ok:
-                    print(
-                        "WARNUNG: Helper-Update:",
-                        response.status_code,
-                        response.text[:300],
-                    )
-                    continue
+                continue
 
             state.setdefault(
                 "overview_v6", {}
@@ -867,28 +1003,49 @@ def ensure_helper(bot, channel_id, state, overview_message_id):
         )
 
         old_helper_ids = helper_candidates(state)
+
         for old_id in old_helper_ids:
             if old_id == str(message["id"]):
                 continue
+
             old_response = api_request(
                 "GET",
-                f"{API}/channels/{channel_id}/messages/{old_id}",
+                (
+                    f"{API}/channels/{channel_id}"
+                    f"/messages/{old_id}"
+                ),
                 session=bot,
             )
+
             if not old_response.ok:
                 continue
+
             old_message = old_response.json()
-            if str(old_message.get("author", {}).get("id", "")) != bot_id:
+
+            if str(
+                old_message.get(
+                    "author", {}
+                ).get("id", "")
+            ) != bot_id:
                 continue
+
             old_component_ids = [
                 component.get("custom_id")
-                for row in old_message.get("components", [])
-                for component in row.get("components", [])
+                for row in old_message.get(
+                    "components", []
+                )
+                for component in row.get(
+                    "components", []
+                )
             ]
+
             if "event:menu:category" in old_component_ids:
                 api_request(
                     "DELETE",
-                    f"{API}/channels/{channel_id}/messages/{old_id}",
+                    (
+                        f"{API}/channels/{channel_id}"
+                        f"/messages/{old_id}"
+                    ),
                     session=bot,
                 )
 
@@ -927,18 +1084,23 @@ def main():
     )
 
     bot = requests.Session()
+
     bot.headers["Authorization"] = (
         "Bot " + os.environ["DISCORD_BOT"].strip()
     )
 
     webhook_info = checked(
-        api_request("GET", webhook),
+        api_request(
+            "GET",
+            webhook,
+        ),
         "Webhook prüfen",
     )
 
     channel_id = str(
         webhook_info["channel_id"]
     )
+
     webhook_id = str(
         webhook_info["id"]
     )
@@ -949,6 +1111,7 @@ def main():
     record = state.setdefault(
         "overview_v6", {}
     )
+
     message_id = str(
         record.get("message_id") or ""
     )
@@ -993,7 +1156,9 @@ def main():
         payload = {
             "content": "",
             "embeds": embeds,
-            "allowed_mentions": {"parse": []},
+            "allowed_mentions": {
+                "parse": []
+            },
             "attachments": [
                 {
                     "id": index,
@@ -1014,9 +1179,7 @@ def main():
             )
         }
 
-        for index, (filename, data) in enumerate(
-            images
-        ):
+        for index, (filename, data) in enumerate(images):
             multipart[f"files[{index}]"] = (
                 filename,
                 data,
@@ -1047,6 +1210,7 @@ def main():
         record["message_id"] = str(
             message["id"]
         )
+
         record["hash"] = digest
 
         save_state(state)
@@ -1057,7 +1221,9 @@ def main():
         )
 
     else:
-        print("Übersicht unverändert.")
+        print(
+            "Übersicht unverändert."
+        )
 
     ensure_helper(
         bot,
@@ -1066,7 +1232,9 @@ def main():
         record["message_id"],
     )
 
-    print("Events-Synchronisierung abgeschlossen.")
+    print(
+        "Events-Synchronisierung abgeschlossen."
+    )
 
 
 # ============================================================
