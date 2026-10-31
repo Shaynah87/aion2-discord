@@ -147,7 +147,7 @@ EVENT = {
 
 
 WIDTH = 1200
-HEIGHT = 200
+HEIGHT = 220
 
 
 def status(now=None):
@@ -186,22 +186,12 @@ def font(size, bold=True):
 
 def load_background():
     path = Path(__file__).resolve().parent / "halloween.png"
-
     if not path.is_file():
-        raise FileNotFoundError(f"Originalbanner fehlt: {path}")
-
+        raise FileNotFoundError(f"Halloween-Bild fehlt: {path}")
     with Image.open(path) as original:
-        if original.size != (1200, 180):
-            raise ValueError(f"Originalbild muss 1200x180 sein: {original.size}")
-        # Nur das Hintergrundmotiv vergrößern, nicht die später
-        # separat gezeichneten Schriftzüge.
-        scale = HEIGHT / original.height
-        new_width = round(original.width * scale)
-        background = original.convert("RGBA").resize(
-            (new_width, HEIGHT), Image.Resampling.LANCZOS
-        )
-        left = (new_width - WIDTH) // 2
-        return background.crop((left, 0, left + WIDTH, HEIGHT))
+        if original.size != (1200, 220):
+            raise ValueError(f"Erwartet 1200 x 220 Pixel, erhalten: {original.size}")
+        return original.convert("RGBA")
 
 
 def draw_halloween_text(base, text, face, center_y, spacing=0,
@@ -309,7 +299,7 @@ def draw_halloween_subtitle(base, current, center_y=149):
     status_text, status_color = labels[current]
     date_text = EVENT["date_label"]
     separator = " · "
-    face = font(30, bold=False)
+    face = font(30, bold=True)
     draw = ImageDraw.Draw(base)
     date_width = draw.textlength(date_text, font=face)
     separator_width = draw.textlength(separator, font=face)
@@ -345,24 +335,13 @@ def banner(current):
     overlay.putalpha(alpha.filter(ImageFilter.GaussianBlur(12)))
     base = Image.alpha_composite(base, overlay)
 
-    title = "HALLOWEEN"
-    draw = ImageDraw.Draw(base)
-    title_size = 78
-    title_spacing = 3
-    while title_size >= 35:
-        title_face = font(title_size)
-        title_width = (draw.textlength(title, font=title_face)
-                       + title_spacing * (len(title) - 1))
-        if title_width <= 650:
-            break
-        title_size -= 1
-
-    draw_halloween_text(base, title, title_face,
-                        center_y=86, spacing=title_spacing)
-    draw_halloween_subtitle(base, current, center_y=149)
+    # Der feurige HALLOWEEN-Schriftzug ist bereits Teil von halloween.png.
+    # Keinen zweiten Schriftzug darueber zeichnen!
+    # Nur Datum und Status, in Fett, unten auf dem Motiv ergaenzen.
+    draw_halloween_subtitle(base, current, center_y=182)
 
     result = base.convert("RGB")
-    if result.size != (1200, 200):
+    if result.size != (1200, 220):
         raise RuntimeError("Bannerformat stimmt nicht.")
     output = io.BytesIO()
     result.save(output, format="PNG", optimize=True)
