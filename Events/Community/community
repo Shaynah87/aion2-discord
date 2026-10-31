@@ -1,0 +1,10 @@
+# Kategorie: Community-Events
+# Die Eventueberschrift wird zentral in Events/events.py gestaltet.
+# Hier spaeter ausschliesslich echte Events eintragen.
+
+CATEGORY_ID = "community_events"
+CATEGORY_TITLE = "Community-Events"
+BANNER = "Community/community_events.png"
+
+EVENTS = (
+)
