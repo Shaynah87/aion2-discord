@@ -317,23 +317,10 @@ def draw_halloween_subtitle(base, current, center_y=149):
 
 
 def banner(current):
-    """Render the original 1200 x 180 Halloween artwork without resizing."""
+    """Render the 1200 x 220 Halloween artwork without darkening or resizing."""
     if current not in ("upcoming", "active", "finished"):
         raise ValueError(f"Unbekannter Eventstatus: {current}")
     base = load_background()
-
-    # Darken only the middle so the artwork remains intact at both sides.
-    overlay = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    alpha = Image.new("L", (WIDTH, HEIGHT), 0)
-    ap = alpha.load()
-    for x in range(WIDTH):
-        distance = abs(x - WIDTH / 2) / 325
-        strength = max(0, 1 - distance)
-        value = int(135 * strength ** 1.3)
-        for y in range(HEIGHT):
-            ap[x, y] = value
-    overlay.putalpha(alpha.filter(ImageFilter.GaussianBlur(12)))
-    base = Image.alpha_composite(base, overlay)
 
     # Der feurige HALLOWEEN-Schriftzug ist bereits Teil von halloween.png.
     # Keinen zweiten Schriftzug darueber zeichnen!
