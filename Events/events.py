@@ -27,7 +27,7 @@ DEFAULT_EVENT_TIME = clock_time(8, 30)
 WIDTH = 1200
 ROW_HEIGHT = 72
 
-TITLE_FONT_SIZE = 42
+TITLE_FONT_SIZE = 48
 NAME_FONT_SIZE = 32
 DATE_FONT_SIZE = 28
 STATUS_FONT_SIZE = 28
@@ -368,9 +368,9 @@ def draw_events(image, events, top, attendance=False):
 
 TITLE_EFFECT_COLORS = {
     "anwesenheitslisten": (49, 133, 147),  # Gedaempftes Petrol-Tuerkis passend zu den Seitenmotiven
-    "ingame_events": (39, 121, 187),      # Blau
-    "community_events": (184, 59, 145),   # Rosa
-    "twitch_drops": (137, 83, 207),       # Violett
+    "ingame_events": (68, 120, 166),      # Gedaempftes Silberblau
+    "community_events": (158, 86, 129),   # Gedaempftes Rose
+    "twitch_drops": (119, 93, 165),       # Gedaempftes Violett
 }
 
 
