@@ -28,8 +28,8 @@ WIDTH = 1200
 ROW_HEIGHT = 72
 
 TITLE_FONT_SIZE = 48
-NAME_FONT_SIZE = 32
-DATE_FONT_SIZE = 28
+NAME_FONT_SIZE = 36
+DATE_FONT_SIZE = 30
 STATUS_FONT_SIZE = 31
 
 # Nur Anwesenheitslisten: festgelegte Test-Typografie
@@ -225,22 +225,6 @@ def font(size, bold=True):
     )
 
 
-def fit_font(draw, text, max_width, size,
-             minimum=18, bold=True):
-    for candidate_size in range(
-        size, minimum - 1, -1
-    ):
-        candidate = font(candidate_size, bold)
-        bounds = draw.textbbox(
-            (0, 0), text, font=candidate
-        )
-
-        if bounds[2] - bounds[0] <= max_width:
-            return candidate
-
-    return font(minimum, bold)
-
-
 def ellipsize(draw, value, max_width, text_font):
     """Kuerzt nur den angezeigten Text, niemals die Schriftgroesse."""
     value = str(value)
@@ -318,16 +302,12 @@ def draw_events(image, events, top, attendance=False):
         if status is None:
             continue
 
-        if attendance:
-            name_font = font(ATTENDANCE_NAME_SIZE)
-            date_font = font(ATTENDANCE_DATE_SIZE, bold=False)
-            shown_name = ellipsize(draw, name, 525, name_font)
-            shown_period = period
-        else:
-            name_font = fit_font(draw, name, 525, NAME_FONT_SIZE)
-            date_font = fit_font(draw, period, 355, DATE_FONT_SIZE, bold=False)
-            shown_name = name
-            shown_period = period
+        # Einheitliche, feste Schriftgroessen fuer ALLE Kategorien.
+        # Lange Namen werden gekuerzt, niemals kleiner skaliert.
+        name_font = font(NAME_FONT_SIZE)
+        date_font = font(DATE_FONT_SIZE, bold=False)
+        shown_name = ellipsize(draw, name, 525, name_font)
+        shown_period = period
 
         draw.text(
             (30, center),
@@ -342,7 +322,7 @@ def draw_events(image, events, top, attendance=False):
             shown_period,
             font=date_font,
             anchor="mm",
-            fill=DATE_COLOR if attendance else "#F0F2F6",
+            fill=DATE_COLOR,
         )
 
         status_color = (
@@ -368,9 +348,9 @@ def draw_events(image, events, top, attendance=False):
 
 TITLE_EFFECT_COLORS = {
     "anwesenheitslisten": (49, 133, 147),  # Gedaempftes Petrol-Tuerkis passend zu den Seitenmotiven
-    "ingame_events": (68, 120, 166),      # Gedaempftes Silberblau
-    "community_events": (158, 86, 129),   # Gedaempftes Rose
-    "twitch_drops": (119, 93, 165),       # Gedaempftes Violett
+    "ingame_events": (35, 105, 182),      # Gedaempftes Silberblau
+    "community_events": (181, 48, 126),   # Gedaempftes Rose
+    "twitch_drops": (111, 58, 184),       # Gedaempftes Violett
 }
 
 
@@ -384,10 +364,12 @@ def draw_category_title(image, category, center_y):
     Die bestehenden Banner und Eventzeilen werden nicht veraendert.
     """
     key = category["key"]
-    size = TITLE_FONT_SIZE - 3 if key == "twitch_drops" else TITLE_FONT_SIZE
+    size = TITLE_FONT_SIZE
     title_font = font(size)
     title = category["title"]
     accent = TITLE_EFFECT_COLORS.get(key, (140, 165, 190))
+    # Anwesenheit bleibt exakt die freigegebene Referenz.
+    accent_strength = 0.72 if key == "anwesenheitslisten" else 0.90
 
     # Exakte Buchstabenmaske in bisheriger Groesse und Position.
     mask = Image.new("L", image.size, 0)
@@ -413,7 +395,7 @@ def draw_category_title(image, category, center_y):
             color = blend_color((228, 240, 243), blend_color((228, 240, 243), accent, 0.32), (t - 0.34) / 0.38)
         else:
             color = blend_color(blend_color((228, 240, 243), accent, 0.32),
-                                blend_color((228, 240, 243), accent, 0.72),
+                                blend_color((228, 240, 243), accent, accent_strength),
                                 (t - 0.72) / 0.28)
         face_draw.line((x0, y, x1, y), fill=color)
     image.paste(face, (0, 0), mask)
