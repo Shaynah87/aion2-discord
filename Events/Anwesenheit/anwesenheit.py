@@ -1,9 +1,9 @@
 
 """Nyerk24 · Anwesenheitslisten.
 
-Enthält ausschließlich Kategoriedaten und Discord-Buttondefinitionen.
-Die Interaktionen verarbeitet der bestehende Nyerk24 · Helper.
-Zeiträume sind Arbeitsdaten und müssen gegen offizielle Ankündigungen geprüft werden.
+Kategoriedaten und Discord-Buttondefinitionen.
+Interaktionen verarbeitet der bestehende Nyerk24 Helper.
+Zeitraeume gegen offizielle Ankuendigungen pruefen.
 """
 
 CATEGORY_ID = "anwesenheitslisten"
@@ -54,7 +54,10 @@ def buttons():
             {
                 "type": 2,
                 "style": 2,
-                "label": f'{event["name"]} · {event["date_label"]}',
+                "label": (
+                    f'{event["name"]} · '
+                    f'{event["date_label"]}'
+                ),
                 "custom_id": event["custom_id"],
             }
             for event in EVENTS
@@ -63,13 +66,14 @@ def buttons():
 
 
 def get_event(custom_id):
-    """Passendes Event für einen eingehenden Discord-Klick finden."""
+    """Event anhand der Discord-ID finden."""
     return next(
         (
-            event for event in EVENTS
+            event
+            for event in EVENTS
             if event["custom_id"] == custom_id
         ),
-        None
+        None,
     )
 
 
