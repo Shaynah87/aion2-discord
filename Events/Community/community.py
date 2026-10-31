@@ -15,7 +15,7 @@ EVENTS = (
     },
     {
         'id': 'transcendence_leaderboard',
-        'name': 'Transcendence Leaderboard',
+        'name': 'Transcendence Dungeon Leaderboard',
         'start': '2026-10-05',
         'end': '2026-11-02',
         'date_label': '05.10.–02.11.26',
@@ -29,14 +29,14 @@ EVENTS = (
     },
     {
         'id': 'daeva_bootcamp',
-        'name': 'Daeva Bootcamp',
+        'name': 'Daeva-Bootcamp',
         'start': '2026-11-04T15:00:00+01:00',
         'end': '2026-11-18T09:00:00+01:00',
         'date_label': '04.11.–18.11.26',
     },
     {
         'id': 'ludra_outfit',
-        'name': 'Ludra-Outfit-Wettbewerb',
+        'name': 'Ludra-Kleidungswettbewerb',
         'start': '2026-11-04T15:00:00+01:00',
         'end': '2026-11-18T09:00:00+01:00',
         'date_label': '04.11.–18.11.26',
