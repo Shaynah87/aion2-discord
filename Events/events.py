@@ -367,7 +367,7 @@ def draw_events(image, events, top, attendance=False):
 # ============================================================
 
 TITLE_EFFECT_COLORS = {
-    "anwesenheitslisten": (37, 169, 166),  # Tuerkis, wie der vorhandene Banner
+    "anwesenheitslisten": (0, 218, 232),  # Kraeftiges Cyan-Tuerkis wie die Blitze
     "ingame_events": (39, 121, 187),      # Blau
     "community_events": (184, 59, 145),   # Rosa
     "twitch_drops": (137, 83, 207),       # Violett
@@ -410,10 +410,10 @@ def draw_category_title(image, category, center_y):
         if t < 0.34:
             color = blend_color((255, 255, 255), (235, 246, 248), t / 0.34)
         elif t < 0.72:
-            color = blend_color((235, 246, 248), blend_color((235, 246, 248), accent, 0.40), (t - 0.34) / 0.38)
+            color = blend_color((235, 246, 248), blend_color((235, 246, 248), accent, 0.58), (t - 0.34) / 0.38)
         else:
-            color = blend_color(blend_color((235, 246, 248), accent, 0.40),
-                                blend_color((235, 246, 248), accent, 0.77),
+            color = blend_color(blend_color((235, 246, 248), accent, 0.58),
+                                blend_color((235, 246, 248), accent, 0.94),
                                 (t - 0.72) / 0.28)
         face_draw.line((x0, y, x1, y), fill=color)
     image.paste(face, (0, 0), mask)
@@ -441,10 +441,11 @@ def draw_category_title(image, category, center_y):
         t = 1 - abs(dx) / half_width
         fade = t * t * (3 - 2 * t)
         x = WIDTH // 2 + dx
-        gd.point((x, line_y), fill=(*blend_color(accent, (228, 253, 253), 0.35), round(205 * fade)))
+        gd.point((x, line_y), fill=(*blend_color(accent, (228, 253, 253), 0.30), round(245 * fade)))
+        gd.point((x, line_y + 1), fill=(*accent, round(155 * fade)))
         # Reflexion: direkt unter der Linie am staerksten, schnell abklingend.
-        for depth in range(1, 15):
-            alpha = round(31 * fade * ((15 - depth) / 14) ** 2)
+        for depth in range(2, 17):
+            alpha = round(47 * fade * ((17 - depth) / 15) ** 2)
             if alpha:
                 gd.point((x, line_y + depth), fill=(*accent, alpha))
     image.paste(glow, (0, 0), glow)
@@ -452,7 +453,7 @@ def draw_category_title(image, category, center_y):
     # Weicher Lichtsaum um die Linie, bewusst schwach gehalten.
     soft = Image.new("RGBA", image.size, (*accent, 0))
     alpha = glow.getchannel("A").filter(ImageFilter.GaussianBlur(3.0))
-    alpha = alpha.point(lambda p: round(p * 0.13))
+    alpha = alpha.point(lambda p: round(p * 0.20))
     soft.putalpha(alpha)
     image.paste(soft, (0, 0), soft)
 
