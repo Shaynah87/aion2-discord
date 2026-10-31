@@ -39,6 +39,14 @@ EVENTS = (
         "date_label": "14.10.–04.11.26",
         "custom_id": "event:details:suesses_oder_saures",
     },
+    {
+        "id": "ludra_anwesenheit",
+        "name": "Ludra-Eroberung",
+        "start": "2026-11-04T15:00:00+01:00",
+        "end": "2026-11-18T09:00:00+01:00",
+        "date_label": "04.11.–18.11.26",
+        "custom_id": "event:details:ludra_anwesenheit",
+    },
 )
 
 
