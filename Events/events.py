@@ -10,7 +10,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
 # ============================================================
@@ -367,37 +367,94 @@ def draw_events(image, events, top, attendance=False):
 # ============================================================
 
 TITLE_EFFECT_COLORS = {
-    "anwesenheitslisten": (216, 237, 238),  # sanftes Silbertuerkis
-    "ingame_events": (216, 229, 245),      # Silberblau
-    "community_events": (245, 221, 233),   # zartes Silberrosa
-    "twitch_drops": (230, 220, 245),       # zartes Silberviolett
+    "anwesenheitslisten": (37, 169, 166),  # Tuerkis, wie der vorhandene Banner
+    "ingame_events": (39, 121, 187),      # Blau
+    "community_events": (184, 59, 145),   # Rosa
+    "twitch_drops": (137, 83, 207),       # Violett
 }
 
 
+def blend_color(a, b, fraction):
+    return tuple(round(x * (1 - fraction) + y * fraction) for x, y in zip(a, b))
+
+
 def draw_category_title(image, category, center_y):
+    """Dezenter Materialverlauf nach dem bisherigen Nyerk24-Events-Prinzip.
+
+    Die bestehenden Banner und Eventzeilen werden nicht veraendert.
+    """
     key = category["key"]
     size = ATTENDANCE_TITLE_SIZE if key == "anwesenheitslisten" else TITLE_FONT_SIZE
     title_font = font(size)
     title = category["title"]
-    bottom = TITLE_EFFECT_COLORS.get(key, (229, 234, 242))
+    accent = TITLE_EFFECT_COLORS.get(key, (140, 165, 190))
 
+    # Exakte Buchstabenmaske in bisheriger Groesse und Position.
     mask = Image.new("L", image.size, 0)
     ImageDraw.Draw(mask).text(
         (WIDTH // 2, center_y), title,
-        font=title_font, anchor="mm", fill=255
+        font=title_font, anchor="mm", fill=255,
     )
+    bounds = mask.getbbox()
+    if bounds is None:
+        return
+    x0, y0, x1, y1 = bounds
+    letter_height = max(1, y1 - y0 - 1)
 
-    # Fast weisser Schriftkern, nur nach unten ein Hauch der Bannerfarbe.
-    gradient = Image.new("RGB", image.size, (248, 250, 252))
-    draw = ImageDraw.Draw(gradient)
-    y0 = max(0, center_y - size // 2 - 5)
-    y1 = min(image.height, center_y + size // 2 + 6)
-    top = (252, 253, 255)
+    # Weiss oben, kuehles Silber in der Mitte, Bannerfarbe unten.
+    # Der Farbverlauf bleibt AUSSCHLIESSLICH innerhalb der Buchstaben.
+    face = Image.new("RGB", image.size, (250, 252, 254))
+    face_draw = ImageDraw.Draw(face)
     for y in range(y0, y1):
-        t = (y - y0) / max(1, y1 - y0 - 1)
-        color = tuple(round(top[i] * (1 - t) + bottom[i] * t) for i in range(3))
-        draw.line((0, y, WIDTH, y), fill=color)
-    image.paste(gradient, (0, 0), mask)
+        t = (y - y0) / letter_height
+        if t < 0.34:
+            color = blend_color((255, 255, 255), (235, 246, 248), t / 0.34)
+        elif t < 0.72:
+            color = blend_color((235, 246, 248), blend_color((235, 246, 248), accent, 0.40), (t - 0.34) / 0.38)
+        else:
+            color = blend_color(blend_color((235, 246, 248), accent, 0.40),
+                                blend_color((235, 246, 248), accent, 0.77),
+                                (t - 0.72) / 0.28)
+        face_draw.line((x0, y, x1, y), fill=color)
+    image.paste(face, (0, 0), mask)
+
+    # Sehr feines inneres Relief; keine dicke Aussenkontur/Neon-Aura.
+    relief = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    relief_draw = ImageDraw.Draw(relief)
+    # Nur an den oberen Pixelkanten ein heller Reflex.
+    upper = Image.new("L", image.size, 0)
+    upper.paste(mask, (0, -1))
+    upper_edge = Image.new("L", image.size, 0)
+    from PIL import ImageChops
+    upper_edge = ImageChops.subtract(mask, upper).point(lambda p: round(p * 0.22))
+    highlight = Image.new("RGBA", image.size, (255, 255, 255, 0))
+    highlight.putalpha(upper_edge)
+    image.paste(highlight, (0, 0), highlight)
+
+    # Mittig heller Lichtstrich, nach links und rechts sanft auslaufend.
+    # Darunter eine sehr schwache vertikale Spiegelung, wie bei den Seitenmotiven.
+    line_y = min(image.height - 16, y1 + 9)
+    half_width = min(245, max(150, (x1 - x0) // 2 + 32))
+    glow = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for dx in range(-half_width, half_width + 1):
+        t = 1 - abs(dx) / half_width
+        fade = t * t * (3 - 2 * t)
+        x = WIDTH // 2 + dx
+        gd.point((x, line_y), fill=(*blend_color(accent, (228, 253, 253), 0.35), round(205 * fade)))
+        # Reflexion: direkt unter der Linie am staerksten, schnell abklingend.
+        for depth in range(1, 15):
+            alpha = round(31 * fade * ((15 - depth) / 14) ** 2)
+            if alpha:
+                gd.point((x, line_y + depth), fill=(*accent, alpha))
+    image.paste(glow, (0, 0), glow)
+
+    # Weicher Lichtsaum um die Linie, bewusst schwach gehalten.
+    soft = Image.new("RGBA", image.size, (*accent, 0))
+    alpha = glow.getchannel("A").filter(ImageFilter.GaussianBlur(3.0))
+    alpha = alpha.point(lambda p: round(p * 0.13))
+    soft.putalpha(alpha)
+    image.paste(soft, (0, 0), soft)
 
 
 # ============================================================
