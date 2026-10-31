@@ -531,8 +531,8 @@ def halloween_banner():
     )
 
     with Image.open(io.BytesIO(data)) as image:
-        if image.size != (1200, 200):
-            raise RuntimeError("Halloween-Banner muss 1200x200 sein")
+        if image.size != (1200, 220):
+            raise RuntimeError("Halloween-Banner muss 1200x220 sein")
         return image_to_png(image.convert("RGB"))
 
 
