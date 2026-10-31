@@ -1,4 +1,3 @@
-
 import hashlib
 import importlib.util
 import io
@@ -527,6 +526,19 @@ def prepare_overview():
     for index, category in enumerate(
         CATEGORIES, start=1
     ):
+        module_path = ROOT / category["module"]
+        banner_path = ROOT / category["banner"]
+
+        # Anwesenheitslisten sind bereits aktiv und müssen vorhanden sein.
+        # Weitere Kategorien werden erst eingeblendet, wenn ihre Dateien existieren.
+        if category["key"] != "anwesenheitslisten":
+            if not module_path.is_file():
+                print(f"Überspringe {category['title']}: Modul fehlt ({category['module']})")
+                continue
+            if not banner_path.is_file():
+                print(f"Überspringe {category['title']}: Banner fehlt ({category['banner']})")
+                continue
+
         events = load_events(category)
 
         filename = (
