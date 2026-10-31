@@ -6,7 +6,7 @@ import json
 import os
 import time
 
-from datetime import datetime
+from datetime import datetime, time as clock_time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -14,15 +14,18 @@ import requests
 from PIL import Image, ImageDraw, ImageFont
 
 
+# ============================================================
+# ALLGEMEINE EINSTELLUNGEN
+# ============================================================
+
 ROOT = Path(__file__).resolve().parent
 STATE_FILE = ROOT / "events_message.json"
+
 API = "https://discord.com/api/v10"
 TIMEZONE = ZoneInfo("Europe/Berlin")
+DEFAULT_EVENT_TIME = clock_time(8, 30)
 
 WIDTH = 1200
-BANNER_HEIGHT = 65
-HEADER_HEIGHT = 110
-EMPTY_HEADER_HEIGHT = 94
 ROW_HEIGHT = 72
 
 TITLE_FONT_SIZE = 42
@@ -30,19 +33,53 @@ NAME_FONT_SIZE = 32
 DATE_FONT_SIZE = 28
 STATUS_FONT_SIZE = 28
 
+BACKGROUND = (35, 39, 47)
+NAME_COLOR = "#F5F7FB"
+DATE_COLOR = "#F0F2F6"
 STARTED_COLOR = "#83D9AC"
 UPCOMING_COLOR = "#F29B72"
 
+
+# ============================================================
+# BEREICHSMODULE
+#
+# Neue Events werden NICHT hier eingetragen.
+#
+# Jedes Modul verwaltet seine eigenen Events.
+# ============================================================
+
 CATEGORIES = (
-    ("anwesenheitslisten", "Anwesenheitslisten",
-     "Anwesenheit/anwesenheitslisten.png", 0x25A9A6),
-    ("ingame_events", "Ingame-Events",
-     "In-Game/ingame_events.png", 0x2779BB),
-    ("community_events", "Community-Events",
-     "Community/community_events.png", 0xB83B91),
-    ("twitch_drops", "Twitch Drops",
-     "Twitch/twitch_drops.png", 0x8953CF),
+    {
+        "key": "anwesenheitslisten",
+        "title": "Anwesenheitslisten",
+        "module": "Anwesenheit/anwesenheit.py",
+        "banner": "Anwesenheit/anwesenheitslisten.png",
+        "color": 0x25A9A6,
+    },
+    {
+        "key": "community_events",
+        "title": "Community-Events",
+        "module": "Community/community.py",
+        "banner": "Community/community_events.png",
+        "color": 0xB83B91,
+    },
+    {
+        "key": "ingame_events",
+        "title": "Ingame-Events",
+        "module": "In-Game/ingame.py",
+        "banner": "In-Game/ingame_events.png",
+        "color": 0x2779BB,
+    },
+    {
+        "key": "twitch_drops",
+        "title": "Twitch Drops",
+        "module": "Twitch/twitch.py",
+        "banner": "Twitch/twitch_drops.png",
+        "color": 0x8953CF,
+    },
 )
+
+HALLOWEEN_MODULE = "Halloween/halloween.py"
 
 HELPER_CATEGORIES = (
     ("Halloween", "halloween_2026", "🎃"),
@@ -54,218 +91,68 @@ HELPER_CATEGORIES = (
 
 
 # ============================================================
-# ZUSÄTZLICHE EVENTS
+# MODULE LADEN
 # ============================================================
 
-INGAME_EVENTS = (
-    {
-        "id": "odenergie_boost",
-        "name": "Odenergie-Boost",
-        "start": "2026-10-28",
-        "end": "2026-11-11",
-        "date_label": "28.10.–11.11.26",
-    },
-    {
-        "id": "ludra_jagd",
-        "name": "Ludra-Jagd",
-        "start": "2026-11-04",
-        "end": "2026-11-25",
-        "date_label": "04.11.–25.11.26",
-    },
-)
+def load_module(relative_path, name):
+    path = ROOT / relative_path
 
-COMMUNITY_EVENTS = (
-    {
-        "id": "guides_for_glory",
-        "name": "Guides for Glory",
-        "start": "2026-10-05",
-        "end": "2026-11-02",
-        "date_label": "05.10.–02.11.26",
-    },
-    {
-        "id": "transcendence_leaderboard",
-        "name": "Transcendence Dungeon Leaderboard",
-        "start": "2026-10-05",
-        "end": "2026-11-02",
-        "date_label": "05.10.–02.11.26",
-    },
-    {
-        "id": "beauty_of_atreia",
-        "name": "Beauty of Atreia",
-        "start": "2026-10-05",
-        "end": "2026-11-09",
-        "date_label": "05.10.–09.11.26",
-    },
-    {
-        "id": "daeva_bootcamp",
-        "name": "Daeva Bootcamp",
-        "start": "2026-11-04",
-        "end": "2026-11-18",
-        "date_label": "04.11.–18.11.26",
-    },
-    {
-        "id": "ludra_outfit",
-        "name": "Ludra-Outfit-Wettbewerb",
-        "start": "2026-11-04",
-        "end": "2026-11-18",
-        "date_label": "04.11.–18.11.26",
-    },
-)
-
-TWITCH_EVENTS = (
-    {
-        "id": "halloween_twitch",
-        "name": "Globale Halloween Twitch-Drops",
-        "start": "2026-10-28T18:00:00+01:00",
-        "end": "2026-11-04T08:59:00+01:00",
-        "date_label": "28.10.–04.11.26",
-    },
-    {
-        "id": "ludra_twitch",
-        "name": "Ludra Twitch-Drops",
-        "start": "2026-11-04T15:00:00+01:00",
-        "end": "2026-11-18T08:59:00+01:00",
-        "date_label": "04.11.–18.11.26",
-    },
-)
-
-ADDITIONAL_ATTENDANCE = (
-    {
-        "id": "ludra_anwesenheit",
-        "name": "Ludra-Eroberung",
-        "start": "2026-11-04T15:00:00+01:00",
-        "end": "2026-11-18T08:59:00+01:00",
-        "date_label": "04.11.–18.11.26",
-    },
-)
-
-
-# ============================================================
-# HILFSFUNKTIONEN
-# ============================================================
-
-def api_request(method, url, session=None, **kwargs):
-    client = session or requests
-    kwargs.setdefault("timeout", 60)
-
-    for attempt in range(10):
-        response = client.request(method, url, **kwargs)
-
-        if response.status_code == 429:
-            if attempt == 9:
-                return response
-            try:
-                delay = float(
-                    response.json().get("retry_after", 1)
-                )
-            except (ValueError, TypeError):
-                delay = 1
-            time.sleep(max(0.5, delay + 0.3))
-            continue
-
-        if response.status_code in (500, 502, 503, 504):
-            if method.upper() == "POST":
-                raise RuntimeError(
-                    "Discord-Fehler beim POST. "
-                    "Bitte vor einem erneuten Lauf prüfen, "
-                    "ob die Nachricht erstellt wurde."
-                )
-            if attempt == 9:
-                return response
-            time.sleep(min(2 ** attempt, 15))
-            continue
-
-        return response
-
-    raise RuntimeError("Discord-Anfrage fehlgeschlagen")
-
-
-def checked(response, label):
-    if not response.ok:
-        raise RuntimeError(
-            f"{label}: HTTP {response.status_code}: "
-            f"{response.text[:800]}"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Bereichsmodul fehlt: {relative_path}"
         )
-    return response.json() if response.content else {}
 
-
-def load_state():
-    if not STATE_FILE.exists():
-        return {}
-
-    state = json.loads(
-        STATE_FILE.read_text(encoding="utf-8")
-    )
-    if not isinstance(state, dict):
-        raise RuntimeError("Ungültige Statusdatei")
-    return state
-
-
-def save_state(state):
-    temporary = STATE_FILE.with_suffix(".tmp")
-    temporary.write_text(
-        json.dumps(state, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    temporary.replace(STATE_FILE)
-
-
-def load_module(path, name):
-    filename = ROOT / path
     spec = importlib.util.spec_from_file_location(
-        name, filename
+        name, path
     )
+
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Modul fehlt: {filename}")
+        raise RuntimeError(
+            f"Modul kann nicht geladen werden: {path}"
+        )
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def font(size, bold=True):
-    filename = (
-        "DejaVuSans-Bold.ttf"
-        if bold else "DejaVuSans.ttf"
-    )
-    return ImageFont.truetype(
-        "/usr/share/fonts/truetype/dejavu/" + filename,
-        size,
+def load_events(category):
+    module = load_module(
+        category["module"],
+        "nyerk24_" + category["key"],
     )
 
+    events = getattr(module, "EVENTS", None)
 
-def fit_font(draw, value, maximum_width, size,
-             minimum=18, bold=True):
-    for candidate_size in range(size, minimum - 1, -1):
-        candidate = font(candidate_size, bold)
-        box = draw.textbbox(
-            (0, 0), value, font=candidate
+    if events is None:
+        raise RuntimeError(
+            f"{category['module']} enthält keine EVENTS"
         )
-        if box[2] - box[0] <= maximum_width:
-            return candidate
-    return font(minimum, bold)
 
+    if not isinstance(events, (list, tuple)):
+        raise TypeError(
+            f"EVENTS muss eine Liste oder ein Tupel sein: "
+            f"{category['module']}"
+        )
 
-def png(image):
-    output = io.BytesIO()
-    image.convert("RGB").save(
-        output, format="PNG", optimize=True
-    )
-    return output.getvalue()
+    return list(events)
 
 
 # ============================================================
-# DATEN UND SORTIERUNG
+# ZEITBERECHNUNG
 # ============================================================
 
-def parse_datetime(value, end_of_day=False):
-    parsed = datetime.fromisoformat(str(value))
+def parse_datetime(value):
+    raw = str(value)
+    parsed = datetime.fromisoformat(raw)
 
     if parsed.tzinfo is None:
-        if end_of_day:
-            parsed = parsed.replace(
-                hour=23, minute=59, second=59
+        if "T" not in raw and " " not in raw:
+            parsed = datetime.combine(
+                parsed.date(),
+                DEFAULT_EVENT_TIME,
             )
+
         parsed = parsed.replace(tzinfo=TIMEZONE)
 
     return parsed.astimezone(TIMEZONE)
@@ -276,17 +163,13 @@ def start_time(event):
 
 
 def end_time(event):
-    value = str(event["end"])
-    return parse_datetime(
-        value,
-        end_of_day=("T" not in value),
-    )
+    return parse_datetime(event["end"])
 
 
 def event_status(event, now=None):
     now = now or datetime.now(TIMEZONE)
 
-    if now > end_time(event):
+    if now >= end_time(event):
         return None
 
     if now < start_time(event):
@@ -297,69 +180,96 @@ def event_status(event, now=None):
 
 def sorted_events(events):
     now = datetime.now(TIMEZONE)
-    active = []
+
+    started = []
     upcoming = []
 
     for event in events:
         status = event_status(event, now)
 
         if status == "GESTARTET":
-            active.append(event)
+            started.append(event)
         elif status == "KOMMEND":
             upcoming.append(event)
 
-    # Zuerst das früheste Enddatum.
-    # Bei gleichem Enddatum steht der
-    # spätere Start weiter oben.
-    active.sort(
+    started.sort(
         key=lambda event: (
             end_time(event).timestamp(),
             -start_time(event).timestamp(),
         )
     )
 
-    # Kommende Events nach Startdatum.
     upcoming.sort(key=start_time)
 
-    return active + upcoming
+    return started + upcoming
 
 
 # ============================================================
-# HALLOWEEN
+# SCHRIFTEN UND BILDER
 # ============================================================
 
-def halloween_banner():
-    halloween = load_module(
-        "Halloween/halloween.py",
-        "nyerk24_halloween",
+def font(size, bold=True):
+    filename = (
+        "DejaVuSans-Bold.ttf"
+        if bold else "DejaVuSans.ttf"
     )
-    data = halloween.banner(halloween.status())
 
-    with Image.open(io.BytesIO(data)) as image:
-        if image.size != (1200, 180):
-            raise RuntimeError(
-                "Halloween-Banner muss 1200x180 sein"
-            )
+    return ImageFont.truetype(
+        "/usr/share/fonts/truetype/dejavu/" + filename,
+        size,
+    )
 
-    return data
+
+def fit_font(draw, text, max_width, size,
+             minimum=18, bold=True):
+    for candidate_size in range(
+        size, minimum - 1, -1
+    ):
+        candidate = font(candidate_size, bold)
+        bounds = draw.textbbox(
+            (0, 0), text, font=candidate
+        )
+
+        if bounds[2] - bounds[0] <= max_width:
+            return candidate
+
+    return font(minimum, bold)
+
+
+def image_to_png(image):
+    output = io.BytesIO()
+
+    image.convert("RGB").save(
+        output,
+        format="PNG",
+        optimize=True,
+    )
+
+    return output.getvalue()
 
 
 # ============================================================
-# KATEGORIEGRAFIKEN
+# EVENTNAMEN
 # ============================================================
 
-def category_background(relative_path):
-    path = ROOT / relative_path
+def display_name(event):
+    name = str(event["name"])
 
-    with Image.open(path) as original:
-        if original.size != (WIDTH, BANNER_HEIGHT):
-            raise RuntimeError(
-                f"Falsches Bannerformat: {path}"
-            )
-        return original.convert("RGB")
+    replacements = {
+        "Transcendence Dungeon Leaderboard":
+            "Transcendence Leaderboard",
+        "Süßes oder Saures!":
+            "Süßes oder Saures",
+    }
+
+    return replacements.get(name, name)
 
 
-def draw_event_area(image, events, top):
+# ============================================================
+# EVENTZEILEN ZEICHNEN
+# ============================================================
+
+def draw_events(image, events, top):
     draw = ImageDraw.Draw(image)
 
     for index, event in enumerate(events):
@@ -367,7 +277,7 @@ def draw_event_area(image, events, top):
         y1 = y0 + ROW_HEIGHT - 1
         center = y0 + ROW_HEIGHT // 2
 
-        background = (
+        color = (
             (35, 39, 47)
             if index % 2 == 0
             else (33, 37, 45)
@@ -375,7 +285,7 @@ def draw_event_area(image, events, top):
 
         draw.rectangle(
             (0, y0, WIDTH - 1, y1),
-            fill=background,
+            fill=color,
         )
 
         if index:
@@ -385,12 +295,8 @@ def draw_event_area(image, events, top):
                 width=1,
             )
 
-        name = str(event["name"])
+        name = display_name(event)
         period = str(event.get("date_label", ""))
-
-        if event.get("time_label"):
-            period += " · " + str(event["time_label"])
-
         status = event_status(event)
 
         if status is None:
@@ -403,21 +309,24 @@ def draw_event_area(image, events, top):
                 draw, name, 525, NAME_FONT_SIZE
             ),
             anchor="lm",
-            fill="#F5F7FB",
+            fill=NAME_COLOR,
         )
 
         draw.text(
             (785, center),
             period,
             font=fit_font(
-                draw, period, 355,
-                DATE_FONT_SIZE, bold=False
+                draw,
+                period,
+                355,
+                DATE_FONT_SIZE,
+                bold=False,
             ),
             anchor="mm",
-            fill="#CDD6E3",
+            fill=DATE_COLOR,
         )
 
-        color = (
+        status_color = (
             STARTED_COLOR
             if status == "GESTARTET"
             else UPCOMING_COLOR
@@ -428,59 +337,74 @@ def draw_event_area(image, events, top):
             status,
             font=font(STATUS_FONT_SIZE),
             anchor="rm",
-            fill=color,
+            fill=status_color,
         )
 
 
-def create_category_image(relative_path, title, events):
+# ============================================================
+# KATEGORIEBANNER
+# ============================================================
+
+def create_category_image(category, events):
     events = sorted_events(events)
 
-    header_height = (
-        HEADER_HEIGHT if events
-        else EMPTY_HEADER_HEIGHT
-    )
+    banner_path = ROOT / category["banner"]
 
+    with Image.open(banner_path) as source:
+        banner = source.convert("RGB")
+
+    if banner.width != WIDTH:
+        raise RuntimeError(
+            f"Banner muss {WIDTH} Pixel breit sein: "
+            f"{banner_path}"
+        )
+
+    banner_height = banner.height
+
+    if banner_height < 65:
+        raise RuntimeError(
+            f"Banner zu niedrig: {banner_path}"
+        )
+
+    header_height = banner_height + 45
     height = header_height + len(events) * ROW_HEIGHT
-
-    original = category_background(relative_path)
 
     image = Image.new(
         "RGB",
         (WIDTH, height),
-        (35, 39, 47),
+        BACKGROUND,
     )
-    image.paste(original, (0, 0))
 
+    image.paste(banner, (0, 0))
     draw = ImageDraw.Draw(image)
 
+    # Übergang vom Banner zur Eventliste
     edge_colors = [
-        original.getpixel((x, BANNER_HEIGHT - 1))
+        banner.getpixel((x, banner_height - 1))
         for x in range(WIDTH)
     ]
 
-    target = (35, 39, 47)
-    fade_height = header_height - BANNER_HEIGHT
-
-    for y in range(BANNER_HEIGHT, header_height):
+    for y in range(banner_height, header_height):
         progress = (
-            (y - BANNER_HEIGHT + 1)
-            / max(1, fade_height)
+            (y - banner_height + 1) / 45
         ) ** 0.72
 
         for x in range(WIDTH):
             source = edge_colors[x]
+
             color = tuple(
                 round(
                     source[channel] * (1 - progress)
-                    + target[channel] * progress
+                    + BACKGROUND[channel] * progress
                 )
                 for channel in range(3)
             )
+
             draw.point((x, y), fill=color)
 
     draw.text(
-        (WIDTH // 2, 37),
-        title,
+        (WIDTH // 2, banner_height // 2),
+        category["title"],
         font=font(TITLE_FONT_SIZE),
         anchor="mm",
         fill="white",
@@ -489,38 +413,41 @@ def create_category_image(relative_path, title, events):
     )
 
     if events:
-        draw_event_area(image, events, header_height)
+        draw_events(image, events, header_height)
 
-    return png(image)
+    return image_to_png(image)
 
 
 # ============================================================
-# ÜBERSICHT
+# HALLOWEEN
+#
+# Halloween behält seine eigene Darstellung.
+# ============================================================
+
+def halloween_banner():
+    halloween = load_module(
+        HALLOWEEN_MODULE,
+        "nyerk24_halloween",
+    )
+
+    data = halloween.banner(
+        halloween.status()
+    )
+
+    with Image.open(io.BytesIO(data)) as image:
+        if image.size != (1200, 180):
+            raise RuntimeError(
+                "Halloween-Banner muss 1200x180 sein"
+            )
+
+    return data
+
+
+# ============================================================
+# GESAMTÜBERSICHT ZUSAMMENSTELLEN
 # ============================================================
 
 def prepare_overview():
-    attendance = load_module(
-        "Anwesenheit/anwesenheit.py",
-        "nyerk24_attendance",
-    )
-
-    attendance_events = list(attendance.EVENTS)
-
-    existing_ids = {
-        event["id"] for event in attendance_events
-    }
-
-    for event in ADDITIONAL_ATTENDANCE:
-        if event["id"] not in existing_ids:
-            attendance_events.append(event)
-
-    event_map = {
-        "anwesenheitslisten": attendance_events,
-        "ingame_events": INGAME_EVENTS,
-        "community_events": COMMUNITY_EVENTS,
-        "twitch_drops": TWITCH_EVENTS,
-    }
-
     images = [
         ("00_halloween.png", halloween_banner())
     ]
@@ -532,34 +459,40 @@ def prepare_overview():
         },
     }]
 
-    for index, (
-        key, title, path, color
-    ) in enumerate(CATEGORIES, start=1):
+    for index, category in enumerate(
+        CATEGORIES, start=1
+    ):
+        events = load_events(category)
 
-        filename = f"{index:02d}_{key}.png"
+        filename = (
+            f"{index:02d}_{category['key']}.png"
+        )
 
-        images.append((
-            filename,
-            create_category_image(
-                path, title, event_map[key]
-            ),
-        ))
+        data = create_category_image(
+            category, events
+        )
+
+        images.append((filename, data))
 
         embeds.append({
-            "color": color,
+            "color": category["color"],
             "image": {
                 "url": f"attachment://{filename}"
             },
         })
 
         print(
-            f"{title}: "
-            f"{len(sorted_events(event_map[key]))} "
+            f"{category['title']}: "
+            f"{len(sorted_events(events))} "
             "sichtbare Events"
         )
 
     return images, embeds
 
+
+# ============================================================
+# ÄNDERUNGEN ERKENNEN
+# ============================================================
 
 def overview_hash(images, embeds):
     digest = hashlib.sha256()
@@ -578,7 +511,106 @@ def overview_hash(images, embeds):
 
 
 # ============================================================
-# HELPER
+# STATUSDATEI
+# ============================================================
+
+def load_state():
+    if not STATE_FILE.exists():
+        return {}
+
+    state = json.loads(
+        STATE_FILE.read_text(encoding="utf-8")
+    )
+
+    if not isinstance(state, dict):
+        raise RuntimeError(
+            "Ungültige events_message.json"
+        )
+
+    return state
+
+
+def save_state(state):
+    temporary = STATE_FILE.with_suffix(".tmp")
+
+    temporary.write_text(
+        json.dumps(
+            state,
+            ensure_ascii=False,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+    temporary.replace(STATE_FILE)
+
+
+# ============================================================
+# DISCORD API
+# ============================================================
+
+def api_request(method, url, session=None, **kwargs):
+    client = session or requests
+    kwargs.setdefault("timeout", 60)
+
+    for attempt in range(10):
+        response = client.request(
+            method, url, **kwargs
+        )
+
+        if response.status_code == 429:
+            if attempt == 9:
+                return response
+
+            try:
+                delay = float(
+                    response.json().get("retry_after", 1)
+                )
+            except (ValueError, TypeError):
+                delay = 1
+
+            time.sleep(max(0.5, delay + 0.3))
+            continue
+
+        if response.status_code in (
+            500, 502, 503, 504
+        ):
+            if method.upper() == "POST":
+                raise RuntimeError(
+                    "Discord-Fehler beim POST. "
+                    "Vor erneutem Start prüfen, "
+                    "ob eine Nachricht erstellt wurde."
+                )
+
+            if attempt == 9:
+                return response
+
+            time.sleep(min(2 ** attempt, 15))
+            continue
+
+        return response
+
+    raise RuntimeError(
+        "Discord-Anfrage fehlgeschlagen"
+    )
+
+
+def checked(response, label):
+    if not response.ok:
+        raise RuntimeError(
+            f"{label}: HTTP {response.status_code}: "
+            f"{response.text[:800]}"
+        )
+
+    return (
+        response.json()
+        if response.content
+        else {}
+    )
+
+
+# ============================================================
+# EVENT-HELPER
 # ============================================================
 
 def helper_payload():
@@ -621,7 +653,7 @@ def helper_payload():
 def helper_candidates(state):
     candidates = []
 
-    for value in (
+    records = [
         state.get("overview_v6", {}).get(
             "helper_message_id"
         ),
@@ -631,7 +663,9 @@ def helper_candidates(state):
         state.get("halloween_2026", {}).get(
             "helper_message_id"
         ),
-    ):
+    ]
+
+    for value in records:
         if value and str(value) not in candidates:
             candidates.append(str(value))
 
@@ -676,10 +710,15 @@ def ensure_helper(bot, channel_id, state):
             component_ids = [
                 component.get("custom_id")
                 for row in message.get("components", [])
-                for component in row.get("components", [])
+                for component in row.get(
+                    "components", []
+                )
             ]
 
-            if "event:menu:category" not in component_ids:
+            if (
+                "event:menu:category"
+                not in component_ids
+            ):
                 response = api_request(
                     "PATCH",
                     (
@@ -705,38 +744,38 @@ def ensure_helper(bot, channel_id, state):
             save_state(state)
 
             print(
-                "Bestehender Helper gefunden:",
+                "Bestehender Helper:",
                 message_id,
             )
             return
 
-        # Nur wenn kein vorhandener Helper
-        # gefunden wurde.
         response = api_request(
             "POST",
-            f"{API}/channels/{channel_id}/messages",
+            (
+                f"{API}/channels/{channel_id}"
+                "/messages"
+            ),
             session=bot,
             json=helper_payload(),
         )
 
         if response.status_code == 403:
             print(
-                "WARNUNG: Helper konnte nicht "
-                "erstellt werden (403)."
-            )
-            print(
-                "Die Eventübersicht wurde "
-                "trotzdem erfolgreich verarbeitet."
+                "WARNUNG: Keine Berechtigung "
+                "zum Erstellen des Helpers."
             )
             return
 
         message = checked(
-            response, "Helper veröffentlichen"
+            response,
+            "Helper veröffentlichen",
         )
 
         state.setdefault(
             "overview_v6", {}
-        )["helper_message_id"] = str(message["id"])
+        )["helper_message_id"] = str(
+            message["id"]
+        )
 
         save_state(state)
 
@@ -747,17 +786,13 @@ def ensure_helper(bot, channel_id, state):
 
     except Exception as error:
         print(
-            "WARNUNG: Helper konnte nicht "
-            "verarbeitet werden:",
+            "WARNUNG: Helper:",
             error,
-        )
-        print(
-            "Die Eventübersicht bleibt erhalten."
         )
 
 
 # ============================================================
-# DISCORD
+# DISCORD-SYNCHRONISIERUNG
 # ============================================================
 
 def main():
@@ -780,14 +815,25 @@ def main():
         "Webhook prüfen",
     )
 
-    channel_id = str(webhook_info["channel_id"])
-    webhook_id = str(webhook_info["id"])
+    channel_id = str(
+        webhook_info["channel_id"]
+    )
+    webhook_id = str(
+        webhook_info["id"]
+    )
 
+    # Erst alle Module laden und Bilder erstellen.
+    # Bei einem Fehler wird nichts veröffentlicht.
     images, embeds = prepare_overview()
     digest = overview_hash(images, embeds)
 
-    record = state.setdefault("overview_v6", {})
-    message_id = str(record.get("message_id") or "")
+    # Bestehende Nachrichten-ID weiterverwenden.
+    record = state.setdefault(
+        "overview_v6", {}
+    )
+    message_id = str(
+        record.get("message_id") or ""
+    )
 
     needs_update = True
 
@@ -804,22 +850,26 @@ def main():
         if response.status_code == 404:
             raise RuntimeError(
                 "Gespeicherte Eventübersicht "
-                "nicht gefunden. Kein Doppelpost."
+                "nicht gefunden. "
+                "Kein automatischer Doppelpost."
             )
 
         message = checked(
-            response, "Übersicht prüfen"
+            response,
+            "Übersicht prüfen",
         )
 
         if str(
             message.get("webhook_id") or ""
         ) != webhook_id:
             raise RuntimeError(
-                "Die Übersicht gehört nicht "
+                "Nachricht gehört nicht "
                 "zum erwarteten Webhook."
             )
 
-        needs_update = record.get("hash") != digest
+        needs_update = (
+            record.get("hash") != digest
+        )
 
     if needs_update:
         payload = {
@@ -840,14 +890,19 @@ def main():
             "payload_json": (
                 None,
                 json.dumps(
-                    payload, ensure_ascii=False
+                    payload,
+                    ensure_ascii=False,
                 ),
             )
         }
 
-        for index, (filename, data) in enumerate(images):
+        for index, (filename, data) in enumerate(
+            images
+        ):
             multipart[f"files[{index}]"] = (
-                filename, data, "image/png"
+                filename,
+                data,
+                "image/png",
             )
 
         if message_id:
@@ -867,11 +922,15 @@ def main():
             )
 
         message = checked(
-            response, "Übersicht veröffentlichen"
+            response,
+            "Übersicht veröffentlichen",
         )
 
-        record["message_id"] = str(message["id"])
+        record["message_id"] = str(
+            message["id"]
+        )
         record["hash"] = digest
+
         save_state(state)
 
         print(
@@ -882,10 +941,18 @@ def main():
     else:
         print("Übersicht unverändert.")
 
-    ensure_helper(bot, channel_id, state)
+    ensure_helper(
+        bot,
+        channel_id,
+        state,
+    )
 
-    print("Fertig.")
+    print("Events-Synchronisierung abgeschlossen.")
 
+
+# ============================================================
+# START
+# ============================================================
 
 if __name__ == "__main__":
     main()
