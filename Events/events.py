@@ -1,4 +1,17 @@
 
+"""
+Nyerk24 · Events
+Gemeinsame Eventübersicht mit Discord-Embeds.
+
+- Halloween bleibt unverändert (1200 x 180)
+- Alle Kategorie-Banner erhalten denselben Verlauf
+- Kategorien ohne Events erhalten einen kurzen Verlauf
+- Kategorien mit Events erhalten einen Anthrazit-Block
+- Bestehende Übersicht wird aktualisiert
+- Bestehender Helper wird nach Möglichkeit wiederverwendet
+- Keine automatische Löschung alter Nachrichten
+"""
+
 import hashlib
 import importlib.util
 import io
@@ -11,15 +24,18 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parent
 STATE_FILE = ROOT / "events_message.json"
+
 API = "https://discord.com/api/v10"
 
 WIDTH = 1200
+BANNER_HEIGHT = 65
 HEADER_HEIGHT = 110
+EMPTY_HEADER_HEIGHT = 94
 ROW_HEIGHT = 64
 
 CATEGORIES = (
@@ -68,14 +84,20 @@ def api_request(method, url, session=None, **kwargs):
 
     for attempt in range(12):
         try:
-            response = client.request(method, url, **kwargs)
+            response = client.request(
+                method,
+                url,
+                **kwargs,
+            )
+
         except (
             requests.ConnectionError,
             requests.Timeout,
         ) as error:
+
             if method.upper() == "POST":
                 raise RuntimeError(
-                    "POST-Verbindung unterbrochen. "
+                    "Verbindung beim POST unterbrochen. "
                     "Bitte Discord vor erneutem Start prüfen."
                 ) from error
 
@@ -94,16 +116,20 @@ def api_request(method, url, session=None, **kwargs):
                 delay = 1.0
 
             if attempt == 11:
-                raise RuntimeError("Discord Rate Limit")
+                raise RuntimeError(
+                    "Discord Rate Limit"
+                )
 
             time.sleep(max(0.5, delay + 0.3))
             continue
 
-        if response.status_code in (500, 502, 503, 504):
+        if response.status_code in (
+            500, 502, 503, 504
+        ):
             if method.upper() == "POST":
                 raise RuntimeError(
                     "Discord-Serverfehler beim POST. "
-                    "Vor erneutem Start Discord prüfen."
+                    "Vor erneutem Lauf Discord prüfen."
                 )
 
             if attempt == 11:
@@ -114,27 +140,33 @@ def api_request(method, url, session=None, **kwargs):
 
         return response
 
-    raise RuntimeError("Discord-Anfrage fehlgeschlagen")
+    raise RuntimeError(
+        "Discord-Anfrage fehlgeschlagen"
+    )
 
 
 def checked(response, label):
     if not response.ok:
         raise RuntimeError(
             f"{label}: HTTP {response.status_code}: "
-            f"{response.text[:800]}"
+            f"{response.text[:1000]}"
         )
 
-    return response.json() if response.content else {}
+    return (
+        response.json()
+        if response.content
+        else {}
+    )
 
 
 # ==================================================
-# STATUSDATEI
+# STATUS
 # ==================================================
 
 def load_state():
     if not STATE_FILE.is_file():
         raise RuntimeError(
-            "Events/events_message.json fehlt"
+            "events_message.json fehlt"
         )
 
     state = json.loads(
@@ -142,7 +174,9 @@ def load_state():
     )
 
     if not isinstance(state, dict):
-        raise RuntimeError("Ungültige Statusdatei")
+        raise RuntimeError(
+            "Ungültige Statusdatei"
+        )
 
     return state
 
@@ -163,21 +197,23 @@ def save_state(state):
 
 
 # ==================================================
-# MODULE UND SCHRIFTEN
+# MODULE
 # ==================================================
 
 def load_module(relative_path, name):
     path = ROOT / relative_path
 
     if not path.is_file():
-        raise RuntimeError(f"Datei fehlt: {path}")
+        raise RuntimeError(
+            f"Datei fehlt: {path}"
+        )
 
     spec = importlib.util.spec_from_file_location(
         name,
         path,
     )
 
-    if not spec or not spec.loader:
+    if spec is None or spec.loader is None:
         raise RuntimeError(
             f"Modul kann nicht geladen werden: {path}"
         )
@@ -187,6 +223,10 @@ def load_module(relative_path, name):
 
     return module
 
+
+# ==================================================
+# SCHRIFTEN
+# ==================================================
 
 def font(size, bold=True):
     filename = (
@@ -201,12 +241,33 @@ def font(size, bold=True):
     )
 
     if not path.is_file():
-        raise RuntimeError(f"Schrift fehlt: {path}")
+        raise RuntimeError(
+            f"Schriftart fehlt: {path}"
+        )
 
-    return ImageFont.truetype(str(path), size)
+    return ImageFont.truetype(
+        str(path),
+        size,
+    )
 
 
-def to_png(image):
+def fit_font(draw, text, max_width, initial):
+    for size in range(initial, 15, -1):
+        candidate = font(size)
+
+        bounds = draw.textbbox(
+            (0, 0),
+            text,
+            font=candidate,
+        )
+
+        if bounds[2] - bounds[0] <= max_width:
+            return candidate
+
+    return font(16)
+
+
+def png(image):
     output = io.BytesIO()
 
     image.convert("RGB").save(
@@ -218,24 +279,8 @@ def to_png(image):
     return output.getvalue()
 
 
-def fit_font(draw, text, maximum, initial):
-    for size in range(initial, 15, -1):
-        candidate = font(size)
-
-        bounds = draw.textbbox(
-            (0, 0),
-            text,
-            font=candidate,
-        )
-
-        if bounds[2] - bounds[0] <= maximum:
-            return candidate
-
-    return font(16)
-
-
 # ==================================================
-# HALLOWEEN – ORIGINALFUNKTION
+# HALLOWEEN
 # ==================================================
 
 def halloween_banner():
@@ -244,24 +289,24 @@ def halloween_banner():
         "nyerk24_halloween",
     )
 
-    result = halloween.banner(
+    data = halloween.banner(
         halloween.status()
     )
 
-    with Image.open(io.BytesIO(result)) as image:
+    with Image.open(io.BytesIO(data)) as image:
         if image.size != (1200, 180):
             raise RuntimeError(
                 "Halloween muss 1200x180 sein."
             )
 
-    return result
+    return data
 
 
 # ==================================================
-# BANNER
+# KATEGORIE-BANNER
 # ==================================================
 
-def category_background(relative_path):
+def load_category_background(relative_path):
     path = ROOT / relative_path
 
     if not path.is_file():
@@ -270,7 +315,9 @@ def category_background(relative_path):
         )
 
     with Image.open(path) as source:
-        if source.size != (1200, 65):
+        if source.size != (
+            WIDTH, BANNER_HEIGHT
+        ):
             raise RuntimeError(
                 f"Falsches Bannerformat: {path}"
             )
@@ -278,39 +325,18 @@ def category_background(relative_path):
         return source.convert("RGB")
 
 
-def draw_category_header(image, title):
-    draw = ImageDraw.Draw(image)
-
-    draw.text(
-        (WIDTH // 2, image.height // 2),
-        title,
-        font=font(39),
-        anchor="mm",
-        fill="white",
-        stroke_width=2,
-        stroke_fill="#121923",
-    )
-
-
-def standalone_banner(relative_path, title):
-    image = category_background(relative_path)
-
-    draw_category_header(image, title)
-
-    return to_png(image)
-
-
-# ==================================================
-# NEUER ANTHRAZIT-EVENTBLOCK
-# ==================================================
-
 def event_status(event):
     today = datetime.now(
         ZoneInfo("Europe/Berlin")
     ).date()
 
-    start = date.fromisoformat(event["start"])
-    end = date.fromisoformat(event["end"])
+    start = date.fromisoformat(
+        event["start"]
+    )
+
+    end = date.fromisoformat(
+        event["end"]
+    )
 
     if today < start:
         return "Kommend"
@@ -321,67 +347,206 @@ def event_status(event):
     return "Beendet"
 
 
+# ==================================================
+# VERLAUF
+# ==================================================
+
+def create_category_image(
+    relative_path,
+    title,
+    events,
+):
+    events = list(events)
+
+    has_events = bool(events)
+
+    header_height = (
+        HEADER_HEIGHT
+        if has_events
+        else EMPTY_HEADER_HEIGHT
+    )
+
+    total_height = (
+        header_height
+        + len(events) * ROW_HEIGHT
+    )
+
+    original = load_category_background(
+        relative_path
+    )
+
+    image = Image.new(
+        "RGB",
+        (WIDTH, total_height),
+        (35, 39, 47),
+    )
+
+    # Originalbanner unverändert einsetzen.
+    image.paste(
+        original,
+        (0, 0),
+    )
+
+    draw = ImageDraw.Draw(image)
+
+    # Weicher Übergang aus den tatsächlichen
+    # Farben der unteren Originalbanner-Kante.
+    #
+    # Jede Kategorie erhält dadurch ihren
+    # eigenen farblich passenden Verlauf.
+    #
+    # Auch ohne Events bleibt der Verlauf sichtbar.
+
+    edge = [
+        original.getpixel(
+            (x, BANNER_HEIGHT - 1)
+        )
+        for x in range(WIDTH)
+    ]
+
+    target = (35, 39, 47)
+
+    transition_height = (
+        header_height - BANNER_HEIGHT
+    )
+
+    for y in range(
+        BANNER_HEIGHT,
+        header_height,
+    ):
+        progress = (
+            (y - BANNER_HEIGHT + 1)
+            / max(1, transition_height)
+        )
+
+        progress = progress ** 0.72
+
+        for x in range(WIDTH):
+            r, g, b = edge[x]
+
+            color = (
+                round(
+                    r * (1 - progress)
+                    + target[0] * progress
+                ),
+                round(
+                    g * (1 - progress)
+                    + target[1] * progress
+                ),
+                round(
+                    b * (1 - progress)
+                    + target[2] * progress
+                ),
+            )
+
+            draw.point(
+                (x, y),
+                fill=color,
+            )
+
+    # Überschrift auf dem ursprünglichen
+    # 65-Pixel-Banner platzieren.
+    draw.text(
+        (WIDTH // 2, 37),
+        title,
+        font=font(39),
+        anchor="mm",
+        fill="#FFFFFF",
+        stroke_width=2,
+        stroke_fill="#111722",
+    )
+
+    # Keine Events:
+    # Fertiger Banner mit Verlauf,
+    # ohne leere Zeilen oder Platzhalter.
+    if not has_events:
+        return png(image)
+
+    # Eventbereich unter dem Verlauf.
+    draw_event_area(
+        image,
+        events,
+        header_height,
+    )
+
+    return png(image)
+
+
+# ==================================================
+# EVENTZEILEN
+# ==================================================
+
 def draw_event_area(image, events, top):
     draw = ImageDraw.Draw(image)
 
-    # Ruhiger, gleichmäßiger Hintergrund.
-    # Kein Zuschnitt aus Tracker/event_overview.png.
-    for y in range(top, image.height):
-        distance = y - top
-        shade = max(27, 37 - distance // 75)
-
-        draw.line(
-            (0, y, WIDTH, y),
-            fill=(shade, shade + 3, shade + 9),
-        )
-
     for index, event in enumerate(events):
         y0 = top + index * ROW_HEIGHT
-        center = y0 + ROW_HEIGHT // 2
+        y1 = y0 + ROW_HEIGHT - 1
 
-        if index % 2 == 1:
-            draw.rectangle(
-                (
-                    0,
-                    y0,
-                    WIDTH - 1,
-                    y0 + ROW_HEIGHT - 1,
-                ),
-                fill=(34, 38, 46),
-            )
+        # Dezente wechselnde Anthrazit-Töne.
+        background = (
+            (35, 39, 47)
+            if index % 2 == 0
+            else (33, 37, 45)
+        )
 
+        draw.rectangle(
+            (0, y0, WIDTH - 1, y1),
+            fill=background,
+        )
+
+        # Feine Trennlinie, ohne schwarze Ränder.
         if index:
             draw.line(
-                (28, y0, WIDTH - 28, y0),
-                fill=(63, 70, 81),
+                (
+                    28,
+                    y0,
+                    WIDTH - 28,
+                    y0,
+                ),
+                fill=(62, 69, 80),
                 width=1,
             )
 
+        center = y0 + ROW_HEIGHT // 2
+
         name = str(event["name"])
-        period = str(event.get("date_label") or "")
+
+        period = str(
+            event.get("date_label") or ""
+        )
 
         if event.get("time_label"):
             period += (
-                " · " + str(event["time_label"])
+                " · "
+                + str(event["time_label"])
             )
 
         status = event_status(event)
 
+        # Eventname links.
         draw.text(
             (30, center),
             name,
             font=fit_font(
-                draw, name, 525, 27
+                draw,
+                name,
+                530,
+                27,
             ),
             anchor="lm",
             fill="#F5F7FB",
         )
 
+        # Datum mittig.
         draw.text(
             (785, center),
             period,
             font=fit_font(
-                draw, period, 355, 23
+                draw,
+                period,
+                355,
+                23,
             ),
             anchor="mm",
             fill="#CDD6E3",
@@ -393,6 +558,7 @@ def draw_event_area(image, events, top):
             "Beendet": "#AEB7C5",
         }[status]
 
+        # Status rechts.
         draw.text(
             (1170, center),
             status,
@@ -402,80 +568,8 @@ def draw_event_area(image, events, top):
         )
 
 
-def combined_category(relative_path, title, events):
-    events = list(events)
-
-    if not events:
-        return standalone_banner(relative_path, title)
-
-    original = category_background(relative_path)
-
-    # Die vorhandene Banner-Grafik wird nicht
-    # zugeschnitten. Sie erhält einen sanften
-    # Übergang in den größeren Kopfbereich.
-    total_height = (
-        HEADER_HEIGHT + len(events) * ROW_HEIGHT
-    )
-
-    image = Image.new(
-        "RGB",
-        (WIDTH, total_height),
-        "#22262E",
-    )
-
-    # Originalbanner vollständig erhalten.
-    image.paste(original, (0, 0))
-
-    # Die zusätzlichen 45 Pixel bilden einen
-    # farblich passenden Übergang.
-    bottom_colors = [
-        original.getpixel((x, original.height - 1))
-        for x in range(WIDTH)
-    ]
-
-    draw = ImageDraw.Draw(image)
-
-    for y in range(65, HEADER_HEIGHT):
-        progress = (y - 65) / (HEADER_HEIGHT - 65)
-        progress = progress ** 0.75
-
-        for x in range(WIDTH):
-            r, g, b = bottom_colors[x]
-
-            target = (37, 40, 48)
-
-            color = (
-                round(r * (1 - progress) + target[0] * progress),
-                round(g * (1 - progress) + target[1] * progress),
-                round(b * (1 - progress) + target[2] * progress),
-            )
-
-            draw.point((x, y), fill=color)
-
-    # Titel mittig im ursprünglichen Bannerbereich.
-    title_draw = ImageDraw.Draw(image)
-
-    title_draw.text(
-        (600, 37),
-        title,
-        font=font(39),
-        anchor="mm",
-        fill="white",
-        stroke_width=2,
-        stroke_fill="#121923",
-    )
-
-    draw_event_area(
-        image,
-        events,
-        HEADER_HEIGHT,
-    )
-
-    return to_png(image)
-
-
 # ==================================================
-# EMBEDS
+# ÜBERSICHT
 # ==================================================
 
 def prepare_overview():
@@ -502,40 +596,54 @@ def prepare_overview():
         {
             "color": 0xFF7100,
             "image": {
-                "url": "attachment://00_halloween.png"
+                "url": (
+                    "attachment://00_halloween.png"
+                )
             },
         }
     ]
 
-    for index, (key, title, path, color) in enumerate(
-        CATEGORIES,
-        start=1,
-    ):
-        filename = f"{index:02d}_{key}.png"
+    for index, (
+        key,
+        title,
+        path,
+        color,
+    ) in enumerate(CATEGORIES, start=1):
 
-        data = combined_category(
+        filename = (
+            f"{index:02d}_{key}.png"
+        )
+
+        data = create_category_image(
             path,
             title,
             event_map[key],
         )
 
-        images.append((filename, data))
+        images.append(
+            (filename, data)
+        )
 
         embeds.append({
             "color": color,
             "image": {
-                "url": f"attachment://{filename}"
+                "url": (
+                    f"attachment://{filename}"
+                )
             },
         })
 
     return images, embeds
 
 
-def overview_hash(images, embeds):
+def calculate_hash(images, embeds):
     digest = hashlib.sha256()
 
     for filename, data in images:
-        digest.update(filename.encode("utf-8"))
+        digest.update(
+            filename.encode("utf-8")
+        )
+
         digest.update(data)
 
     digest.update(
@@ -557,21 +665,27 @@ def helper_payload():
         {
             "label": label,
             "value": value,
-            "emoji": {"name": emoji},
+            "emoji": {
+                "name": emoji,
+            },
         }
-        for label, value, emoji in HELPER_CATEGORIES
+        for label, value, emoji
+        in HELPER_CATEGORIES
     ]
 
     return {
         "content": "",
         "embeds": [
             {
-                "title": "Nyerk24 · Event Helper",
+                "title": (
+                    "Nyerk24 · Event Helper"
+                ),
                 "description": (
                     "Wähle eine Eventkategorie aus, "
-                    "um die verfügbaren Events und "
-                    "ihre Details aufzurufen.\n\n"
-                    "Die Auswahl ist nur für dich sichtbar."
+                    "um die verfügbaren Events "
+                    "und ihre Details aufzurufen.\n\n"
+                    "Deine Auswahl ist nur "
+                    "für dich sichtbar."
                 ),
                 "color": 0x596DDB,
             }
@@ -582,8 +696,12 @@ def helper_payload():
                 "components": [
                     {
                         "type": 3,
-                        "custom_id": "event:menu:category",
-                        "placeholder": "Eventkategorie auswählen",
+                        "custom_id": (
+                            "event:menu:category"
+                        ),
+                        "placeholder": (
+                            "Eventkategorie auswählen"
+                        ),
                         "min_values": 1,
                         "max_values": 1,
                         "options": options,
@@ -597,69 +715,195 @@ def helper_payload():
     }
 
 
+def helper_candidates(state):
+    candidates = []
+
+    for value in (
+        state.get(
+            "overview_v6", {}
+        ).get("helper_message_id"),
+
+        state.get(
+            "overview_v2", {}
+        ).get("helper", {}).get("message_id"),
+
+        state.get(
+            "halloween_2026", {}
+        ).get("helper_message_id"),
+    ):
+        if value:
+            identifier = str(value)
+
+            if identifier not in candidates:
+                candidates.append(identifier)
+
+    return candidates
+
+
 def ensure_helper(bot, channel_id, state):
-    version = state.setdefault("overview_v6", {})
-
-    helper_id = str(
-        version.get("helper_message_id") or ""
-    )
-
     payload = helper_payload()
 
-    if helper_id:
+    me_response = api_request(
+        "GET",
+        f"{API}/users/@me",
+        session=bot,
+    )
+
+    me = checked(
+        me_response,
+        "Bot-Identität prüfen",
+    )
+
+    bot_id = str(me["id"])
+
+    # Vorhandene Helper-Nachrichten prüfen.
+    # Keine zweite Nachricht erstellen,
+    # wenn bereits ein nutzbarer Helper existiert.
+    for message_id in helper_candidates(state):
         response = api_request(
             "GET",
             (
                 f"{API}/channels/{channel_id}"
-                f"/messages/{helper_id}"
+                f"/messages/{message_id}"
             ),
             session=bot,
         )
 
-        if response.status_code == 200:
-            message = response.json()
+        if response.status_code == 404:
+            continue
 
-            if not message.get("webhook_id"):
-                api_request(
-                    "PATCH",
-                    (
-                        f"{API}/channels/{channel_id}"
-                        f"/messages/{helper_id}"
-                    ),
-                    session=bot,
-                    json=payload,
+        if response.status_code == 403:
+            print(
+                "WARNUNG: Helper-Nachricht kann "
+                "nicht geprüft werden (403)."
+            )
+            continue
+
+        message = checked(
+            response,
+            "Helper prüfen",
+        )
+
+        author_id = str(
+            message.get(
+                "author", {}
+            ).get("id", "")
+        )
+
+        if author_id != bot_id:
+            print(
+                "Vorhandener Helper gehört "
+                "nicht zum aktuellen Bot:",
+                message_id,
+            )
+            continue
+
+        # Bestehende Nachricht weiterverwenden.
+        # Keine unnötige Bearbeitung, wenn
+        # die Auswahl bereits vorhanden ist.
+        existing_components = (
+            message.get("components") or []
+        )
+
+        existing_ids = []
+
+        for row in existing_components:
+            for component in row.get(
+                "components", []
+            ):
+                existing_ids.append(
+                    component.get("custom_id")
                 )
 
-                print(
-                    "Vorhandener Helper aktualisiert."
-                )
-                return
+        if (
+            "event:menu:category"
+            in existing_ids
+        ):
+            print(
+                "Bestehender Event Helper gefunden:",
+                message_id,
+            )
 
-        elif response.status_code != 404:
-            checked(response, "Helper prüfen")
+            state.setdefault(
+                "overview_v6", {}
+            )["helper_message_id"] = message_id
 
-    # Ein neuer Helper wird unter dem
-    # Gesamtbeitrag veröffentlicht.
+            save_state(state)
+            return
+
+        # Vorhandenen eigenen Helper aktualisieren.
+        response = api_request(
+            "PATCH",
+            (
+                f"{API}/channels/{channel_id}"
+                f"/messages/{message_id}"
+            ),
+            session=bot,
+            json=payload,
+        )
+
+        if response.ok:
+            state.setdefault(
+                "overview_v6", {}
+            )["helper_message_id"] = message_id
+
+            save_state(state)
+
+            print(
+                "Bestehender Helper aktualisiert:",
+                message_id,
+            )
+            return
+
+        print(
+            "WARNUNG: Bestehender Helper "
+            "konnte nicht aktualisiert werden:",
+            response.status_code,
+            response.text[:300],
+        )
+
+    # Kein nutzbarer Helper gefunden.
+    # Ein neuer Beitrag wird nur versucht,
+    # wenn noch keiner wiederverwendet wurde.
     response = api_request(
         "POST",
-        f"{API}/channels/{channel_id}/messages",
+        (
+            f"{API}/channels/{channel_id}"
+            "/messages"
+        ),
         session=bot,
         json=payload,
     )
+
+    if response.status_code == 403:
+        print(
+            "WARNUNG: Helper konnte nicht "
+            "veröffentlicht werden: "
+            "403 Missing Permissions."
+        )
+
+        print(
+            "Die Eventübersicht bleibt erfolgreich. "
+            "Bitte Bot-Token und Kanalberechtigungen "
+            "für genau diesen Bot prüfen."
+        )
+        return
 
     message = checked(
         response,
         "Helper veröffentlichen",
     )
 
-    version["helper_message_id"] = str(
+    state.setdefault(
+        "overview_v6", {}
+    )["helper_message_id"] = str(
         message["id"]
     )
 
     save_state(state)
 
     print(
-        "Helper unter Übersicht erstellt:",
+        "Neuer Helper veröffentlicht:",
         message["id"],
     )
 
@@ -681,11 +925,15 @@ def main():
     bot = requests.Session()
 
     bot.headers["Authorization"] = (
-        "Bot " + os.environ["DISCORD_BOT"].strip()
+        "Bot "
+        + os.environ["DISCORD_BOT"].strip()
     )
 
     webhook_info = checked(
-        api_request("GET", webhook),
+        api_request(
+            "GET",
+            webhook,
+        ),
         "Webhook",
     )
 
@@ -699,8 +947,13 @@ def main():
 
     images, embeds = prepare_overview()
 
-    digest = overview_hash(images, embeds)
+    digest = calculate_hash(
+        images,
+        embeds,
+    )
 
+    # Gleiche Nachricht wie bei der letzten
+    # funktionierenden Version verwenden.
     record = state.setdefault(
         "overview_v6",
         {},
@@ -734,11 +987,14 @@ def main():
         )
 
         if (
-            str(message.get("webhook_id") or "")
+            str(
+                message.get("webhook_id") or ""
+            )
             != webhook_id
         ):
             raise RuntimeError(
-                "Übersicht gehört nicht zu diesem Webhook."
+                "Übersicht gehört nicht "
+                "zum erwarteten Webhook."
             )
 
         needs_update = (
@@ -757,19 +1013,30 @@ def main():
                     "id": index,
                     "filename": filename,
                 }
-                for index, (filename, _) in enumerate(images)
+                for index, (
+                    filename, _
+                ) in enumerate(images)
             ],
         }
 
         multipart = {
             "payload_json": (
                 None,
-                json.dumps(payload),
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                ),
             )
         }
 
-        for index, (filename, data) in enumerate(images):
-            multipart[f"files[{index}]"] = (
+        for index, (
+            filename,
+            data,
+        ) in enumerate(images):
+
+            multipart[
+                f"files[{index}]"
+            ] = (
                 filename,
                 data,
                 "image/png",
@@ -790,7 +1057,9 @@ def main():
             response = api_request(
                 "POST",
                 webhook,
-                params={"wait": "true"},
+                params={
+                    "wait": "true",
+                },
                 files=multipart,
                 timeout=120,
             )
@@ -818,7 +1087,7 @@ def main():
             "Übersicht unverändert."
         )
 
-    # Helper kommt NACH der Übersicht.
+    # Helper nach der Übersicht prüfen.
     ensure_helper(
         bot,
         channel_id,
@@ -826,9 +1095,9 @@ def main():
     )
 
     print("Fertig.")
+    print("Alle Kategorien mit Verlauf.")
+    print("Keine leeren Eventzeilen.")
     print("Halloween unverändert.")
-    print("Anwesenheitslisten zusammengefasst.")
-    print("Neuer Anthrazit-Hintergrund.")
     print("Keine alten Beiträge gelöscht.")
 
 
