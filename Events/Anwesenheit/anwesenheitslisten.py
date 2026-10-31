@@ -1,10 +1,6 @@
-
-"""Nyerk24 · Anwesenheitslisten.
-
-Kategoriedaten und Discord-Buttondefinitionen.
-Interaktionen verarbeitet der bestehende Nyerk24 Helper.
-Zeitraeume gegen offizielle Ankuendigungen pruefen.
-"""
+# Events/Anwesenheit/anwesenheitslisten.py
+# Eventdaten der Anwesenheitslisten; das Banner und die Schriftgestaltung
+# werden ausschließlich von Events/events.py verarbeitet.
 
 CATEGORY_ID = "anwesenheitslisten"
 CATEGORY_TITLE = "Anwesenheitslisten"
@@ -47,40 +43,24 @@ EVENTS = (
 
 
 def buttons():
-    """Discord-Action-Row mit vier Buttons (API v10)."""
-    return [{
-        "type": 1,
-        "components": [
-            {
-                "type": 2,
-                "style": 2,
-                "label": (
-                    f'{event["name"]} · '
-                    f'{event["date_label"]}'
-                ),
-                "custom_id": event["custom_id"],
-            }
-            for event in EVENTS
-        ],
-    }]
+    return [
+        {
+            "type": 1,
+            "components": [
+                {
+                    "type": 2,
+                    "style": 2,
+                    "label": f'{event["name"]} · {event["date_label"]}',
+                    "custom_id": event["custom_id"],
+                }
+                for event in EVENTS
+            ],
+        }
+    ]
 
 
 def get_event(custom_id):
-    """Event anhand der Discord-ID finden."""
     return next(
-        (
-            event
-            for event in EVENTS
-            if event["custom_id"] == custom_id
-        ),
+        (event for event in EVENTS if event["custom_id"] == custom_id),
         None,
     )
-
-
-if __name__ == "__main__":
-    for event in EVENTS:
-        print(
-            f'{event["name"]}: '
-            f'{event["date_label"]} '
-            f'[{event["custom_id"]}]'
-        )
