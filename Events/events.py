@@ -30,13 +30,13 @@ ROW_HEIGHT = 72
 TITLE_FONT_SIZE = 48
 NAME_FONT_SIZE = 32
 DATE_FONT_SIZE = 28
-STATUS_FONT_SIZE = 28
+STATUS_FONT_SIZE = 31
 
 # Nur Anwesenheitslisten: festgelegte Test-Typografie
 ATTENDANCE_TITLE_SIZE = 48
 ATTENDANCE_NAME_SIZE = 36
 ATTENDANCE_DATE_SIZE = 30
-ATTENDANCE_STATUS_SIZE = 31
+ATTENDANCE_STATUS_SIZE = STATUS_FONT_SIZE
 
 BACKGROUND = (35, 39, 47)
 NAME_COLOR = "#F5F7FB"
@@ -354,7 +354,7 @@ def draw_events(image, events, top, attendance=False):
         draw.text(
             (1170, center),
             status,
-            font=font(ATTENDANCE_STATUS_SIZE if attendance else STATUS_FONT_SIZE),
+            font=font(STATUS_FONT_SIZE),
             anchor="rm",
             fill=status_color,
         )
@@ -384,7 +384,7 @@ def draw_category_title(image, category, center_y):
     Die bestehenden Banner und Eventzeilen werden nicht veraendert.
     """
     key = category["key"]
-    size = ATTENDANCE_TITLE_SIZE if key == "anwesenheitslisten" else TITLE_FONT_SIZE
+    size = TITLE_FONT_SIZE - 3 if key == "twitch_drops" else TITLE_FONT_SIZE
     title_font = font(size)
     title = category["title"]
     accent = TITLE_EFFECT_COLORS.get(key, (140, 165, 190))
