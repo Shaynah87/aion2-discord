@@ -73,6 +73,14 @@ RESET_COLOR = (64, 145, 255, 255)
 ARTIFACT_COLOR = (178, 115, 237, 255)
 
 
+# Einheitliche Typografie für sämtliche Tracker-Karten.
+FONT_TITLE = 56
+FONT_TIME = 48
+FONT_EVENT = 36
+FONT_STATUS = 31
+FONT_SECONDARY = 30
+
+
 # ============================================================
 # DATEN LADEN UND SPEICHERN
 # ============================================================
@@ -369,11 +377,11 @@ def create_artifact_card(artifact_times):
     first = artifact_times['next_start']
     second = artifact_times['following_start']
     lines = [
-        (DISPLAY_NAMES['artifact_card'], load_font(56, True), (250, 248, 253, 255)),
-        ('Montag · Donnerstag · Samstag', load_font(28), (205, 165, 245, 255)),
-        ('NÄCHSTE', load_font(30, True), ARTIFACT_COLOR),
-        (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(44, True), (250, 248, 253, 255)),
-        (f"→ Danach: {weekdays[second.weekday()]} · {second.strftime('%H:%M')} Uhr", load_font(30), (225, 222, 230, 255)),
+        (DISPLAY_NAMES['artifact_card'], load_font(FONT_TITLE, True), (250, 248, 253, 255)),
+        ('Montag · Donnerstag · Samstag', load_font(FONT_SECONDARY), (205, 165, 245, 255)),
+        ('NÄCHSTE', load_font(FONT_STATUS, True), ARTIFACT_COLOR),
+        (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(FONT_TIME, True), (250, 248, 253, 255)),
+        (f"→ Danach: {weekdays[second.weekday()]} · {second.strftime('%H:%M')} Uhr", load_font(FONT_SECONDARY), (225, 222, 230, 255)),
     ]
     draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 22])
     image.convert('RGB').save(ARTIFACT_CARD_FILE, 'PNG', optimize=True)
@@ -817,19 +825,31 @@ def create_overview_card(event_overview):
     white = (250, 249, 252, 255)
     soft_white = (225, 222, 225, 255)
     gray = (175, 173, 182, 255)
-    title_font = load_font(56, True)
-    section_font = load_font(31, True)
-    item_font = load_font(29)
-    active_font = load_font(36, True)
-    small_font = load_font(26)
+    title_font = load_font(FONT_TITLE, True)
+    section_font = load_font(FONT_STATUS, True)
+    active_font = load_font(FONT_EVENT, True)
+    next_font = load_font(FONT_EVENT, True)
     probe = ImageDraw.Draw(Image.new('RGBA', (width, 1000)))
 
-    def fitted_font(value, base_size, bold=False):
-        for size in range(base_size, 19, -1):
-            font = load_font(size, bold)
-            if probe.textbbox((0, 0), value, font=font)[2] <= col_width - 28:
-                return font
-        return load_font(20, bold)
+    def shorten_to_width(value, font, max_width):
+        """Bei Überlänge abschneiden, niemals die Schrift verkleinern."""
+        if probe.textbbox((0, 0), value, font=font)[2] <= max_width:
+            return value
+        suffix = '…'
+        if probe.textbbox((0, 0), suffix, font=font)[2] > max_width:
+            return ''
+        while value and probe.textbbox((0, 0), value + suffix, font=font)[2] > max_width:
+            value = value[:-1]
+        return value.rstrip() + suffix
+
+    def shorten_name_keep_time(name, time_text, font, max_width):
+        """Nur den Namen kürzen; Uhrzeit bleibt vollständig sichtbar."""
+        separator = ' · '
+        suffix = separator + time_text
+        if probe.textbbox((0, 0), name + suffix, font=font)[2] <= max_width:
+            return name + suffix
+        available = max_width - probe.textbbox((0, 0), suffix, font=font)[2]
+        return shorten_to_width(name, font, max(0, available)) + suffix
 
     # Jede Reihe enthält zwei Events: links, rechts.
     active_rows = (len(active_events) + 1) // 2
@@ -857,15 +877,15 @@ def create_overview_card(event_overview):
             y = active_items_y + (index // 2) * active_row_height
             name = event['name'].upper()
             draw_event_marker(draw, x, y + 17, event['color'], size=17)
-            draw_text_with_shadow(draw, (x + 25, y), name, active_font, white)
+            draw_text_with_shadow(draw, (x + 25, y), shorten_to_width(name, active_font, col_width - 28), active_font, white)
 
     draw_text_with_shadow(draw, (76, next_heading_y), 'ALS NÄCHSTES', section_font, gray)
     for index, event in enumerate(next_events):
         x = left_x if index % 2 == 0 else right_x
         y = next_items_y + (index // 2) * next_row_height
-        label = f"{event['name']} · {event['time'].strftime('%H:%M')} Uhr"
+        label = shorten_name_keep_time(event['name'], event['time'].strftime('%H:%M') + ' Uhr', next_font, col_width - 28)
         draw_event_marker(draw, x, y + 8, event['color'], size=14)
-        draw_text_with_shadow(draw, (x + 24, y), label, fitted_font(label, 33), soft_white)
+        draw_text_with_shadow(draw, (x + 24, y), label, next_font, soft_white)
 
     image.convert('RGB').save(OVERVIEW_CARD_FILE, 'PNG', optimize=True)
 
@@ -895,11 +915,11 @@ def create_rift_card(rift_data, rift_times):
 
     draw = ImageDraw.Draw(image, 'RGBA')
 
-    title_font = load_font(56, True)
-    subtitle_font = load_font(29)
-    status_font = load_font(31, True)
-    time_font = load_font(48, True)
-    secondary_font = load_font(30)
+    title_font = load_font(FONT_TITLE, True)
+    subtitle_font = load_font(FONT_SECONDARY)
+    status_font = load_font(FONT_STATUS, True)
+    time_font = load_font(FONT_TIME, True)
+    secondary_font = load_font(FONT_SECONDARY)
 
     if rift_times['active_start']:
         label = 'JETZT AKTIV'
@@ -961,11 +981,11 @@ def create_shugo_card(shugo_data, shugo_times):
 
     draw = ImageDraw.Draw(image, 'RGBA')
 
-    title_font = load_font(56, True)
-    subtitle_font = load_font(29)
-    status_font = load_font(31, True)
-    time_font = load_font(48, True)
-    secondary_font = load_font(30)
+    title_font = load_font(FONT_TITLE, True)
+    subtitle_font = load_font(FONT_SECONDARY)
+    status_font = load_font(FONT_STATUS, True)
+    time_font = load_font(FONT_TIME, True)
+    secondary_font = load_font(FONT_SECONDARY)
 
     if shugo_times['active_start']:
         label = 'JETZT AKTIV'
@@ -1063,9 +1083,9 @@ def create_reset_card(daily_reset, weekly_reset):
 
     draw = ImageDraw.Draw(image, 'RGBA')
 
-    title_font = load_font(56, True)
-    label_font = load_font(30, True)
-    time_font = load_font(46, True)
+    title_font = load_font(FONT_TITLE, True)
+    label_font = load_font(FONT_STATUS, True)
+    time_font = load_font(FONT_TIME, True)
 
     weekdays = [
         'Montag',
@@ -1108,7 +1128,7 @@ def create_reset_card(daily_reset, weekly_reset):
         ),
         (
             'Serverwartung: 07:30 Uhr · ca. 4 Stunden',
-            load_font(29),
+            load_font(FONT_SECONDARY),
             (64, 145, 255, 255)
         )
     ]
