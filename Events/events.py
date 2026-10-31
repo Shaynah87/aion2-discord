@@ -531,19 +531,9 @@ def halloween_banner():
     )
 
     with Image.open(io.BytesIO(data)) as image:
-        if image.size != (1200, 180):
-            raise RuntimeError("Halloween-Quelle muss 1200x180 sein")
-        # Dezente Vergroesserung, ohne das Motiv zu verzerren:
-        # 180 -> 194 px, proportional skalieren und seitlich mittig beschneiden.
-        target_height = 194
-        scale = target_height / image.height
-        new_width = round(image.width * scale)
-        enlarged = image.convert("RGB").resize(
-            (new_width, target_height), Image.Resampling.LANCZOS
-        )
-        left = (new_width - WIDTH) // 2
-        result = enlarged.crop((left, 0, left + WIDTH, target_height))
-        return image_to_png(result)
+        if image.size != (1200, 200):
+            raise RuntimeError("Halloween-Banner muss 1200x200 sein")
+        return image_to_png(image.convert("RGB"))
 
 
 # ============================================================
