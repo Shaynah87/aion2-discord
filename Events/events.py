@@ -1,11 +1,4 @@
 
-"""Nyerk24 · Events.
-
-Zentrale Discord-Eventübersicht.
-Kategoriedaten liegen in eigenen Python-Modulen.
-Bestehender Nyerk24 Helper und EVENTS_WEBHOOK werden verwendet.
-"""
-
 import hashlib
 import importlib.util
 import io
@@ -18,11 +11,11 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
 # ============================================================
-# EINSTELLUNGEN
+# ALLGEMEINE EINSTELLUNGEN
 # ============================================================
 
 ROOT = Path(__file__).resolve().parent
@@ -35,13 +28,12 @@ DEFAULT_EVENT_TIME = clock_time(8, 30)
 WIDTH = 1200
 ROW_HEIGHT = 72
 
-# Bisherige Schriftgroessen anderer Kategorien
 TITLE_FONT_SIZE = 42
 NAME_FONT_SIZE = 32
 DATE_FONT_SIZE = 28
 STATUS_FONT_SIZE = 28
 
-# Neue Schriftgroessen nur fuer Anwesenheitslisten
+# Nur Anwesenheitslisten: festgelegte Test-Typografie
 ATTENDANCE_TITLE_SIZE = 48
 ATTENDANCE_NAME_SIZE = 36
 ATTENDANCE_DATE_SIZE = 30
@@ -49,13 +41,17 @@ ATTENDANCE_STATUS_SIZE = 31
 
 BACKGROUND = (35, 39, 47)
 NAME_COLOR = "#F5F7FB"
-DATE_COLOR = "#D0D4DC"
+DATE_COLOR = "#C5CAD4"
 STARTED_COLOR = "#83D9AC"
 UPCOMING_COLOR = "#F29B72"
 
 
 # ============================================================
-# KATEGORIEN
+# BEREICHSMODULE
+#
+# Neue Events werden NICHT hier eingetragen.
+#
+# Jedes Modul verwaltet seine eigenen Events.
 # ============================================================
 
 CATEGORIES = (
@@ -134,10 +130,15 @@ def load_events(category):
 
     events = getattr(module, "EVENTS", None)
 
-    if not isinstance(events, (list, tuple)):
+    if events is None:
         raise RuntimeError(
-            f"{category['module']} braucht EVENTS "
-            "als Liste oder Tupel"
+            f"{category['module']} enthält keine EVENTS"
+        )
+
+    if not isinstance(events, (list, tuple)):
+        raise TypeError(
+            f"EVENTS muss eine Liste oder ein Tupel sein: "
+            f"{category['module']}"
         )
 
     return list(events)
@@ -210,7 +211,7 @@ def sorted_events(events):
 
 
 # ============================================================
-# SCHRIFTEN
+# SCHRIFTEN UND BILDER
 # ============================================================
 
 def font(size, bold=True):
@@ -227,12 +228,10 @@ def font(size, bold=True):
 
 def fit_font(draw, text, max_width, size,
              minimum=18, bold=True):
-    """Alte Darstellung fuer andere Kategorien."""
     for candidate_size in range(
         size, minimum - 1, -1
     ):
         candidate = font(candidate_size, bold)
-
         bounds = draw.textbbox(
             (0, 0), text, font=candidate
         )
@@ -243,33 +242,15 @@ def fit_font(draw, text, max_width, size,
     return font(minimum, bold)
 
 
-def text_width(draw, value, text_font):
-    bounds = draw.textbbox(
-        (0, 0), str(value), font=text_font
-    )
-    return bounds[2] - bounds[0]
-
-
 def ellipsize(draw, value, max_width, text_font):
-    """Feste Schriftgroesse, nur Text mit … kuerzen."""
+    """Kuerzt nur den angezeigten Text, niemals die Schriftgroesse."""
     value = str(value)
-
-    if text_width(draw, value, text_font) <= max_width:
+    if draw.textbbox((0, 0), value, font=text_font)[2] <= max_width:
         return value
-
     ellipsis = "…"
-
-    while value:
-        candidate = value.rstrip() + ellipsis
-
-        if text_width(
-            draw, candidate, text_font
-        ) <= max_width:
-            return candidate
-
+    while value and draw.textbbox((0, 0), value + ellipsis, font=text_font)[2] > max_width:
         value = value[:-1]
-
-    return ellipsis
+    return value.rstrip() + ellipsis if value else ellipsis
 
 
 def image_to_png(image):
@@ -302,7 +283,7 @@ def display_name(event):
 
 
 # ============================================================
-# EVENTZEILEN
+# EVENTZEILEN ZEICHNEN
 # ============================================================
 
 def draw_events(image, events, top, attendance=False):
@@ -339,35 +320,13 @@ def draw_events(image, events, top, attendance=False):
             continue
 
         if attendance:
-            # Keine automatische Skalierung.
             name_font = font(ATTENDANCE_NAME_SIZE)
-            date_font = font(
-                ATTENDANCE_DATE_SIZE,
-                bold=False,
-            )
-            status_font = font(ATTENDANCE_STATUS_SIZE)
-
-            shown_name = ellipsize(
-                draw, name, 525, name_font
-            )
-            shown_period = ellipsize(
-                draw, period, 355, date_font
-            )
-
+            date_font = font(ATTENDANCE_DATE_SIZE, bold=False)
+            shown_name = ellipsize(draw, name, 525, name_font)
+            shown_period = period
         else:
-            # Bestehende Darstellung anderer Kategorien.
-            name_font = fit_font(
-                draw, name, 525, NAME_FONT_SIZE
-            )
-            date_font = fit_font(
-                draw,
-                period,
-                355,
-                DATE_FONT_SIZE,
-                bold=False,
-            )
-            status_font = font(STATUS_FONT_SIZE)
-
+            name_font = fit_font(draw, name, 525, NAME_FONT_SIZE)
+            date_font = fit_font(draw, period, 355, DATE_FONT_SIZE, bold=False)
             shown_name = name
             shown_period = period
 
@@ -396,10 +355,63 @@ def draw_events(image, events, top, attendance=False):
         draw.text(
             (1170, center),
             status,
-            font=status_font,
+            font=font(ATTENDANCE_STATUS_SIZE if attendance else STATUS_FONT_SIZE),
             anchor="rm",
             fill=status_color,
         )
+
+
+# ============================================================
+# LEUCHTENDE KATEGORIE-UEBERSCHRIFTEN
+# Nur der Titel wird gezeichnet; Banner und Eventzeilen bleiben gleich.
+# ============================================================
+
+TITLE_EFFECT_COLORS = {
+    "anwesenheitslisten": (88, 219, 228),
+    "ingame_events": (110, 176, 255),
+    "community_events": (255, 139, 195),
+    "twitch_drops": (179, 133, 255),
+}
+
+
+def draw_category_title(image, category, center_y):
+    key = category["key"]
+    size = ATTENDANCE_TITLE_SIZE if key == "anwesenheitslisten" else TITLE_FONT_SIZE
+    title_font = font(size)
+    title = category["title"]
+    accent = TITLE_EFFECT_COLORS.get(key, (151, 205, 236))
+
+    # Vollstaendig transparente Maske, exakt in Bannergroesse.
+    mask = Image.new("L", image.size, 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.text((WIDTH // 2, center_y), title, font=title_font,
+                   anchor="mm", fill=255)
+
+    # Nur eine schmale, helle Lichtkante – kein dunkler Schatten.
+    outer = mask.filter(ImageFilter.MaxFilter(5))
+    edge = Image.new("L", image.size, 0)
+    edge.paste(outer)
+    from PIL import ImageChops
+    edge = ImageChops.subtract(edge, mask)
+
+    # Dezentes Licht direkt um die Buchstaben.
+    glow = outer.filter(ImageFilter.GaussianBlur(3))
+    layer = Image.new("RGB", image.size, accent)
+    image.paste(layer, (0, 0), glow.point(lambda v: int(v * 0.28)))
+    image.paste(layer, (0, 0), edge.point(lambda v: int(v * 0.90)))
+
+    # Vertikaler Silber-/Eisverlauf im Schriftkern.
+    gradient = Image.new("RGB", image.size)
+    gradient_draw = ImageDraw.Draw(gradient)
+    y0 = max(0, center_y - size // 2 - 5)
+    y1 = min(image.height, center_y + size // 2 + 6)
+    top = (255, 255, 255)
+    bottom = tuple(round(205 * 0.55 + c * 0.45) for c in accent)
+    for y in range(y0, y1):
+        t = (y - y0) / max(1, y1 - y0 - 1)
+        color = tuple(round(top[i] * (1 - t) + bottom[i] * t) for i in range(3))
+        gradient_draw.line((0, y, WIDTH, y), fill=color)
+    image.paste(gradient, (0, 0), mask)
 
 
 # ============================================================
@@ -439,6 +451,7 @@ def create_category_image(category, events):
     image.paste(banner, (0, 0))
     draw = ImageDraw.Draw(image)
 
+    # Übergang vom Banner zur Eventliste
     edge_colors = [
         banner.getpixel((x, banner_height - 1))
         for x in range(WIDTH)
@@ -462,38 +475,18 @@ def create_category_image(category, events):
 
             draw.point((x, y), fill=color)
 
-    attendance = (
-        category["key"] == "anwesenheitslisten"
-    )
-
-    title_size = (
-        ATTENDANCE_TITLE_SIZE
-        if attendance else TITLE_FONT_SIZE
-    )
-
-    draw.text(
-        (WIDTH // 2, banner_height // 2),
-        category["title"],
-        font=font(title_size),
-        anchor="mm",
-        fill="white",
-        stroke_width=2,
-        stroke_fill="#111722",
-    )
+    draw_category_title(image, category, banner_height // 2)
 
     if events:
-        draw_events(
-            image,
-            events,
-            header_height,
-            attendance=attendance,
-        )
+        draw_events(image, events, header_height, attendance=category["key"] == "anwesenheitslisten")
 
     return image_to_png(image)
 
 
 # ============================================================
 # HALLOWEEN
+#
+# Halloween behält seine eigene Darstellung.
 # ============================================================
 
 def halloween_banner():
@@ -516,7 +509,7 @@ def halloween_banner():
 
 
 # ============================================================
-# UEBERSICHT
+# GESAMTÜBERSICHT ZUSAMMENSTELLEN
 # ============================================================
 
 def prepare_overview():
@@ -534,35 +527,6 @@ def prepare_overview():
     for index, category in enumerate(
         CATEGORIES, start=1
     ):
-        module_path = ROOT / category["module"]
-        banner_path = ROOT / category["banner"]
-
-        # Fehlende andere Kategorien nicht erfinden.
-        # Anwesenheit muss vorhanden sein.
-        if not module_path.is_file():
-            if category["key"] == "anwesenheitslisten":
-                raise FileNotFoundError(
-                    f"Anwesenheitsmodul fehlt: {module_path}"
-                )
-
-            print(
-                "WARNUNG: Kategorie uebersprungen, "
-                f"Modul fehlt: {category['module']}"
-            )
-            continue
-
-        if not banner_path.is_file():
-            if category["key"] == "anwesenheitslisten":
-                raise FileNotFoundError(
-                    f"Anwesenheitsbanner fehlt: {banner_path}"
-                )
-
-            print(
-                "WARNUNG: Kategorie uebersprungen, "
-                f"Banner fehlt: {category['banner']}"
-            )
-            continue
-
         events = load_events(category)
 
         filename = (
@@ -590,6 +554,10 @@ def prepare_overview():
 
     return images, embeds
 
+
+# ============================================================
+# ÄNDERUNGEN ERKENNEN
+# ============================================================
 
 def overview_hash(images, embeds):
     digest = hashlib.sha256()
@@ -621,7 +589,7 @@ def load_state():
 
     if not isinstance(state, dict):
         raise RuntimeError(
-            "Ungueltige events_message.json"
+            "Ungültige events_message.json"
         )
 
     return state
@@ -661,9 +629,7 @@ def api_request(method, url, session=None, **kwargs):
 
             try:
                 delay = float(
-                    response.json().get(
-                        "retry_after", 1
-                    )
+                    response.json().get("retry_after", 1)
                 )
             except (ValueError, TypeError):
                 delay = 1
@@ -677,7 +643,7 @@ def api_request(method, url, session=None, **kwargs):
             if method.upper() == "POST":
                 raise RuntimeError(
                     "Discord-Fehler beim POST. "
-                    "Vor erneutem Start pruefen, "
+                    "Vor erneutem Start prüfen, "
                     "ob eine Nachricht erstellt wurde."
                 )
 
@@ -709,7 +675,7 @@ def checked(response, label):
 
 
 # ============================================================
-# EVENT HELPER
+# EVENT-HELPER
 # ============================================================
 
 def helper_payload():
@@ -779,7 +745,7 @@ def ensure_helper(bot, channel_id, state):
                 f"{API}/users/@me",
                 session=bot,
             ),
-            "Bot pruefen",
+            "Bot prüfen",
         )
 
         bot_id = str(me["id"])
@@ -798,7 +764,7 @@ def ensure_helper(bot, channel_id, state):
                 continue
 
             message = checked(
-                response, "Helper pruefen"
+                response, "Helper prüfen"
             )
 
             if str(
@@ -867,7 +833,7 @@ def ensure_helper(bot, channel_id, state):
 
         message = checked(
             response,
-            "Helper veroeffentlichen",
+            "Helper veröffentlichen",
         )
 
         state.setdefault(
@@ -891,7 +857,7 @@ def ensure_helper(bot, channel_id, state):
 
 
 # ============================================================
-# DISCORD SYNCHRONISIERUNG
+# DISCORD-SYNCHRONISIERUNG
 # ============================================================
 
 def main():
@@ -911,7 +877,7 @@ def main():
 
     webhook_info = checked(
         api_request("GET", webhook),
-        "Webhook pruefen",
+        "Webhook prüfen",
     )
 
     channel_id = str(
@@ -921,14 +887,15 @@ def main():
         webhook_info["id"]
     )
 
-    # Erst Bilder erstellen, dann Discord aktualisieren.
+    # Erst alle Module laden und Bilder erstellen.
+    # Bei einem Fehler wird nichts veröffentlicht.
     images, embeds = prepare_overview()
     digest = overview_hash(images, embeds)
 
+    # Bestehende Nachrichten-ID weiterverwenden.
     record = state.setdefault(
         "overview_v6", {}
     )
-
     message_id = str(
         record.get("message_id") or ""
     )
@@ -947,21 +914,21 @@ def main():
 
         if response.status_code == 404:
             raise RuntimeError(
-                "Gespeicherte Eventuebersicht "
+                "Gespeicherte Eventübersicht "
                 "nicht gefunden. "
                 "Kein automatischer Doppelpost."
             )
 
         message = checked(
             response,
-            "Uebersicht pruefen",
+            "Übersicht prüfen",
         )
 
         if str(
             message.get("webhook_id") or ""
         ) != webhook_id:
             raise RuntimeError(
-                "Nachricht gehoert nicht "
+                "Nachricht gehört nicht "
                 "zum erwarteten Webhook."
             )
 
@@ -1021,7 +988,7 @@ def main():
 
         message = checked(
             response,
-            "Uebersicht veroeffentlichen",
+            "Übersicht veröffentlichen",
         )
 
         record["message_id"] = str(
@@ -1032,12 +999,12 @@ def main():
         save_state(state)
 
         print(
-            "Uebersicht aktualisiert:",
+            "Übersicht aktualisiert:",
             message["id"],
         )
 
     else:
-        print("Uebersicht unveraendert.")
+        print("Übersicht unverändert.")
 
     ensure_helper(
         bot,
@@ -1047,6 +1014,10 @@ def main():
 
     print("Events-Synchronisierung abgeschlossen.")
 
+
+# ============================================================
+# START
+# ============================================================
 
 if __name__ == "__main__":
     main()
