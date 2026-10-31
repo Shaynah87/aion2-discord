@@ -37,7 +37,7 @@ EVENTS = (
     },
     {
         "id": "suesses_oder_saures",
-        "name": "Süßes oder Saures!",
+        "name": "Süßes oder Saures",
         "start": "2026-10-14",
         "end": "2026-11-04",
         "date_label": "14.10.–04.11.26",
