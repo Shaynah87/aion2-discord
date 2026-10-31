@@ -100,7 +100,9 @@
     "6acf2168577e8c01355e01d3",
     "6abe63c428c7452635072cd4",
     "6ae057f9ab04307987fe326d",
-    "6ae2b7befa7da41c727d6a4e"
+    "6ae2b7befa7da41c727d6a4e",
+    "6ae2f328da5dd1068be97ae1",
+    "6ae61e906cfe4756db5b9049"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -264,6 +266,18 @@
       "hash": "4ff76598f448debe0805f72e472e1243e8b24f038158fe3712021817b890839f",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 28 Oktober (PDT) / 29 Oktober (CET)"
+    },
+    "6ae2f328da5dd1068be97ae1": {
+      "discord_message_id": "1565893315881214183",
+      "hash": "d06c14f97f336925e51c05e5c74c3b9cf5dbc3a098f89d36334f98b74d280c50",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Temporäre Wartungsarbeiten (NAE) | 31. Okt (PDT) / 1. Nov (CET)"
+    },
+    "6ae61e906cfe4756db5b9049": {
+      "discord_message_id": "1565893318896783473",
+      "hash": "13ff050d5ace42f8e95e6ca2f78dda2729835b6a3e93da1d232e69bd08e7074c",
+      "missing_checks": 0,
+      "title": "[Hinweis] Temporäre Wartungsarbeiten (NAW) | 1. Nov"
     }
   }
 }
