@@ -1,1404 +1,891 @@
-import os
-import json
-import urllib.request
-import urllib.error
-import time
-import uuid
 
-from io import BytesIO
+import hashlib
+import importlib.util
+import io
+import json
+import os
+import time
+
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+import requests
 from PIL import Image, ImageDraw, ImageFont
 
 
-# ============================================================
-# GRUNDEINSTELLUNGEN
-# ============================================================
+ROOT = Path(__file__).resolve().parent
+STATE_FILE = ROOT / "events_message.json"
+API = "https://discord.com/api/v10"
+TIMEZONE = ZoneInfo("Europe/Berlin")
 
-WEBHOOK_URL = os.environ.get('TRACKER_WEBHOOK')
+WIDTH = 1200
+BANNER_HEIGHT = 65
+HEADER_HEIGHT = 110
+EMPTY_HEADER_HEIGHT = 94
+ROW_HEIGHT = 72
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR / 'tracker_data.json'
-STATE_FILE = BASE_DIR / 'tracker_message.json'
+TITLE_FONT_SIZE = 42
+NAME_FONT_SIZE = 32
+DATE_FONT_SIZE = 28
+STATUS_FONT_SIZE = 28
 
-MAX_NETWORK_ATTEMPTS = 3
-RETRY_DELAYS = (5, 15)
+STARTED_COLOR = "#83D9AC"
+UPCOMING_COLOR = "#F29B72"
 
-DISPLAY_NAMES = {
-    'overview_card': 'ÜBERSICHT',
-    'rift': 'Raumzeit-Riss',
-    'rift_card': 'RAUMZEIT-RISS',
-    'shugo': 'Shugofesta',
-    'shugo_card': 'SHUGOFESTA',
-    'daily_reset': 'Täglicher Reset',
-    'weekly_reset': 'Wöchentlicher Reset',
-    'reset_card': 'RESETS',
-    'daily_card': 'TÄGLICH',
-    'weekly_card': 'WÖCHENTLICH',
-    'artifact': 'Artefakt-Eroberung',
-    'artifact_card': 'ARTEFAKT-EROBERUNG'
-}
-
-IMAGE_BASE_URL = (
-    'https://raw.githubusercontent.com/'
-    'Shaynah87/aion2-discord/main/Tracker/'
+CATEGORIES = (
+    ("anwesenheitslisten", "Anwesenheitslisten",
+     "Anwesenheit/anwesenheitslisten.png", 0x25A9A6),
+    ("ingame_events", "Ingame-Events",
+     "In-Game/ingame_events.png", 0x2779BB),
+    ("community_events", "Community-Events",
+     "Community/community_events.png", 0xB83B91),
+    ("twitch_drops", "Twitch Drops",
+     "Twitch/twitch_drops.png", 0x8953CF),
 )
 
-OVERVIEW_BACKGROUND_URL = IMAGE_BASE_URL + 'event_overview.png'
-RIFT_BACKGROUND_URL = IMAGE_BASE_URL + 'spacetime_rift.png'
-SHUGO_BACKGROUND_URL = IMAGE_BASE_URL + 'shugo_games.png'
-RESET_BACKGROUND_URL = IMAGE_BASE_URL + 'resets.png'
-ARTIFACT_BACKGROUND_URL = IMAGE_BASE_URL + 'artifact_conquest.png'
-
-OVERVIEW_CARD_FILE = BASE_DIR / 'event_overview_card.png'
-RIFT_CARD_FILE = BASE_DIR / 'spacetime_rift_card.png'
-SHUGO_CARD_FILE = BASE_DIR / 'shugo_games_card.png'
-RESET_CARD_FILE = BASE_DIR / 'resets_card.png'
-ARTIFACT_CARD_FILE = BASE_DIR / 'artifact_conquest_card.png'
-
-CLOSE_GAP = 20
-SECTION_GAP = 56
-ACTIVE_EVENT_GAP = 34
-NEXT_ENTRY_GAP = 18
-
-MAX_OVERVIEW_EVENTS = 6
-RESET_OVERVIEW_LEAD_HOURS = 3
-RIFT_ENTRY_MINUTES = 10
-ARTIFACT_ACTIVE_MINUTES = 60  # Bei abweichender offizieller Eventdauer hier anpassen
-
-RIFT_COLOR = (255, 78, 88, 255)
-SHUGO_COLOR = (229, 177, 62, 255)
-RESET_COLOR = (64, 145, 255, 255)
-ARTIFACT_COLOR = (178, 115, 237, 255)
+HELPER_CATEGORIES = (
+    ("Halloween", "halloween_2026", "🎃"),
+    ("Anwesenheitslisten", "anwesenheitslisten", "📅"),
+    ("Ingame-Events", "ingame_events", "⚔️"),
+    ("Community-Events", "community_events", "🎉"),
+    ("Twitch Drops", "twitch_drops", "🎁"),
+)
 
 
 # ============================================================
-# DATEN LADEN UND SPEICHERN
+# ZUSÄTZLICHE EVENTS
 # ============================================================
 
-def load_data():
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+INGAME_EVENTS = (
+    {
+        "id": "odenergie_boost",
+        "name": "Odenergie-Boost",
+        "start": "2026-10-28",
+        "end": "2026-11-11",
+        "date_label": "28.10.–11.11.26",
+    },
+    {
+        "id": "ludra_jagd",
+        "name": "Ludra-Jagd",
+        "start": "2026-11-04",
+        "end": "2026-11-25",
+        "date_label": "04.11.–25.11.26",
+    },
+)
+
+COMMUNITY_EVENTS = (
+    {
+        "id": "guides_for_glory",
+        "name": "Guides for Glory",
+        "start": "2026-10-05",
+        "end": "2026-11-02",
+        "date_label": "05.10.–02.11.26",
+    },
+    {
+        "id": "transcendence_leaderboard",
+        "name": "Transcendence Dungeon Leaderboard",
+        "start": "2026-10-05",
+        "end": "2026-11-02",
+        "date_label": "05.10.–02.11.26",
+    },
+    {
+        "id": "beauty_of_atreia",
+        "name": "Beauty of Atreia",
+        "start": "2026-10-05",
+        "end": "2026-11-09",
+        "date_label": "05.10.–09.11.26",
+    },
+    {
+        "id": "daeva_bootcamp",
+        "name": "Daeva Bootcamp",
+        "start": "2026-11-04",
+        "end": "2026-11-18",
+        "date_label": "04.11.–18.11.26",
+    },
+    {
+        "id": "ludra_outfit",
+        "name": "Ludra-Outfit-Wettbewerb",
+        "start": "2026-11-04",
+        "end": "2026-11-18",
+        "date_label": "04.11.–18.11.26",
+    },
+)
+
+TWITCH_EVENTS = (
+    {
+        "id": "halloween_twitch",
+        "name": "Globale Halloween Twitch-Drops",
+        "start": "2026-10-28T18:00:00+01:00",
+        "end": "2026-11-04T08:59:00+01:00",
+        "date_label": "28.10.–04.11.26",
+    },
+    {
+        "id": "ludra_twitch",
+        "name": "Ludra Twitch-Drops",
+        "start": "2026-11-04T15:00:00+01:00",
+        "end": "2026-11-18T08:59:00+01:00",
+        "date_label": "04.11.–18.11.26",
+    },
+)
+
+ADDITIONAL_ATTENDANCE = (
+    {
+        "id": "ludra_anwesenheit",
+        "name": "Ludra-Eroberung",
+        "start": "2026-11-04T15:00:00+01:00",
+        "end": "2026-11-18T08:59:00+01:00",
+        "date_label": "04.11.–18.11.26",
+    },
+)
+
+
+# ============================================================
+# HILFSFUNKTIONEN
+# ============================================================
+
+def api_request(method, url, session=None, **kwargs):
+    client = session or requests
+    kwargs.setdefault("timeout", 60)
+
+    for attempt in range(10):
+        response = client.request(method, url, **kwargs)
+
+        if response.status_code == 429:
+            if attempt == 9:
+                return response
+            try:
+                delay = float(
+                    response.json().get("retry_after", 1)
+                )
+            except (ValueError, TypeError):
+                delay = 1
+            time.sleep(max(0.5, delay + 0.3))
+            continue
+
+        if response.status_code in (500, 502, 503, 504):
+            if method.upper() == "POST":
+                raise RuntimeError(
+                    "Discord-Fehler beim POST. "
+                    "Bitte vor einem erneuten Lauf prüfen, "
+                    "ob die Nachricht erstellt wurde."
+                )
+            if attempt == 9:
+                return response
+            time.sleep(min(2 ** attempt, 15))
+            continue
+
+        return response
+
+    raise RuntimeError("Discord-Anfrage fehlgeschlagen")
+
+
+def checked(response, label):
+    if not response.ok:
+        raise RuntimeError(
+            f"{label}: HTTP {response.status_code}: "
+            f"{response.text[:800]}"
+        )
+    return response.json() if response.content else {}
 
 
 def load_state():
-    try:
-        with open(STATE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
+    if not STATE_FILE.exists():
         return {}
 
+    state = json.loads(
+        STATE_FILE.read_text(encoding="utf-8")
+    )
+    if not isinstance(state, dict):
+        raise RuntimeError("Ungültige Statusdatei")
+    return state
 
-def save_state(data):
-    with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2)
+
+def save_state(state):
+    temporary = STATE_FILE.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(STATE_FILE)
+
+
+def load_module(path, name):
+    filename = ROOT / path
+    spec = importlib.util.spec_from_file_location(
+        name, filename
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Modul fehlt: {filename}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def font(size, bold=True):
+    filename = (
+        "DejaVuSans-Bold.ttf"
+        if bold else "DejaVuSans.ttf"
+    )
+    return ImageFont.truetype(
+        "/usr/share/fonts/truetype/dejavu/" + filename,
+        size,
+    )
+
+
+def fit_font(draw, value, maximum_width, size,
+             minimum=18, bold=True):
+    for candidate_size in range(size, minimum - 1, -1):
+        candidate = font(candidate_size, bold)
+        box = draw.textbbox(
+            (0, 0), value, font=candidate
+        )
+        if box[2] - box[0] <= maximum_width:
+            return candidate
+    return font(minimum, bold)
+
+
+def png(image):
+    output = io.BytesIO()
+    image.convert("RGB").save(
+        output, format="PNG", optimize=True
+    )
+    return output.getvalue()
 
 
 # ============================================================
-# SCHRIFTEN UND TEXTHILFEN
+# DATEN UND SORTIERUNG
 # ============================================================
 
-def load_font(size, bold=False):
-    if bold:
-        paths = [
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-            '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'
-        ]
-    else:
-        paths = [
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-            '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf'
-        ]
+def parse_datetime(value, end_of_day=False):
+    parsed = datetime.fromisoformat(str(value))
 
-    for path in paths:
-        if os.path.exists(path):
-            return ImageFont.truetype(path, size=size)
+    if parsed.tzinfo is None:
+        if end_of_day:
+            parsed = parsed.replace(
+                hour=23, minute=59, second=59
+            )
+        parsed = parsed.replace(tzinfo=TIMEZONE)
 
-    return ImageFont.load_default()
+    return parsed.astimezone(TIMEZONE)
 
 
-def text_y_after(draw, previous_bbox, next_text, next_font, visual_gap):
-    probe = draw.textbbox((0, 0), next_text, font=next_font)
-    return previous_bbox[3] + visual_gap - probe[1]
+def start_time(event):
+    return parse_datetime(event["start"])
 
 
-def format_time_range(start, end):
-    return (
-        f"{start.strftime('%H:%M')} – "
-        f"{end.strftime('%H:%M')} Uhr"
+def end_time(event):
+    value = str(event["end"])
+    return parse_datetime(
+        value,
+        end_of_day=("T" not in value),
     )
 
 
-def draw_text_with_shadow(
-    draw,
-    position,
-    text,
-    font,
-    fill,
-    shadow_offset=2
-):
-    x, y = position
+def event_status(event, now=None):
+    now = now or datetime.now(TIMEZONE)
 
-    draw.text(
-        (x + shadow_offset, y + shadow_offset),
-        text,
-        font=font,
-        fill=(0, 0, 0, 200)
+    if now > end_time(event):
+        return None
+
+    if now < start_time(event):
+        return "KOMMEND"
+
+    return "GESTARTET"
+
+
+def sorted_events(events):
+    now = datetime.now(TIMEZONE)
+    active = []
+    upcoming = []
+
+    for event in events:
+        status = event_status(event, now)
+
+        if status == "GESTARTET":
+            active.append(event)
+        elif status == "KOMMEND":
+            upcoming.append(event)
+
+    # Zuerst das früheste Enddatum.
+    # Bei gleichem Enddatum steht der
+    # spätere Start weiter oben.
+    active.sort(
+        key=lambda event: (
+            end_time(event).timestamp(),
+            -start_time(event).timestamp(),
+        )
     )
 
-    draw.text(
-        position,
-        text,
-        font=font,
-        fill=fill
-    )
+    # Kommende Events nach Startdatum.
+    upcoming.sort(key=start_time)
 
-
-def draw_event_marker(draw, x, y, color, size=16):
-    draw.ellipse(
-        (x, y, x + size, y + size),
-        fill=color
-    )
+    return active + upcoming
 
 
 # ============================================================
-# RESET-ZEITEN
+# HALLOWEEN
 # ============================================================
 
-def next_daily_reset(reset_data, timezone):
-    now = datetime.now(timezone)
-    utc = ZoneInfo('UTC')
+def halloween_banner():
+    halloween = load_module(
+        "Halloween/halloween.py",
+        "nyerk24_halloween",
+    )
+    data = halloween.banner(halloween.status())
 
-    hour, minute = map(
-        int,
-        reset_data['daily_utc'].split(':')
+    with Image.open(io.BytesIO(data)) as image:
+        if image.size != (1200, 180):
+            raise RuntimeError(
+                "Halloween-Banner muss 1200x180 sein"
+            )
+
+    return data
+
+
+# ============================================================
+# KATEGORIEGRAFIKEN
+# ============================================================
+
+def category_background(relative_path):
+    path = ROOT / relative_path
+
+    with Image.open(path) as original:
+        if original.size != (WIDTH, BANNER_HEIGHT):
+            raise RuntimeError(
+                f"Falsches Bannerformat: {path}"
+            )
+        return original.convert("RGB")
+
+
+def draw_event_area(image, events, top):
+    draw = ImageDraw.Draw(image)
+
+    for index, event in enumerate(events):
+        y0 = top + index * ROW_HEIGHT
+        y1 = y0 + ROW_HEIGHT - 1
+        center = y0 + ROW_HEIGHT // 2
+
+        background = (
+            (35, 39, 47)
+            if index % 2 == 0
+            else (33, 37, 45)
+        )
+
+        draw.rectangle(
+            (0, y0, WIDTH - 1, y1),
+            fill=background,
+        )
+
+        if index:
+            draw.line(
+                (28, y0, WIDTH - 28, y0),
+                fill=(62, 69, 80),
+                width=1,
+            )
+
+        name = str(event["name"])
+        period = str(event.get("date_label", ""))
+
+        if event.get("time_label"):
+            period += " · " + str(event["time_label"])
+
+        status = event_status(event)
+
+        if status is None:
+            continue
+
+        draw.text(
+            (30, center),
+            name,
+            font=fit_font(
+                draw, name, 525, NAME_FONT_SIZE
+            ),
+            anchor="lm",
+            fill="#F5F7FB",
+        )
+
+        draw.text(
+            (785, center),
+            period,
+            font=fit_font(
+                draw, period, 355,
+                DATE_FONT_SIZE, bold=False
+            ),
+            anchor="mm",
+            fill="#CDD6E3",
+        )
+
+        color = (
+            STARTED_COLOR
+            if status == "GESTARTET"
+            else UPCOMING_COLOR
+        )
+
+        draw.text(
+            (1170, center),
+            status,
+            font=font(STATUS_FONT_SIZE),
+            anchor="rm",
+            fill=color,
+        )
+
+
+def create_category_image(relative_path, title, events):
+    events = sorted_events(events)
+
+    header_height = (
+        HEADER_HEIGHT if events
+        else EMPTY_HEADER_HEIGHT
     )
 
-    now_utc = now.astimezone(utc)
+    height = header_height + len(events) * ROW_HEIGHT
 
-    candidate_utc = now_utc.replace(
-        hour=hour,
-        minute=minute,
-        second=0,
-        microsecond=0
+    original = category_background(relative_path)
+
+    image = Image.new(
+        "RGB",
+        (WIDTH, height),
+        (35, 39, 47),
     )
+    image.paste(original, (0, 0))
 
-    if candidate_utc <= now_utc:
-        candidate_utc += timedelta(days=1)
+    draw = ImageDraw.Draw(image)
 
-    return candidate_utc.astimezone(timezone)
-
-
-def next_weekly_reset(reset_data, timezone):
-    now = datetime.now(timezone)
-    utc = ZoneInfo('UTC')
-
-    weekday_map = {
-        'Monday': 0,
-        'Tuesday': 1,
-        'Wednesday': 2,
-        'Thursday': 3,
-        'Friday': 4,
-        'Saturday': 5,
-        'Sunday': 6
-    }
-
-    target_weekday = weekday_map[
-        reset_data['weekly_day']
+    edge_colors = [
+        original.getpixel((x, BANNER_HEIGHT - 1))
+        for x in range(WIDTH)
     ]
 
-    hour, minute = map(
-        int,
-        reset_data['weekly_utc'].split(':')
+    target = (35, 39, 47)
+    fade_height = header_height - BANNER_HEIGHT
+
+    for y in range(BANNER_HEIGHT, header_height):
+        progress = (
+            (y - BANNER_HEIGHT + 1)
+            / max(1, fade_height)
+        ) ** 0.72
+
+        for x in range(WIDTH):
+            source = edge_colors[x]
+            color = tuple(
+                round(
+                    source[channel] * (1 - progress)
+                    + target[channel] * progress
+                )
+                for channel in range(3)
+            )
+            draw.point((x, y), fill=color)
+
+    draw.text(
+        (WIDTH // 2, 37),
+        title,
+        font=font(TITLE_FONT_SIZE),
+        anchor="mm",
+        fill="white",
+        stroke_width=2,
+        stroke_fill="#111722",
     )
 
-    now_utc = now.astimezone(utc)
+    if events:
+        draw_event_area(image, events, header_height)
 
-    days_ahead = (
-        target_weekday - now_utc.weekday()
-    ) % 7
-
-    candidate_utc = (
-        now_utc + timedelta(days=days_ahead)
-    ).replace(
-        hour=hour,
-        minute=minute,
-        second=0,
-        microsecond=0
-    )
-
-    if candidate_utc <= now_utc:
-        candidate_utc += timedelta(days=7)
-
-    return candidate_utc.astimezone(timezone)
+    return png(image)
 
 
 # ============================================================
-# RAUMZEIT-RISS ZEITEN
+# ÜBERSICHT
 # ============================================================
 
-def build_rift_times(rift_data, timezone):
-    # EU-Riftzeiten bleiben auch nach der Zeitumstellung bei
-    # 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00 Uhr.
-    # Daher die Startzeiten in lokaler Serverzeit statt UTC berechnen.
-    now = datetime.now(timezone)
-    interval = timedelta(hours=rift_data['interval_hours'])
-    duration = timedelta(minutes=rift_data['duration_minutes'])
+def prepare_overview():
+    attendance = load_module(
+        "Anwesenheit/anwesenheit.py",
+        "nyerk24_attendance",
+    )
 
-    starts = []
-    for day_offset in range(-1, 3):
-        day = (now + timedelta(days=day_offset)).date()
-        for hour in range(2, 24, rift_data['interval_hours']):
-            starts.append(datetime(
-                day.year, day.month, day.day, hour, 0,
-                tzinfo=timezone
-            ))
+    attendance_events = list(attendance.EVENTS)
 
-    starts.sort()
-    active_start = None
-    active_end = None
+    existing_ids = {
+        event["id"] for event in attendance_events
+    }
 
-    for start_time in starts:
-        end_time = start_time + duration
-        if start_time <= now < end_time:
-            active_start = start_time
-            active_end = end_time
-            break
+    for event in ADDITIONAL_ATTENDANCE:
+        if event["id"] not in existing_ids:
+            attendance_events.append(event)
 
-    future_starts = [start_time for start_time in starts if start_time > now]
+    event_map = {
+        "anwesenheitslisten": attendance_events,
+        "ingame_events": INGAME_EVENTS,
+        "community_events": COMMUNITY_EVENTS,
+        "twitch_drops": TWITCH_EVENTS,
+    }
+
+    images = [
+        ("00_halloween.png", halloween_banner())
+    ]
+
+    embeds = [{
+        "color": 0xFF7100,
+        "image": {
+            "url": "attachment://00_halloween.png"
+        },
+    }]
+
+    for index, (
+        key, title, path, color
+    ) in enumerate(CATEGORIES, start=1):
+
+        filename = f"{index:02d}_{key}.png"
+
+        images.append((
+            filename,
+            create_category_image(
+                path, title, event_map[key]
+            ),
+        ))
+
+        embeds.append({
+            "color": color,
+            "image": {
+                "url": f"attachment://{filename}"
+            },
+        })
+
+        print(
+            f"{title}: "
+            f"{len(sorted_events(event_map[key]))} "
+            "sichtbare Events"
+        )
+
+    return images, embeds
+
+
+def overview_hash(images, embeds):
+    digest = hashlib.sha256()
+
+    for filename, data in images:
+        digest.update(filename.encode("utf-8"))
+        digest.update(data)
+
+    digest.update(
+        json.dumps(
+            embeds, sort_keys=True
+        ).encode("utf-8")
+    )
+
+    return digest.hexdigest()
+
+
+# ============================================================
+# HELPER
+# ============================================================
+
+def helper_payload():
     return {
-        'active_start': active_start,
-        'active_end': active_end,
-        'next_start': future_starts[0],
-        'following_start': future_starts[1]
+        "content": "",
+        "embeds": [{
+            "title": "Nyerk24 · Event Helper",
+            "description": (
+                "Wähle eine Eventkategorie aus, "
+                "um die verfügbaren Events und "
+                "ihre Details aufzurufen.\n\n"
+                "Deine Auswahl ist nur für "
+                "dich sichtbar."
+            ),
+            "color": 0x596DDB,
+        }],
+        "components": [{
+            "type": 1,
+            "components": [{
+                "type": 3,
+                "custom_id": "event:menu:category",
+                "placeholder": "Eventkategorie auswählen",
+                "min_values": 1,
+                "max_values": 1,
+                "options": [
+                    {
+                        "label": label,
+                        "value": value,
+                        "emoji": {"name": emoji},
+                    }
+                    for label, value, emoji
+                    in HELPER_CATEGORIES
+                ],
+            }],
+        }],
+        "allowed_mentions": {"parse": []},
     }
 
 
-# ============================================================
-# SHUGOFESTA ZEITEN
-# ============================================================
-
-def build_shugo_times(shugo_data, timezone):
-    now = datetime.now(timezone)
-
-    start_minute = shugo_data['start_minute']
-
-    duration = timedelta(
-        minutes=shugo_data['duration_minutes']
-    )
-
+def helper_candidates(state):
     candidates = []
 
-    for day_offset in range(-1, 2):
-        day = now + timedelta(days=day_offset)
-
-        for hour in range(24):
-            candidates.append(
-                day.replace(
-                    hour=hour,
-                    minute=start_minute,
-                    second=0,
-                    microsecond=0
-                )
-            )
-
-    candidates.sort()
-
-    active_start = None
-    active_end = None
-
-    for start_time in candidates:
-        end_time = start_time + duration
-
-        if start_time <= now < end_time:
-            active_start = start_time
-            active_end = end_time
-            break
-
-    future_starts = sorted(
-        start_time
-        for start_time in candidates
-        if start_time > now
-    )
-
-    return {
-        'active_start': active_start,
-        'active_end': active_end,
-        'next_start': future_starts[0],
-        'following_start': future_starts[1]
-    }
-
-
-# ============================================================
-# ARTEFAKT-EROBERUNG – MONTAG / DONNERSTAG / SAMSTAG
-# ============================================================
-
-def build_artifact_times(timezone):
-    """21:00 Uhr in der für den Tracker konfigurierten Zeitzone."""
-    now = datetime.now(timezone)
-    weekdays = (0, 3, 5)
-    starts = []
-    for offset in range(0, 15):
-        day = now + timedelta(days=offset)
-        if day.weekday() in weekdays:
-            candidate = day.replace(hour=21, minute=0, second=0, microsecond=0)
-            if candidate > now:
-                starts.append(candidate)
-    starts.sort()
-    return {'next_start': starts[0], 'following_start': starts[1]}
-
-
-def load_artifact_background():
-    return load_image_from_url(ARTIFACT_BACKGROUND_URL)
-
-
-def create_artifact_card(artifact_times):
-    width, height = 1200, 440
-    image = fit_background(load_artifact_background(), width, height)
-    # Nur die Bildposition ändern, nicht das Motiv neu skalieren.
-    # Der linke Rand wird später vom dunklen Textverlauf überdeckt.
-    shift_x = 60
-    shifted = Image.new('RGBA', (width, height), (10, 6, 24, 255))
-    shifted.alpha_composite(image.crop((0, 0, width - shift_x, height)), (shift_x, 0))
-    image = shifted
-    image = add_strong_left_gradient(image, 0.28, 0.78, 235, (4, 2, 9))
-    draw = ImageDraw.Draw(image, 'RGBA')
-
-    weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
-    first = artifact_times['next_start']
-    second = artifact_times['following_start']
-    lines = [
-        (DISPLAY_NAMES['artifact_card'], load_font(56, True), (250, 248, 253, 255)),
-        ('Montag · Donnerstag · Samstag', load_font(28), (205, 165, 245, 255)),
-        ('NÄCHSTE', load_font(30, True), ARTIFACT_COLOR),
-        (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(44, True), (250, 248, 253, 255)),
-        (f"→ Danach: {weekdays[second.weekday()]} · {second.strftime('%H:%M')} Uhr", load_font(30), (225, 222, 230, 255)),
-    ]
-    draw_centered_text_block(draw, lines, height, gaps=[10, 26, 10, 22])
-    image.convert('RGB').save(ARTIFACT_CARD_FILE, 'PNG', optimize=True)
-
-
-# ============================================================
-# EVENT-ÜBERSICHT BERECHNEN
-# ============================================================
-
-def build_event_overview(
-    rift_times,
-    shugo_times,
-    daily_reset,
-    weekly_reset,
-    timezone,
-    artifact_times=None
-):
-    now = datetime.now(timezone)
-
-    active_events = []
-    upcoming_events = []
-
-    if (rift_times['active_start'] and
-            now < rift_times['active_start'] + timedelta(minutes=RIFT_ENTRY_MINUTES)):
-        active_events.append({
-            'key': 'rift',
-            'name': DISPLAY_NAMES['rift'],
-            'end': rift_times['active_end'],
-            'color': RIFT_COLOR
-        })
-
-    if shugo_times['active_start']:
-        active_events.append({
-            'key': 'shugo',
-            'name': DISPLAY_NAMES['shugo'],
-            'end': shugo_times['active_end'],
-            'color': SHUGO_COLOR
-        })
-
-    upcoming_events.append({
-        'key': 'rift',
-        'name': DISPLAY_NAMES['rift'],
-        'time': rift_times['next_start'],
-        'color': RIFT_COLOR
-    })
-
-    upcoming_events.append({
-        'key': 'shugo',
-        'name': DISPLAY_NAMES['shugo'],
-        'time': shugo_times['next_start'],
-        'color': SHUGO_COLOR
-    })
-
-    if (
-        timedelta(0)
-        <= daily_reset - now
-        <= timedelta(hours=RESET_OVERVIEW_LEAD_HOURS)
+    for value in (
+        state.get("overview_v6", {}).get(
+            "helper_message_id"
+        ),
+        state.get("overview_v2", {}).get(
+            "helper", {}
+        ).get("message_id"),
+        state.get("halloween_2026", {}).get(
+            "helper_message_id"
+        ),
     ):
-        if daily_reset == weekly_reset:
-            upcoming_events.append({
-                'key': 'weekly_reset',
-                'name': DISPLAY_NAMES['weekly_reset'],
-                'time': weekly_reset,
-                'color': RESET_COLOR
-            })
-        else:
-            upcoming_events.append({
-                'key': 'daily_reset',
-                'name': DISPLAY_NAMES['daily_reset'],
-                'time': daily_reset,
-                'color': RESET_COLOR
-            })
-
-    # Artefakt nur am Veranstaltungstag in der Übersicht anzeigen.
-    # Auf der eigenen Karte bleibt der nächste Termin immer sichtbar.
-    # Wöchentlichen Reset bereits ab 00:00 Uhr des Reset-Tages zeigen.
-    # Täglichen Reset bei gleichem Zeitpunkt nicht zusätzlich anzeigen.
-    if weekly_reset.date() == now.date() and weekly_reset > now:
-        upcoming_events = [
-            event for event in upcoming_events
-            if event['key'] != 'weekly_reset' and not (event['key'] == 'daily_reset' and event['time'] == weekly_reset)
-        ]
-        upcoming_events.append({
-            'key': 'weekly_reset',
-            'name': DISPLAY_NAMES['weekly_reset'],
-            'time': weekly_reset,
-            'color': RESET_COLOR
-        })
-
-    if artifact_times is not None and now.weekday() in (0, 3, 5):
-        start = now.replace(hour=21, minute=0, second=0, microsecond=0)
-        if now < start:
-            upcoming_events.append({
-                'key': 'artifact',
-                'name': DISPLAY_NAMES['artifact'],
-                'time': start,
-                'color': ARTIFACT_COLOR
-            })
-        elif now < start + timedelta(minutes=ARTIFACT_ACTIVE_MINUTES):
-            active_events.append({
-                'key': 'artifact',
-                'name': DISPLAY_NAMES['artifact'],
-                'end': start + timedelta(minutes=ARTIFACT_ACTIVE_MINUTES),
-                'color': ARTIFACT_COLOR
-            })
-
-    upcoming_events.sort(
-        key=lambda item: item['time']
-    )
-
-    return {
-        'active': active_events,
-        'next': upcoming_events[:MAX_OVERVIEW_EVENTS]
-    }
-
-
-# ============================================================
-# NETZWERK MIT WIEDERHOLUNGSVERSUCHEN
-# ============================================================
-
-def run_with_retry(operation, description):
-    for attempt in range(1, MAX_NETWORK_ATTEMPTS + 1):
-        try:
-            result = operation()
-
-            if attempt > 1:
-                print(
-                    f'{description}: erfolgreich im Versuch '
-                    f'{attempt}/{MAX_NETWORK_ATTEMPTS}.'
-                )
-
-            return result
-
-        except urllib.error.HTTPError as exc:
-            retryable = (
-                exc.code == 429
-                or 500 <= exc.code <= 599
-            )
-
-            if (
-                not retryable
-                or attempt >= MAX_NETWORK_ATTEMPTS
-            ):
-                raise
-
-            delay = RETRY_DELAYS[attempt - 1]
-            retry_after = exc.headers.get('Retry-After')
-
-            if retry_after:
-                try:
-                    delay = max(
-                        delay,
-                        float(retry_after)
-                    )
-                except (TypeError, ValueError):
-                    pass
-
-            time.sleep(delay)
-
-        except (
-            urllib.error.URLError,
-            TimeoutError,
-            OSError
-        ):
-            if attempt >= MAX_NETWORK_ATTEMPTS:
-                raise
-
-            delay = RETRY_DELAYS[attempt - 1]
-            time.sleep(delay)
-
-
-# ============================================================
-# BILDER LADEN
-# ============================================================
-
-def load_image_from_url(url):
-    def download():
-        request = urllib.request.Request(
-            url,
-            headers={
-                'User-Agent': 'AION2-Schedule-Bot'
-            }
-        )
-
-        with urllib.request.urlopen(
-            request,
-            timeout=30
-        ) as response:
-            return response.read()
-
-    image_data = run_with_retry(
-        download,
-        'Hintergrundbild laden'
-    )
-
-    return Image.open(
-        BytesIO(image_data)
-    ).convert('RGBA')
-
-
-def load_overview_background():
-    return load_image_from_url(
-        OVERVIEW_BACKGROUND_URL
-    )
-
-
-def load_rift_background():
-    return load_image_from_url(
-        RIFT_BACKGROUND_URL
-    )
-
-
-def load_shugo_background():
-    return load_image_from_url(
-        SHUGO_BACKGROUND_URL
-    )
-
-
-def load_reset_background():
-    return load_image_from_url(
-        RESET_BACKGROUND_URL
-    )
-
-
-# ============================================================
-# ÜBERSICHTSBILD – BISHERIGE DARSTELLUNG
-# ============================================================
-
-def prepare_overview_background(
-    image,
-    target_width,
-    target_height
-):
-    source_width, source_height = image.size
-
-    crop_left = int(source_width * 0.025)
-    crop_right = int(source_width * 0.025)
-    crop_top = int(source_height * 0.03)
-    crop_bottom = int(source_height * 0.03)
-
-    image = image.crop((
-        crop_left,
-        crop_top,
-        source_width - crop_right,
-        source_height - crop_bottom
-    ))
-
-    return image.resize(
-        (target_width, target_height),
-        Image.Resampling.LANCZOS
-    )
-
-
-# ============================================================
-# NEU: HINTERGRUNDBILDER OHNE BESCHNITT
-# ============================================================
-
-def fit_background(
-    image,
-    width=1200,
-    height=440,
-    focus_x=0.70,
-    focus_y=0.50
-):
-    """
-    Originalbild vollständig darstellen.
-
-    - Kein Abschneiden
-    - Keine Verzerrung
-    - Proportionale Skalierung
-    - Rechtsbündige Ausrichtung
-    - Vertikal zentriert
-    - Kartenformat bleibt 1200 x 440
-
-    Die bisherigen focus-Parameter bleiben
-    für die bestehenden Funktionsaufrufe erhalten.
-    """
-
-    image = image.convert('RGBA')
-
-    original_width, original_height = image.size
-
-    if original_width <= 0 or original_height <= 0:
-        raise ValueError('Ungültige Bildgröße')
-
-    scale = min(
-        width / original_width,
-        height / original_height
-    )
-
-    new_width = max(
-        1,
-        min(width, round(original_width * scale))
-    )
-
-    new_height = max(
-        1,
-        min(height, round(original_height * scale))
-    )
-
-    resized_image = image.resize(
-        (new_width, new_height),
-        Image.Resampling.LANCZOS
-    )
-
-    background = Image.new(
-        'RGBA',
-        (width, height),
-        (5, 6, 11, 255)
-    )
-
-    x_position = width - new_width
-    y_position = (height - new_height) // 2
-
-    background.alpha_composite(
-        resized_image,
-        (x_position, y_position)
-    )
-
-    return background
-
-
-# ============================================================
-# DUNKLER VERLAUF FÜR LESBAREN TEXT
-# ============================================================
-
-def add_strong_left_gradient(
-    image,
-    solid_ratio,
-    fade_ratio,
-    max_alpha,
-    tone
-):
-    width, height = image.size
-
-    overlay = Image.new(
-        'RGBA',
-        (width, height),
-        (0, 0, 0, 0)
-    )
-
-    pixels = overlay.load()
-
-    solid_end = int(width * solid_ratio)
-    fade_end = int(width * fade_ratio)
-
-    for x in range(fade_end):
-        if x <= solid_end:
-            alpha = max_alpha
-        else:
-            progress = (
-                (x - solid_end)
-                / (fade_end - solid_end)
-            )
-
-            alpha = int(
-                max_alpha
-                * (1.0 - progress) ** 1.65
-            )
-
-        for y in range(height):
-            pixels[x, y] = (
-                tone[0],
-                tone[1],
-                tone[2],
-                alpha
-            )
-
-    return Image.alpha_composite(
-        image,
-        overlay
-    )
-
-
-# ============================================================
-# TEXTBLOCK VERTIKAL ZENTRIEREN
-# ============================================================
-
-def draw_centered_text_block(
-    draw,
-    lines,
-    height,
-    x=78,
-    gaps=None
-):
-    if gaps is None:
-        gaps = [10] * (len(lines) - 1)
-
-    boxes = [
-        draw.textbbox(
-            (0, 0),
-            value,
-            font=font
-        )
-        for value, font, _ in lines
-    ]
-
-    sizes = [
-        box[3] - box[1]
-        for box in boxes
-    ]
-
-    block_height = sum(sizes) + sum(gaps)
-    visual_top = (height - block_height) / 2
-
-    for (
-        (value, font, color),
-        box,
-        line_height,
-        gap
-    ) in zip(
-        lines,
-        boxes,
-        sizes,
-        gaps + [0]
-    ):
-        y = round(visual_top - box[1])
-
-        draw_text_with_shadow(
-            draw,
-            (x, y),
-            value,
-            font,
-            color
-        )
-
-        visual_top += line_height + gap
-
-
-# ============================================================
-# ÜBERSICHTSKARTE
-# ============================================================
-
-def create_overview_card(event_overview):
-    """Aktuelle und nächste Events jeweils zweispaltig darstellen."""
-    active_events = event_overview['active']
-    next_events = event_overview['next']
-    width = 1200
-    left_x, right_x = 82, 628
-    col_width = 500
-    white = (250, 249, 252, 255)
-    soft_white = (225, 222, 225, 255)
-    gray = (175, 173, 182, 255)
-    title_font = load_font(56, True)
-    section_font = load_font(31, True)
-    item_font = load_font(29)
-    active_font = load_font(36, True)
-    small_font = load_font(26)
-    probe = ImageDraw.Draw(Image.new('RGBA', (width, 1000)))
-
-    def fitted_font(value, base_size, bold=False):
-        for size in range(base_size, 19, -1):
-            font = load_font(size, bold)
-            if probe.textbbox((0, 0), value, font=font)[2] <= col_width - 28:
-                return font
-        return load_font(20, bold)
-
-    # Jede Reihe enthält zwei Events: links, rechts.
-    active_rows = (len(active_events) + 1) // 2
-    next_rows = (len(next_events) + 1) // 2
-    active_heading_y = 150
-    active_items_y = active_heading_y + 55
-    active_row_height = 64
-    if active_events:
-        next_heading_y = active_items_y + active_rows * active_row_height + 25
-    else:
-        next_heading_y = active_heading_y
-    next_items_y = next_heading_y + 52
-    next_row_height = 47
-    height = max(360, next_items_y + max(1, next_rows) * next_row_height + 45)
-
-    image = prepare_overview_background(load_overview_background(), width, height)
-    image = add_strong_left_gradient(image, 0.28, 0.78, 230, (2, 2, 3))
-    draw = ImageDraw.Draw(image, 'RGBA')
-    draw_text_with_shadow(draw, (74, 56), DISPLAY_NAMES['overview_card'], title_font, white)
-
-    if active_events:
-        draw_text_with_shadow(draw, (76, active_heading_y), 'JETZT AKTIV', section_font, gray)
-        for index, event in enumerate(active_events):
-            x = left_x if index % 2 == 0 else right_x
-            y = active_items_y + (index // 2) * active_row_height
-            name = event['name'].upper()
-            draw_event_marker(draw, x, y + 17, event['color'], size=17)
-            draw_text_with_shadow(draw, (x + 25, y), name, active_font, white)
-
-    draw_text_with_shadow(draw, (76, next_heading_y), 'ALS NÄCHSTES', section_font, gray)
-    for index, event in enumerate(next_events):
-        x = left_x if index % 2 == 0 else right_x
-        y = next_items_y + (index // 2) * next_row_height
-        label = f"{event['name']} · {event['time'].strftime('%H:%M')} Uhr"
-        draw_event_marker(draw, x, y + 8, event['color'], size=14)
-        draw_text_with_shadow(draw, (x + 24, y), label, fitted_font(label, 33), soft_white)
-
-    image.convert('RGB').save(OVERVIEW_CARD_FILE, 'PNG', optimize=True)
-
-
-# ============================================================
-# RAUMZEIT-RISS-KARTE
-# ============================================================
-
-def create_rift_card(rift_data, rift_times):
-    width, height = 1200, 440
-
-    image = fit_background(
-        load_rift_background(),
-        width,
-        height,
-        focus_x=0.68,
-        focus_y=0.42
-    )
-
-    image = add_strong_left_gradient(
-        image,
-        0.28,
-        0.78,
-        238,
-        (2, 1, 3)
-    )
-
-    draw = ImageDraw.Draw(image, 'RGBA')
-
-    title_font = load_font(56, True)
-    subtitle_font = load_font(29)
-    status_font = load_font(31, True)
-    time_font = load_font(48, True)
-    secondary_font = load_font(30)
-
-    if rift_times['active_start']:
-        label = 'JETZT AKTIV'
-        start = rift_times['active_start']
-        second_label = 'Nächster'
-        second_start = rift_times['next_start']
-        entry_until = start + timedelta(minutes=RIFT_ENTRY_MINUTES)
-        lines = [
-            (DISPLAY_NAMES['rift_card'], title_font, (250, 248, 251, 255)),
-            (f"Alle {rift_data['interval_hours']} Stunden · 60 Min. Aufenthalt", subtitle_font, (255, 135, 140, 255)),
-            (label, status_font, (255, 78, 88, 255)),
-            (f"{start.strftime('%H:%M')} Uhr", time_font, (250, 248, 251, 255)),
-            (f"Einlass bis {entry_until.strftime('%H:%M')} Uhr", subtitle_font, (255, 135, 140, 255)),
-            (f"→ {second_label}: {second_start.strftime('%H:%M')} Uhr", secondary_font, (225, 222, 225, 255))
-        ]
-        # Mehr Luft zwischen Untertitel, Status und Einlasshinweis; zentriert als Gesamtblock.
-        draw_centered_text_block(draw, lines, height, gaps=[12, 38, 13, 17, 31])
-    else:
-        start = rift_times['next_start']
-        second_start = rift_times['following_start']
-        lines = [
-            (DISPLAY_NAMES['rift_card'], title_font, (250, 248, 251, 255)),
-            (f"Alle {rift_data['interval_hours']} Stunden · 60 Min. Aufenthalt", subtitle_font, (255, 135, 140, 255)),
-            ('NÄCHSTER', status_font, (255, 78, 88, 255)),
-            (f"{start.strftime('%H:%M')} Uhr", time_font, (250, 248, 251, 255)),
-            (f"→ Danach: {second_start.strftime('%H:%M')} Uhr", secondary_font, (225, 222, 225, 255))
-        ]
-        draw_centered_text_block(draw, lines, height, gaps=[12, 38, 13, 31])
-
-    image.convert('RGB').save(
-        RIFT_CARD_FILE,
-        'PNG',
-        optimize=True
-    )
-
-
-# ============================================================
-# SHUGOFESTA-KARTE
-# ============================================================
-
-def create_shugo_card(shugo_data, shugo_times):
-    width, height = 1200, 440
-
-    image = fit_background(
-        load_shugo_background(),
-        width,
-        height,
-        focus_x=0.72,
-        focus_y=0.06
-    )
-
-    image = add_strong_left_gradient(
-        image,
-        0.28,
-        0.78,
-        225,
-        (3, 3, 2)
-    )
-
-    draw = ImageDraw.Draw(image, 'RGBA')
-
-    title_font = load_font(56, True)
-    subtitle_font = load_font(29)
-    status_font = load_font(31, True)
-    time_font = load_font(48, True)
-    secondary_font = load_font(30)
-
-    if shugo_times['active_start']:
-        label = 'JETZT AKTIV'
-        start = shugo_times['active_start']
-
-        second_label = 'Nächstes'
-        second_start = shugo_times['next_start']
-
-    else:
-        label = 'NÄCHSTES'
-        start = shugo_times['next_start']
-
-        second_label = 'Danach'
-        second_start = shugo_times['following_start']
-
-    lines = [
-        (
-            DISPLAY_NAMES['shugo_card'],
-            title_font,
-            (250, 248, 245, 255)
-        ),
-        (
-            'Stündlich',
-            subtitle_font,
-            (243, 210, 126, 255)
-        ),
-        (
-            label,
-            status_font,
-            (229, 177, 62, 255)
-        ),
-        (
-            f"{start.strftime('%H:%M')} Uhr",
-            time_font,
-            (250, 248, 245, 255)
-        ),
-        (
-            f"→ {second_label}: "
-            f"{second_start.strftime('%H:%M')} Uhr",
-            secondary_font,
-            (225, 222, 225, 255)
-        )
-    ]
-
-    draw_centered_text_block(
-        draw,
-        lines,
-        height,
-        gaps=[10, 26, 10, 30]
-    )
-
-    image.convert('RGB').save(
-        SHUGO_CARD_FILE,
-        'PNG',
-        optimize=True
-    )
-
-
-# ============================================================
-# RESET-KARTE
-# ============================================================
-
-def create_reset_card(daily_reset, weekly_reset):
-    width, height = 1200, 440
-
-    image = fit_background(
-        load_reset_background(),
-        width,
-        height,
-        focus_x=0.70,
-        focus_y=0.50
-    )
-
-    # Reset-Grafik um weitere 6 % vergroessern (bisher 10 % Zoom).
-    # Der rechte Bildrand bleibt exakt fixiert; der Zoom waechst nach links.
-    # Vertikal mittig beschneiden, ohne das Motiv separat zu verschieben.
-    reset_zoom = 1.10 * 1.06
-    enlarged_width = round(width * reset_zoom)
-    enlarged_height = round(height * reset_zoom)
-    enlarged = image.resize(
-        (enlarged_width, enlarged_height),
-        Image.Resampling.LANCZOS
-    )
-    crop_left = enlarged_width - width
-    crop_top = (enlarged_height - height) // 2
-    image = enlarged.crop((crop_left, crop_top, crop_left + width, crop_top + height))
-
-    image = add_strong_left_gradient(
-        image,
-        0.32,
-        0.82,
-        245,
-        (1, 3, 7)
-    )
-
-    draw = ImageDraw.Draw(image, 'RGBA')
-
-    title_font = load_font(56, True)
-    label_font = load_font(30, True)
-    time_font = load_font(46, True)
-
-    weekdays = [
-        'Montag',
-        'Dienstag',
-        'Mittwoch',
-        'Donnerstag',
-        'Freitag',
-        'Samstag',
-        'Sonntag'
-    ]
-
-    lines = [
-        (
-            DISPLAY_NAMES['reset_card'],
-            title_font,
-            (248, 250, 255, 255)
-        ),
-        (
-            DISPLAY_NAMES['daily_card'],
-            label_font,
-            (110, 190, 255, 255)
-        ),
-        (
-            f"{daily_reset.strftime('%H:%M')} Uhr",
-            time_font,
-            (248, 250, 255, 255)
-        ),
-        (
-            DISPLAY_NAMES['weekly_card'],
-            label_font,
-            (64, 145, 255, 255)
-        ),
-        (
-            (
-                f"{weekdays[weekly_reset.weekday()]} · "
-                f"{weekly_reset.strftime('%H:%M')} Uhr"
+        if value and str(value) not in candidates:
+            candidates.append(str(value))
+
+    return candidates
+
+
+def ensure_helper(bot, channel_id, state):
+    try:
+        me = checked(
+            api_request(
+                "GET",
+                f"{API}/users/@me",
+                session=bot,
             ),
-            time_font,
-            (248, 250, 255, 255)
-        ),
-        (
-            'Serverwartung: 08:30 Uhr · ca. 4 Stunden',
-            load_font(29),
-            (64, 145, 255, 255)
-        )
-    ]
-
-    draw_centered_text_block(
-        draw,
-        lines,
-        height,
-        gaps=[22, 8, 22, 8, 8]
-    )
-
-    image.convert('RGB').save(
-        RESET_CARD_FILE,
-        'PNG',
-        optimize=True
-    )
-
-
-# ============================================================
-# ALLE KARTEN UND DISCORD-EMBEDS ERSTELLEN
-# ============================================================
-
-def build_embeds(data):
-    timezone = ZoneInfo(data['timezone'])
-
-    rift_data = data['rift']
-    shugo_data = data['shugo_festa']
-    reset_data = data['resets']
-
-    rift_times = build_rift_times(
-        rift_data,
-        timezone
-    )
-
-    create_rift_card(
-        rift_data,
-        rift_times
-    )
-
-    shugo_times = build_shugo_times(
-        shugo_data,
-        timezone
-    )
-
-    create_shugo_card(
-        shugo_data,
-        shugo_times
-    )
-
-    daily_reset = next_daily_reset(
-        reset_data,
-        timezone
-    )
-
-    weekly_reset = next_weekly_reset(
-        reset_data,
-        timezone
-    )
-
-    create_reset_card(
-        daily_reset,
-        weekly_reset
-    )
-
-    artifact_times = build_artifact_times(timezone)
-    create_artifact_card(artifact_times)
-
-    event_overview = build_event_overview(
-        rift_times,
-        shugo_times,
-        daily_reset,
-        weekly_reset,
-        timezone,
-        artifact_times
-    )
-
-    create_overview_card(event_overview)
-
-    overview_embed = {
-        'color': 8027525,
-        'image': {
-            'url': 'attachment://event_overview_card.png'
-        }
-    }
-
-    rift_embed = {
-        'color': 14555706,
-        'image': {
-            'url': 'attachment://spacetime_rift_card.png'
-        }
-    }
-
-    shugo_embed = {
-        'color': 14525510,
-        'image': {
-            'url': 'attachment://shugo_games_card.png'
-        }
-    }
-
-    reset_embed = {
-        'color': 4231679,
-        'image': {
-            'url': 'attachment://resets_card.png'
-        }
-    }
-
-    artifact_embed = {
-        'color': 11695085,
-        'image': {'url': 'attachment://artifact_conquest_card.png'}
-    }
-
-    return [
-        overview_embed,
-        shugo_embed,
-        rift_embed,
-        artifact_embed,
-        reset_embed
-    ]
-
-
-# ============================================================
-# DISCORD-WEBHOOK MIT DATEIANHÄNGEN
-# ============================================================
-
-def _webhook_request_with_files_once(
-    url,
-    payload,
-    file_paths,
-    method='POST'
-):
-    boundary = (
-        '----AION2Boundary'
-        + uuid.uuid4().hex
-    )
-
-    body = bytearray()
-
-    body.extend(
-        (
-            f'--{boundary}\r\n'
-            f'Content-Disposition: form-data; '
-            f'name="payload_json"\r\n'
-            f'Content-Type: application/json\r\n\r\n'
-        ).encode('utf-8')
-    )
-
-    body.extend(
-        json.dumps(payload).encode('utf-8')
-    )
-
-    body.extend(b'\r\n')
-
-    for index, file_path in enumerate(file_paths):
-        with open(file_path, 'rb') as f:
-            file_data = f.read()
-
-        body.extend(
-            (
-                f'--{boundary}\r\n'
-                f'Content-Disposition: form-data; '
-                f'name="files[{index}]"; '
-                f'filename="{os.path.basename(file_path)}"\r\n'
-                f'Content-Type: image/png\r\n\r\n'
-            ).encode('utf-8')
+            "Bot prüfen",
         )
 
-        body.extend(file_data)
-        body.extend(b'\r\n')
+        bot_id = str(me["id"])
 
-    body.extend(
-        (
-            f'--{boundary}--\r\n'
-        ).encode('utf-8')
-    )
+        for message_id in helper_candidates(state):
+            response = api_request(
+                "GET",
+                (
+                    f"{API}/channels/{channel_id}"
+                    f"/messages/{message_id}"
+                ),
+                session=bot,
+            )
 
-    req = urllib.request.Request(
-        url,
-        data=bytes(body),
-        method=method,
-        headers={
-            'Content-Type':
-                f'multipart/form-data; boundary={boundary}',
-            'User-Agent':
-                'AION2-Schedule-Bot'
-        }
-    )
+            if response.status_code in (403, 404):
+                continue
 
-    with urllib.request.urlopen(
-        req,
-        timeout=60
-    ) as response:
-        response_data = response.read()
+            message = checked(
+                response, "Helper prüfen"
+            )
 
-        if not response_data:
-            return {}
+            if str(
+                message.get("author", {}).get("id", "")
+            ) != bot_id:
+                continue
 
-        return json.loads(
-            response_data.decode('utf-8')
+            component_ids = [
+                component.get("custom_id")
+                for row in message.get("components", [])
+                for component in row.get("components", [])
+            ]
+
+            if "event:menu:category" not in component_ids:
+                response = api_request(
+                    "PATCH",
+                    (
+                        f"{API}/channels/{channel_id}"
+                        f"/messages/{message_id}"
+                    ),
+                    session=bot,
+                    json=helper_payload(),
+                )
+
+                if not response.ok:
+                    print(
+                        "WARNUNG: Helper-Update:",
+                        response.status_code,
+                        response.text[:300],
+                    )
+                    continue
+
+            state.setdefault(
+                "overview_v6", {}
+            )["helper_message_id"] = message_id
+
+            save_state(state)
+
+            print(
+                "Bestehender Helper gefunden:",
+                message_id,
+            )
+            return
+
+        # Nur wenn kein vorhandener Helper
+        # gefunden wurde.
+        response = api_request(
+            "POST",
+            f"{API}/channels/{channel_id}/messages",
+            session=bot,
+            json=helper_payload(),
+        )
+
+        if response.status_code == 403:
+            print(
+                "WARNUNG: Helper konnte nicht "
+                "erstellt werden (403)."
+            )
+            print(
+                "Die Eventübersicht wurde "
+                "trotzdem erfolgreich verarbeitet."
+            )
+            return
+
+        message = checked(
+            response, "Helper veröffentlichen"
+        )
+
+        state.setdefault(
+            "overview_v6", {}
+        )["helper_message_id"] = str(message["id"])
+
+        save_state(state)
+
+        print(
+            "Neuer Helper:",
+            message["id"],
+        )
+
+    except Exception as error:
+        print(
+            "WARNUNG: Helper konnte nicht "
+            "verarbeitet werden:",
+            error,
+        )
+        print(
+            "Die Eventübersicht bleibt erhalten."
         )
 
 
-def webhook_request_with_files(
-    url,
-    payload,
-    file_paths,
-    method='POST'
-):
-    return run_with_retry(
-        lambda: _webhook_request_with_files_once(
-            url,
-            payload,
-            file_paths,
-            method=method
-        ),
-        f'Discord {method}'
-    )
-
-
 # ============================================================
-# HAUPTPROGRAMM
+# DISCORD
 # ============================================================
 
 def main():
-    if not WEBHOOK_URL:
-        raise RuntimeError(
-            'TRACKER_WEBHOOK fehlt.'
-        )
-
-    data = load_data()
     state = load_state()
 
-    embeds = build_embeds(data)
+    webhook = (
+        os.environ["EVENTS_WEBHOOK"]
+        .strip()
+        .split("?", 1)[0]
+        .rstrip("/")
+    )
 
-    payload = {
-        'content': '',
-        'embeds': embeds,
-        'attachments': [
-            {'id': 0, 'filename': OVERVIEW_CARD_FILE.name},
-            {'id': 1, 'filename': SHUGO_CARD_FILE.name},
-            {'id': 2, 'filename': RIFT_CARD_FILE.name},
-            {'id': 3, 'filename': ARTIFACT_CARD_FILE.name},
-            {'id': 4, 'filename': RESET_CARD_FILE.name}
-        ]
-    }
+    bot = requests.Session()
+    bot.headers["Authorization"] = (
+        "Bot " + os.environ["DISCORD_BOT"].strip()
+    )
 
-    message_id = state.get('message_id')
+    webhook_info = checked(
+        api_request("GET", webhook),
+        "Webhook prüfen",
+    )
 
-    files = [
-        OVERVIEW_CARD_FILE,
-        SHUGO_CARD_FILE,
-        RIFT_CARD_FILE,
-        ARTIFACT_CARD_FILE,
-        RESET_CARD_FILE
-    ]
+    channel_id = str(webhook_info["channel_id"])
+    webhook_id = str(webhook_info["id"])
+
+    images, embeds = prepare_overview()
+    digest = overview_hash(images, embeds)
+
+    record = state.setdefault("overview_v6", {})
+    message_id = str(record.get("message_id") or "")
+
+    needs_update = True
 
     if message_id:
-        edit_url = (
-            f'{WEBHOOK_URL}'
-            f'/messages/{message_id}'
+        response = api_request(
+            "GET",
+            (
+                f"{API}/channels/{channel_id}"
+                f"/messages/{message_id}"
+            ),
+            session=bot,
         )
 
-        webhook_request_with_files(
-            edit_url,
-            payload,
-            files,
-            method='PATCH'
+        if response.status_code == 404:
+            raise RuntimeError(
+                "Gespeicherte Eventübersicht "
+                "nicht gefunden. Kein Doppelpost."
+            )
+
+        message = checked(
+            response, "Übersicht prüfen"
         )
+
+        if str(
+            message.get("webhook_id") or ""
+        ) != webhook_id:
+            raise RuntimeError(
+                "Die Übersicht gehört nicht "
+                "zum erwarteten Webhook."
+            )
+
+        needs_update = record.get("hash") != digest
+
+    if needs_update:
+        payload = {
+            "content": "",
+            "embeds": embeds,
+            "allowed_mentions": {"parse": []},
+            "attachments": [
+                {
+                    "id": index,
+                    "filename": filename,
+                }
+                for index, (filename, _)
+                in enumerate(images)
+            ],
+        }
+
+        multipart = {
+            "payload_json": (
+                None,
+                json.dumps(
+                    payload, ensure_ascii=False
+                ),
+            )
+        }
+
+        for index, (filename, data) in enumerate(images):
+            multipart[f"files[{index}]"] = (
+                filename, data, "image/png"
+            )
+
+        if message_id:
+            response = api_request(
+                "PATCH",
+                f"{webhook}/messages/{message_id}",
+                files=multipart,
+                timeout=120,
+            )
+        else:
+            response = api_request(
+                "POST",
+                webhook,
+                params={"wait": "true"},
+                files=multipart,
+                timeout=120,
+            )
+
+        message = checked(
+            response, "Übersicht veröffentlichen"
+        )
+
+        record["message_id"] = str(message["id"])
+        record["hash"] = digest
+        save_state(state)
 
         print(
-            'Bestehende Veranstaltungs-Nachricht aktualisiert.'
+            "Übersicht aktualisiert:",
+            message["id"],
         )
 
     else:
-        create_url = f'{WEBHOOK_URL}?wait=true'
+        print("Übersicht unverändert.")
 
-        result = webhook_request_with_files(
-            create_url,
-            payload,
-            files,
-            method='POST'
-        )
+    ensure_helper(bot, channel_id, state)
 
-        save_state({
-            'message_id': result['id']
-        })
-
-        print(
-            'Neue Veranstaltungs-Nachricht erstellt.'
-        )
+    print("Fertig.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
