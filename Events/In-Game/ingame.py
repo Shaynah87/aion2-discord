@@ -15,7 +15,7 @@ EVENTS = (
     },
     {
         'id': 'ludra_jagd',
-        'name': 'Ludra-Jagd',
+        'name': 'Ludra-Hut',
         'start': '2026-11-04',
         'end': '2026-11-25',
         'date_label': '04.11.–25.11.26',
