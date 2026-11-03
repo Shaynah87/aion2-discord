@@ -103,7 +103,8 @@
     "6ae2b7befa7da41c727d6a4e",
     "6ae2f328da5dd1068be97ae1",
     "6ae61e906cfe4756db5b9049",
-    "6ae0552e4b52050c9a287a93"
+    "6ae0552e4b52050c9a287a93",
+    "6ae0541cfa7da41c727d6a01"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -285,6 +286,12 @@
       "hash": "65d5332e8cf17d2263536fc4d58f03cadff1c647a45e09d891e57b21fe1158f3",
       "missing_checks": 0,
       "title": "[Bekanntgabe der Gewinner] Daeva-Makeover"
+    },
+    "6ae0541cfa7da41c727d6a01": {
+      "discord_message_id": "1566991718702911639",
+      "hash": "eb30b77b5b564a248d7ca6b71dfc55ee0f66a755205c629ac2abf3e69656cf85",
+      "missing_checks": 0,
+      "title": "[Bekanntgabe der Gewinner] Schönheit Atreias"
     }
   }
 }
