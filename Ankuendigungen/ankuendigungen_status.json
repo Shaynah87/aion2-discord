@@ -102,7 +102,8 @@
     "6ae057f9ab04307987fe326d",
     "6ae2b7befa7da41c727d6a4e",
     "6ae2f328da5dd1068be97ae1",
-    "6ae61e906cfe4756db5b9049"
+    "6ae61e906cfe4756db5b9049",
+    "6ae0552e4b52050c9a287a93"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -278,6 +279,12 @@
       "hash": "9e4e82fb57b8955c55577f00b7cc53de47c7bc41296e78b90ae8f30291e37e30",
       "missing_checks": 0,
       "title": "[Hinweis] Temporäre Wartungsarbeiten (NAW) | 1. Nov (Abgeschlossen)"
+    },
+    "6ae0552e4b52050c9a287a93": {
+      "discord_message_id": "1566965383536320605",
+      "hash": "65d5332e8cf17d2263536fc4d58f03cadff1c647a45e09d891e57b21fe1158f3",
+      "missing_checks": 0,
+      "title": "[Bekanntgabe der Gewinner] Daeva-Makeover"
     }
   }
 }
