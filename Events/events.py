@@ -274,22 +274,21 @@ def display_name(event):
 # EVENTZEILEN ZEICHNEN
 # ============================================================
 
-def period_parts(event):
-    """Datum und Zeit/Wartung separat für feste Spalten ausgeben."""
-    def parts(value):
-        raw = str(value)
-        dt = parse_datetime(raw)
-        date = dt.strftime("%d.%m.")
-        if event.get("maintenance"):
-            detail = "Wartung"
-        elif "T" in raw or " " in raw:
-            detail = dt.strftime("%H:%M Uhr")
-        else:
-            # Ohne offizielle Uhrzeit keine Uhrzeit erfinden.
-            detail = ""
-        return date, detail
+def event_date_range(event):
+    """Kompakter Datumsbereich ohne Uhrzeit in der Übersicht."""
+    start = start_time(event)
+    end = end_time(event)
+    return f"{start:%d.%m.}–{end:%d.%m.}"
 
-    return parts(event["start"]), parts(event["end"])
+
+def explicit_start_label(event):
+    """Nur eine ausdrücklich hinterlegte Startuhrzeit anzeigen."""
+    raw = str(event["start"])
+    if "T" not in raw and " " not in raw:
+        return None
+    if event.get("maintenance"):
+        return None
+    return f"Start: {start_time(event):%H:%M} Uhr"
 
 
 def draw_events(image, events, top, attendance=False):
@@ -298,11 +297,9 @@ def draw_events(image, events, top, attendance=False):
     name_font = font(NAME_FONT_SIZE)
     date_font = font(DATE_FONT_SIZE, bold=False)
     status_font = font(STATUS_FONT_SIZE)
+    start_font = font(24, bold=False)
 
-    # Feste Positionen für beide Zeilen und alle Eventkategorien.
-    date_x = 570
-    separator_x = 684
-    detail_x = 710
+    date_x = 610
 
     for index, event in enumerate(events):
         y0 = top + index * ROW_HEIGHT
@@ -317,15 +314,18 @@ def draw_events(image, events, top, attendance=False):
         if status is None:
             continue
 
-        # Eventnamen und deren bisherige Kürzung unverändert lassen.
+        # Eventnamen und bisherige Kürzung bleiben unverändert.
         shown_name = ellipsize(draw, display_name(event), 505, name_font)
         draw.text((30, center), shown_name, font=name_font, anchor="lm", fill=NAME_COLOR)
 
-        for (date, detail), y in zip(period_parts(event), (center - 19, center + 19)):
-            draw.text((date_x, y), date, font=date_font, anchor="lm", fill=DATE_COLOR)
-            if detail:
-                draw.text((separator_x, y), "·", font=date_font, anchor="lm", fill=DATE_COLOR)
-                draw.text((detail_x, y), detail, font=date_font, anchor="lm", fill=DATE_COLOR)
+        # Feste Startzeit nur anzeigen, solange das Event noch kommend ist.
+        start_label = explicit_start_label(event) if status == "KOMMEND" else None
+        date_y = center - 16 if start_label else center
+        draw.text((date_x, date_y), event_date_range(event),
+                  font=date_font, anchor="lm", fill=DATE_COLOR)
+        if start_label:
+            draw.text((date_x, center + 19), start_label,
+                      font=start_font, anchor="lm", fill=DATE_COLOR)
 
         status_color = STARTED_COLOR if status == "GESTARTET" else UPCOMING_COLOR
         draw.text((1170, center), status, font=status_font, anchor="rm", fill=status_color)
@@ -548,7 +548,10 @@ def create_category_image(category, events):
         )
 
     header_height = banner_height + 45
-    height = header_height + len(events) * ROW_HEIGHT
+    # Hinweis nur unter der letzten Kategorie, nicht in jeder Eventzeile.
+    show_footer = category["key"] == "twitch_drops"
+    footer_height = 56 if show_footer else 0
+    height = header_height + len(events) * ROW_HEIGHT + footer_height
 
     image = Image.new(
         "RGB",
@@ -600,6 +603,16 @@ def create_category_image(category, events):
                 category["key"] == "anwesenheitslisten"
             ),
         )
+
+    if show_footer:
+        footer_top = header_height + len(events) * ROW_HEIGHT
+        draw.line((28, footer_top, WIDTH - 28, footer_top),
+                  fill=(62, 69, 80), width=1)
+        note = ("Events beginnen und enden standardmäßig mit der wöchentlichen "
+                "Serverwartung, sofern keine abweichenden Uhrzeiten angegeben sind.")
+        note_font = font(19, bold=False)
+        draw.text((WIDTH // 2, footer_top + footer_height // 2), note,
+                  font=note_font, anchor="mm", fill="#AEB5C2")
 
     return image_to_png(image)
 
