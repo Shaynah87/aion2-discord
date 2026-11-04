@@ -1,20 +1,16 @@
-
 name: Events
 
 on:
   workflow_dispatch:
   schedule:
-    # UTC-Zeiten für deutsche Sommer- und Winterzeit
-    - cron: '40 6,7 * * *'
-    - cron: '10 7,8 * * *'
-    - cron: '10 13,14 * * *'
-    - cron: '10 16,17 * * *'
+    # GitHub Actions verwendet UTC; alle 15 Minuten, unabhängig von Sommer-/Winterzeit.
+    - cron: '*/15 * * * *'
 
 permissions:
   contents: write
 
 concurrency:
-  group: halloween-events
+  group: nyerk24-events
   cancel-in-progress: false
 
 jobs:
