@@ -274,19 +274,22 @@ def display_name(event):
 # EVENTZEILEN ZEICHNEN
 # ============================================================
 
-def period_lines(event):
-    """Zeigt Start und Ende exakt wie in den Eventdaten hinterlegt."""
-
-    def shown(value, ending=False):
+def period_parts(event):
+    """Datum und Zeit/Wartung separat für feste Spalten ausgeben."""
+    def parts(value):
         raw = str(value)
         dt = parse_datetime(raw)
+        date = dt.strftime("%d.%m.")
         if event.get("maintenance"):
-            return dt.strftime("%d.%m.") + " · Wartung"
-        if "T" not in raw and " " not in raw:
-            return dt.strftime("%d.%m.")
-        return dt.strftime("%d.%m. · %H:%M Uhr")
+            detail = "Wartung"
+        elif "T" in raw or " " in raw:
+            detail = dt.strftime("%H:%M Uhr")
+        else:
+            # Ohne offizielle Uhrzeit keine Uhrzeit erfinden.
+            detail = ""
+        return date, detail
 
-    return "vom " + shown(event["start"]), "bis " + shown(event["end"], True)
+    return parts(event["start"]), parts(event["end"])
 
 
 def draw_events(image, events, top, attendance=False):
@@ -295,6 +298,11 @@ def draw_events(image, events, top, attendance=False):
     name_font = font(NAME_FONT_SIZE)
     date_font = font(DATE_FONT_SIZE, bold=False)
     status_font = font(STATUS_FONT_SIZE)
+
+    # Feste Positionen für beide Zeilen und alle Eventkategorien.
+    date_x = 570
+    separator_x = 684
+    detail_x = 710
 
     for index, event in enumerate(events):
         y0 = top + index * ROW_HEIGHT
@@ -309,13 +317,15 @@ def draw_events(image, events, top, attendance=False):
         if status is None:
             continue
 
+        # Eventnamen und deren bisherige Kürzung unverändert lassen.
         shown_name = ellipsize(draw, display_name(event), 505, name_font)
         draw.text((30, center), shown_name, font=name_font, anchor="lm", fill=NAME_COLOR)
 
-        first, second = period_lines(event)
-        # Beide Datumszeilen stehen untereinander, statt die Namen zu verlängern.
-        draw.text((755, center - 19), first, font=date_font, anchor="mm", fill=DATE_COLOR)
-        draw.text((755, center + 19), second, font=date_font, anchor="mm", fill=DATE_COLOR)
+        for (date, detail), y in zip(period_parts(event), (center - 19, center + 19)):
+            draw.text((date_x, y), date, font=date_font, anchor="lm", fill=DATE_COLOR)
+            if detail:
+                draw.text((separator_x, y), "·", font=date_font, anchor="lm", fill=DATE_COLOR)
+                draw.text((detail_x, y), detail, font=date_font, anchor="lm", fill=DATE_COLOR)
 
         status_color = STARTED_COLOR if status == "GESTARTET" else UPCOMING_COLOR
         draw.text((1170, center), status, font=status_font, anchor="rm", fill=status_color)
