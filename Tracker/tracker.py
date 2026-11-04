@@ -65,7 +65,7 @@ NEXT_ENTRY_GAP = 18
 MAX_OVERVIEW_EVENTS = 6
 RESET_OVERVIEW_LEAD_HOURS = 3
 RIFT_ENTRY_MINUTES = 10
-ARTIFACT_ACTIVE_MINUTES = 60  # Bei abweichender offizieller Eventdauer hier anpassen
+ARTIFACT_ACTIVE_MINUTES = 30  # Bei abweichender offizieller Eventdauer hier anpassen
 
 RIFT_COLOR = (255, 78, 88, 255)
 SHUGO_COLOR = (229, 177, 62, 255)
@@ -331,13 +331,13 @@ def build_shugo_times(shugo_data, timezone):
 
 
 # ============================================================
-# ARTEFAKT-EROBERUNG – MONTAG / DONNERSTAG / SAMSTAG
+# ARTEFAKT-EROBERUNG – DONNERSTAG / SAMSTAG
 # ============================================================
 
 def build_artifact_times(timezone):
     """21:00 Uhr in der für den Tracker konfigurierten Zeitzone."""
     now = datetime.now(timezone)
-    weekdays = (0, 3, 5)
+    weekdays = (3, 5)
     starts = []
     for offset in range(0, 15):
         day = now + timedelta(days=offset)
@@ -370,7 +370,7 @@ def create_artifact_card(artifact_times):
     second = artifact_times['following_start']
     lines = [
         (DISPLAY_NAMES['artifact_card'], load_font(56, True), (250, 248, 253, 255)),
-        ('Montag · Donnerstag · Samstag', load_font(28), (205, 165, 245, 255)),
+        ('Donnerstag · Samstag', load_font(28), (205, 165, 245, 255)),
         ('NÄCHSTE', load_font(30, True), ARTIFACT_COLOR),
         (f"{weekdays[first.weekday()]} · {first.strftime('%H:%M')} Uhr", load_font(48, True), (250, 248, 253, 255)),
         (f"→ Danach: {weekdays[second.weekday()]} · {second.strftime('%H:%M')} Uhr", load_font(30), (225, 222, 230, 255)),
@@ -463,7 +463,7 @@ def build_event_overview(
             'color': RESET_COLOR
         })
 
-    if artifact_times is not None and now.weekday() in (0, 3, 5):
+    if artifact_times is not None and now.weekday() in (3, 5):
         start = now.replace(hour=21, minute=0, second=0, microsecond=0)
         if now < start:
             upcoming_events.append({
