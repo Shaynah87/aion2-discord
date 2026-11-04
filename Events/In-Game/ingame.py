@@ -1,3 +1,4 @@
+# Events/In-Game/ingame.py
 CATEGORY_ID = "ingame_events"
 CATEGORY_TITLE = "Ingame-Events"
 BANNER = "In-Game/ingame_events.png"
