@@ -548,10 +548,7 @@ def create_category_image(category, events):
         )
 
     header_height = banner_height + 45
-    # Hinweis nur unter der letzten Kategorie, nicht in jeder Eventzeile.
-    show_footer = category["key"] == "twitch_drops"
-    footer_height = 56 if show_footer else 0
-    height = header_height + len(events) * ROW_HEIGHT + footer_height
+    height = header_height + len(events) * ROW_HEIGHT
 
     image = Image.new(
         "RGB",
@@ -604,16 +601,24 @@ def create_category_image(category, events):
             ),
         )
 
-    if show_footer:
-        footer_top = header_height + len(events) * ROW_HEIGHT
-        draw.line((28, footer_top, WIDTH - 28, footer_top),
-                  fill=(62, 69, 80), width=1)
-        note = ("Events beginnen und enden standardmäßig mit der wöchentlichen "
-                "Serverwartung, sofern keine abweichenden Uhrzeiten angegeben sind.")
-        note_font = font(19, bold=False)
-        draw.text((WIDTH // 2, footer_top + footer_height // 2), note,
-                  font=note_font, anchor="mm", fill="#AEB5C2")
+    return image_to_png(image)
 
+
+# ============================================================
+# ALLGEMEINER HINWEIS UNTER DER GESAMTEN EVENTÜBERSICHT
+# ============================================================
+
+def create_overview_note():
+    image = Image.new("RGB", (WIDTH, 112), BACKGROUND)
+    draw = ImageDraw.Draw(image)
+    note_font = font(29, bold=False)
+    lines = (
+        "Events beginnen und enden standardmäßig mit der wöchentlichen",
+        "Serverwartung, sofern keine abweichenden Uhrzeiten angegeben sind.",
+    )
+    for y, line in zip((34, 75), lines):
+        draw.text((WIDTH // 2, y), line, font=note_font,
+                  anchor="mm", fill="#C8CDD6")
     return image_to_png(image)
 
 
@@ -711,6 +716,14 @@ def prepare_overview():
             f"{len(sorted_events(events))} "
             "sichtbare Events"
         )
+
+    # Eigenständiger Hinweis nach ALLEN Kategorien, nicht im Twitch-Banner.
+    note_filename = "99_allgemeiner_hinweis.png"
+    images.append((note_filename, create_overview_note()))
+    embeds.append({
+        "color": 0x555B66,
+        "image": {"url": f"attachment://{note_filename}"},
+    })
 
     return images, embeds
 
