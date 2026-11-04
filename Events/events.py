@@ -23,10 +23,10 @@ STATE_FILE = ROOT / "events_message.json"
 
 API = "https://discord.com/api/v10"
 TIMEZONE = ZoneInfo("Europe/Berlin")
-DEFAULT_EVENT_TIME = clock_time(8, 30)
+DEFAULT_EVENT_TIME = clock_time(9, 0)
 
 WIDTH = 1200
-ROW_HEIGHT = 72
+ROW_HEIGHT = 88
 
 TITLE_FONT_SIZE = 48
 NAME_FONT_SIZE = 36
@@ -168,7 +168,12 @@ def end_time(event):
 def event_status(event, now=None):
     now = now or datetime.now(TIMEZONE)
 
-    if now >= end_time(event):
+    # Offizielle Endzeiten bleiben in den Daten und in der Anzeige erhalten.
+    # Ein Ende um 08:59 wird beim gemeinsamen 09:00-Lauf ausgeblendet.
+    end = end_time(event)
+    if end.hour == 8 and end.minute == 59 and end.second == 0:
+        end = end.replace(hour=9, minute=0)
+    if now >= end:
         return None
 
     if now < start_time(event):
@@ -269,75 +274,51 @@ def display_name(event):
 # EVENTZEILEN ZEICHNEN
 # ============================================================
 
+def period_lines(event):
+    """Zeigt Start und Ende exakt wie in den Eventdaten hinterlegt."""
+
+    def shown(value, ending=False):
+        raw = str(value)
+        dt = parse_datetime(raw)
+        if event.get("maintenance"):
+            return dt.strftime("%d.%m.") + " · Wartung"
+        if "T" not in raw and " " not in raw:
+            return dt.strftime("%d.%m.")
+        return dt.strftime("%d.%m. · %H:%M Uhr")
+
+    return "vom " + shown(event["start"]), "bis " + shown(event["end"], True)
+
+
 def draw_events(image, events, top, attendance=False):
     draw = ImageDraw.Draw(image)
+    now = datetime.now(TIMEZONE)
+    name_font = font(NAME_FONT_SIZE)
+    date_font = font(DATE_FONT_SIZE, bold=False)
+    status_font = font(STATUS_FONT_SIZE)
 
     for index, event in enumerate(events):
         y0 = top + index * ROW_HEIGHT
         y1 = y0 + ROW_HEIGHT - 1
         center = y0 + ROW_HEIGHT // 2
-
-        color = (
-            (35, 39, 47)
-            if index % 2 == 0
-            else (33, 37, 45)
-        )
-
-        draw.rectangle(
-            (0, y0, WIDTH - 1, y1),
-            fill=color,
-        )
-
+        color = (35, 39, 47) if index % 2 == 0 else (33, 37, 45)
+        draw.rectangle((0, y0, WIDTH - 1, y1), fill=color)
         if index:
-            draw.line(
-                (28, y0, WIDTH - 28, y0),
-                fill=(62, 69, 80),
-                width=1,
-            )
+            draw.line((28, y0, WIDTH - 28, y0), fill=(62, 69, 80), width=1)
 
-        name = display_name(event)
-        period = str(event.get("date_label", ""))
-        status = event_status(event)
-
+        status = event_status(event, now)
         if status is None:
             continue
 
-        name_font = font(NAME_FONT_SIZE)
-        date_font = font(DATE_FONT_SIZE, bold=False)
+        shown_name = ellipsize(draw, display_name(event), 505, name_font)
+        draw.text((30, center), shown_name, font=name_font, anchor="lm", fill=NAME_COLOR)
 
-        shown_name = ellipsize(
-            draw, name, 525, name_font
-        )
+        first, second = period_lines(event)
+        # Beide Datumszeilen stehen untereinander, statt die Namen zu verlängern.
+        draw.text((755, center - 19), first, font=date_font, anchor="mm", fill=DATE_COLOR)
+        draw.text((755, center + 19), second, font=date_font, anchor="mm", fill=DATE_COLOR)
 
-        draw.text(
-            (30, center),
-            shown_name,
-            font=name_font,
-            anchor="lm",
-            fill=NAME_COLOR,
-        )
-
-        draw.text(
-            (785, center),
-            period,
-            font=date_font,
-            anchor="mm",
-            fill=DATE_COLOR,
-        )
-
-        status_color = (
-            STARTED_COLOR
-            if status == "GESTARTET"
-            else UPCOMING_COLOR
-        )
-
-        draw.text(
-            (1170, center),
-            status,
-            font=font(STATUS_FONT_SIZE),
-            anchor="rm",
-            fill=status_color,
-        )
+        status_color = STARTED_COLOR if status == "GESTARTET" else UPCOMING_COLOR
+        draw.text((1170, center), status, font=status_font, anchor="rm", fill=status_color)
 
 
 # ============================================================
@@ -643,16 +624,21 @@ def halloween_banner():
 # ============================================================
 
 def prepare_overview():
-    images = [
-        ("00_halloween.png", halloween_banner())
-    ]
+    images = []
+    embeds = []
 
-    embeds = [{
-        "color": 0xFF7100,
-        "image": {
-            "url": "attachment://00_halloween.png"
-        },
-    }]
+    halloween = load_module(HALLOWEEN_MODULE, "nyerk24_halloween_status")
+    # Das offizielle Ende bleibt 08:59 Uhr; Ausblenden beim 09:00-Lauf.
+    # Die Halloween-Datei und das Banner bleiben für 2027 erhalten.
+    halloween_visible = (
+        datetime.now(TIMEZONE) < parse_datetime("2026-11-04T09:00:00+01:00")
+    )
+    if halloween_visible:
+        images.append(("00_halloween.png", halloween_banner()))
+        embeds.append({
+            "color": 0xFF7100,
+            "image": {"url": "attachment://00_halloween.png"},
+        })
 
     for index, category in enumerate(
         CATEGORIES, start=1
