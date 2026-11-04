@@ -90,6 +90,8 @@ HELPER_CATEGORIES = (
     ("Twitch Drops", "twitch_drops", "🎁"),
 )
 
+HALLOWEEN_END = "2026-11-04T09:00:00+01:00"
+
 
 # ============================================================
 # MODULE LADEN
@@ -655,12 +657,8 @@ def prepare_overview():
     images = []
     embeds = []
 
-    halloween = load_module(HALLOWEEN_MODULE, "nyerk24_halloween_status")
-    # Das offizielle Ende bleibt 08:59 Uhr; Ausblenden beim 09:00-Lauf.
-    # Die Halloween-Datei und das Banner bleiben für 2027 erhalten.
-    halloween_visible = (
-        datetime.now(TIMEZONE) < parse_datetime("2026-11-04T09:00:00+01:00")
-    )
+    # Halloween bleibt als Vorlage erhalten, wird nach dem Ende ausgeblendet.
+    halloween_visible = datetime.now(TIMEZONE) < parse_datetime(HALLOWEEN_END)
     if halloween_visible:
         images.append(("00_halloween.png", halloween_banner()))
         embeds.append({
@@ -690,6 +688,9 @@ def prepare_overview():
                 continue
 
         events = load_events(category)
+        if not sorted_events(events):
+            print(f"Überspringe {category['title']}: keine aktiven Events")
+            continue
 
         filename = (
             f"{index:02d}_{category['key']}.png"
@@ -862,7 +863,38 @@ def checked(response, label):
 # EVENT HELPER
 # ============================================================
 
+def visible_helper_categories():
+    """Nur Kategorien mit mindestens einem laufenden oder kommenden Event."""
+    visible = []
+    for label, value, emoji in HELPER_CATEGORIES:
+        if value == "halloween_2026":
+            if datetime.now(TIMEZONE) < parse_datetime(HALLOWEEN_END):
+                visible.append((label, value, emoji))
+            continue
+
+        category = next((item for item in CATEGORIES if item["key"] == value), None)
+        if category is None:
+            continue
+        if not (ROOT / category["module"]).is_file():
+            continue
+        if sorted_events(load_events(category)):
+            visible.append((label, value, emoji))
+    return visible
+
+
 def helper_payload():
+    categories = visible_helper_categories()
+    if not categories:
+        return {
+            "content": "",
+            "embeds": [{
+                "title": "Nyerk24 · Event Helper",
+                "description": "Aktuell sind keine Events verfügbar.",
+                "color": 0xD6B05E,
+            }],
+            "components": [],
+            "allowed_mentions": {"parse": []},
+        }
     return {
         "content": "",
         "embeds": [{
@@ -888,7 +920,7 @@ def helper_payload():
                         "emoji": {"name": emoji},
                     }
                     for label, value, emoji
-                    in HELPER_CATEGORIES
+                    in categories
                 ],
             }],
         }],
