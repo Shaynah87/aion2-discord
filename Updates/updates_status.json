@@ -3,7 +3,8 @@
     "6ac5e6e8fa34c1011d627b37",
     "6acf20d007b77e214688a7af",
     "6ad85be86cfe4756db5b8e94",
-    "6ae197f6e6bf57144768abda"
+    "6ae197f6e6bf57144768abda",
+    "6acf216828c7452635072da0"
   ],
   "managed": {
     "6ac5e6e8fa34c1011d627b37": {
@@ -29,6 +30,12 @@
       "hash": "4389160d8764ed138cac50bc5d8337655dd02b14dc3fd997d4865d5737243af3",
       "missing_checks": 0,
       "title": "[Mitteilung] Patch-Notizen | 27. Oktober (PDT) / 28. Oktober (CET)"
+    },
+    "6acf216828c7452635072da0": {
+      "discord_message_id": "1567429550902874234",
+      "hash": "d2f92b0b4c1cf0e2ce9657492e9a9ceb4cc50858cccc25bbd177e72cb18f6ff5",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Patch Notizen | 3. Nov (PST) / 4. Nov (CET)"
     }
   }
 }
