@@ -105,7 +105,8 @@
     "6ae61e906cfe4756db5b9049",
     "6ae0552e4b52050c9a287a93",
     "6ae0541cfa7da41c727d6a01",
-    "6acf21686cfe4756db5b8fe6"
+    "6acf21686cfe4756db5b8fe6",
+    "6aeae600263e537d356d1520"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -299,6 +300,12 @@
       "hash": "f9efdd4cf383c271ec16eeabb5a61a24f68efa62cea3ffb0ba30ba4febd3aa55",
       "missing_checks": 0,
       "title": "[Mitteilung] Wartungsarbeiten | 3. November (PDT) / 4. November (CET)"
+    },
+    "6aeae600263e537d356d1520": {
+      "discord_message_id": "1567448566597816331",
+      "hash": "8dfb3b9a05c63b6a2b4b5662c23b4d490116848b71bac5bedc4994edc179b4c1",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 4. November "
     }
   }
 }
