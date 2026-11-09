@@ -106,7 +106,8 @@
     "6ae0552e4b52050c9a287a93",
     "6ae0541cfa7da41c727d6a01",
     "6acf21686cfe4756db5b8fe6",
-    "6aeae600263e537d356d1520"
+    "6aeae600263e537d356d1520",
+    "6af34d906cfe4756db5b91ba"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -306,6 +307,12 @@
       "hash": "8dfb3b9a05c63b6a2b4b5662c23b4d490116848b71bac5bedc4994edc179b4c1",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 4. November "
+    },
+    "6af34d906cfe4756db5b91ba": {
+      "discord_message_id": "1569441717554253996",
+      "hash": "f5337d4c0fbc11c36e03e6f43edece4e9c013f430ce632bc8649b5b9a3196606",
+      "missing_checks": 0,
+      "title": "[Hinweis] Wartungsarbeiten an den Plattformdiensten (10. Nov)"
     }
   }
 }
