@@ -108,7 +108,8 @@
     "6acf21686cfe4756db5b8fe6",
     "6aeae600263e537d356d1520",
     "6af34d906cfe4756db5b91ba",
-    "6af35ba0066b033317c02b4f"
+    "6af35ba0066b033317c02b4f",
+    "6af3a9a8e6bf57144768ad95"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -320,6 +321,12 @@
       "hash": "94f47baea6eeefe6bfb5621f8b97b162ac198036f8682bafcb36a253cfbb8bbe",
       "missing_checks": 0,
       "title": "[Mitteilung] Wartungsarbeiten | 10. November (PDT) / 11. November (CET)"
+    },
+    "6af3a9a8e6bf57144768ad95": {
+      "discord_message_id": "1569860613268709457",
+      "hash": "6edfbf12e2fb14bc721c24ffae75580c70ebe4e48e6dabf5923e33ae81824e8b",
+      "missing_checks": 0,
+      "title": "[Hinweis] Mögliche Probleme bei der Anmeldung bekannt"
     }
   }
 }
