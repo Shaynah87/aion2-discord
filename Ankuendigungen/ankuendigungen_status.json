@@ -107,7 +107,8 @@
     "6ae0541cfa7da41c727d6a01",
     "6acf21686cfe4756db5b8fe6",
     "6aeae600263e537d356d1520",
-    "6af34d906cfe4756db5b91ba"
+    "6af34d906cfe4756db5b91ba",
+    "6af35ba0066b033317c02b4f"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -313,6 +314,12 @@
       "hash": "895af7ec02cc37887a87e29b695da12ad22ba2da7c5a4067871e4553ef0e58a9",
       "missing_checks": 0,
       "title": "[Hinweis] Wartungsarbeiten an den Plattformdiensten (10. Nov)"
+    },
+    "6af35ba0066b033317c02b4f": {
+      "discord_message_id": "1569679398058201232",
+      "hash": "94f47baea6eeefe6bfb5621f8b97b162ac198036f8682bafcb36a253cfbb8bbe",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Wartungsarbeiten | 10. November (PDT) / 11. November (CET)"
     }
   }
 }
