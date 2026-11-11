@@ -111,7 +111,8 @@
     "6af35ba0066b033317c02b4f",
     "6af3a9a8e6bf57144768ad95",
     "6af32b8cfeeef62e67566f18",
-    "6acf2168577e8c01355e03a1"
+    "6acf2168577e8c01355e03a1",
+    "6af41b405989e207130e4026"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -341,6 +342,12 @@
       "hash": "ef2b3235457239c4881b8a28111817c3076d4193638c9ed53d975e1bc64e21f1",
       "missing_checks": 0,
       "title": "[Hinweis] 11.11. (Mi.) Info zu neuen Skin-Gegenstände"
+    },
+    "6af41b405989e207130e4026": {
+      "discord_message_id": "1569992781198270501",
+      "hash": "f30a40481bc49f4115aa38dd46c746b4a8a636b7bfedf83ec250ce4253844b9e",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 11. November"
     }
   }
 }
