@@ -109,7 +109,8 @@
     "6aeae600263e537d356d1520",
     "6af34d906cfe4756db5b91ba",
     "6af35ba0066b033317c02b4f",
-    "6af3a9a8e6bf57144768ad95"
+    "6af3a9a8e6bf57144768ad95",
+    "6af32b8cfeeef62e67566f18"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -327,6 +328,12 @@
       "hash": "f2877f88be0489932dd94340aece30601436911f4fca4a88fe29f7e21fc44552",
       "missing_checks": 0,
       "title": "[Hinweis] Mögliche Probleme bei der Anmeldung bekannt"
+    },
+    "6af32b8cfeeef62e67566f18": {
+      "discord_message_id": "1569985245644595241",
+      "hash": "d619d50ac11bd5457ad5bb72f49b7238ffb5cc8edf0f9b61c46d44e2bd0f91a2",
+      "missing_checks": 0,
+      "title": "[Hinweis] Server-Matchmaking | 11.11. (Mi.) "
     }
   }
 }
