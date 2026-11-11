@@ -4,7 +4,8 @@
     "6acf20d007b77e214688a7af",
     "6ad85be86cfe4756db5b8e94",
     "6ae197f6e6bf57144768abda",
-    "6acf216828c7452635072da0"
+    "6acf216828c7452635072da0",
+    "6af42cb75963676eaed77aba"
   ],
   "managed": {
     "6ac5e6e8fa34c1011d627b37": {
@@ -36,6 +37,12 @@
       "hash": "b95f9f15e6d6e02799633710fab493340780c942dc8024f6396fd7f2a262ce91",
       "missing_checks": 0,
       "title": "[Mitteilung] Patch Notizen | 3. Nov (PST) / 4. Nov (CET)"
+    },
+    "6af42cb75963676eaed77aba": {
+      "discord_message_id": "1570000322158399510",
+      "hash": "0b720ed69cc12fb9145ad13a03b829122d2d71df0bcc129b4191930a44df1ecd",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Patch Notizen | 11. Nov"
     }
   }
 }
