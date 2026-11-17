@@ -1,7 +1,7 @@
-# Events/Geschenke/geschenkcodes.py
+# Events/Gutschein/gutscheincodes.py
 CATEGORY_ID = "geschenkcodes"
-CATEGORY_TITLE = "Geschenkcodes"
-BANNER = "Geschenke/geschenkcodes.png"
+CATEGORY_TITLE = "Gutscheincode"
+BANNER = "Gutschein/gutscheincodes.png"
 
 # Nur bestätigte Codes mit Start- und Ablaufzeit eintragen.
 # Beispiel (nicht aktivieren, solange nicht verifiziert):
