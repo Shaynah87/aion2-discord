@@ -80,9 +80,9 @@ CATEGORIES = (
     },
     {
         "key": "geschenkcodes",
-        "title": "Geschenkcodes",
-        "module": "Geschenke/geschenkcodes.py",
-        "banner": "Geschenke/geschenkcodes.png",
+        "title": "Gutscheincode",
+        "module": "Gutschein/gutscheincodes.py",
+        "banner": "Gutschein/gutscheincodes.png",
         "color": 0x9299A3,
     },
 )
@@ -95,7 +95,7 @@ HELPER_CATEGORIES = (
     ("Ingame-Events", "ingame_events", "⚔️"),
     ("Community-Events", "community_events", "🎉"),
     ("Twitch Drops", "twitch_drops", "🎁"),
-    ("Geschenkcodes", "geschenkcodes", "🎟️"),
+    ("Gutscheincode", "geschenkcodes", "🎟️"),
 )
 
 HALLOWEEN_END = "2026-11-04T09:00:00+01:00"
@@ -616,8 +616,8 @@ def create_category_image(category, events):
         draw.rectangle((0, header_height, WIDTH - 1, height - 1), fill=BACKGROUND)
         draw.text(
             (WIDTH // 2, header_height + ROW_HEIGHT // 2),
-            "Keine",
-            font=font(NAME_FONT_SIZE),
+            "– Keine –",
+            font=font(30, bold=False),
             anchor="mm",
             fill=DATE_COLOR,
         )
