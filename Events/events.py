@@ -301,10 +301,10 @@ def explicit_start_label(event):
     return f"Start: {start_time(event):%H:%M} Uhr"
 
 
-def draw_events(image, events, top, attendance=False):
+def draw_events(image, events, top, attendance=False, category_key=None):
     draw = ImageDraw.Draw(image)
     now = datetime.now(TIMEZONE)
-    name_font = font(NAME_FONT_SIZE)
+    name_font = font(32 if category_key == "geschenkcodes" else NAME_FONT_SIZE)
     date_font = font(DATE_FONT_SIZE, bold=False)
     status_font = font(STATUS_FONT_SIZE)
     start_font = font(24, bold=False)
@@ -610,6 +610,7 @@ def create_category_image(category, events):
             attendance=(
                 category["key"] == "anwesenheitslisten"
             ),
+            category_key=category["key"],
         )
     else:
         # Auch leere Kategorien behalten ihren Banner und eine Statuszeile.
