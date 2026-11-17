@@ -78,6 +78,13 @@ CATEGORIES = (
         "banner": "Twitch/twitch_drops.png",
         "color": 0x8953CF,
     },
+    {
+        "key": "geschenkcodes",
+        "title": "Geschenkcodes",
+        "module": "Geschenke/geschenkcodes.py",
+        "banner": "Geschenke/geschenkcodes.png",
+        "color": 0x9299A3,
+    },
 )
 
 HALLOWEEN_MODULE = "Halloween/halloween.py"
@@ -88,6 +95,7 @@ HELPER_CATEGORIES = (
     ("Ingame-Events", "ingame_events", "⚔️"),
     ("Community-Events", "community_events", "🎉"),
     ("Twitch Drops", "twitch_drops", "🎁"),
+    ("Geschenkcodes", "geschenkcodes", "🎟️"),
 )
 
 HALLOWEEN_END = "2026-11-04T09:00:00+01:00"
@@ -342,6 +350,7 @@ TITLE_EFFECT_COLORS = {
     "ingame_events": (35, 105, 182),
     "community_events": (181, 48, 126),
     "twitch_drops": (111, 58, 184),
+    "geschenkcodes": (137, 149, 163),
 }
 
 
@@ -550,7 +559,7 @@ def create_category_image(category, events):
         )
 
     header_height = banner_height + 45
-    height = header_height + len(events) * ROW_HEIGHT
+    height = header_height + max(1, len(events)) * ROW_HEIGHT
 
     image = Image.new(
         "RGB",
@@ -601,6 +610,16 @@ def create_category_image(category, events):
             attendance=(
                 category["key"] == "anwesenheitslisten"
             ),
+        )
+    else:
+        # Auch leere Kategorien behalten ihren Banner und eine Statuszeile.
+        draw.rectangle((0, header_height, WIDTH - 1, height - 1), fill=BACKGROUND)
+        draw.text(
+            (WIDTH // 2, header_height + ROW_HEIGHT // 2),
+            "Keine",
+            font=font(NAME_FONT_SIZE),
+            anchor="mm",
+            fill=DATE_COLOR,
         )
 
     return image_to_png(image)
@@ -688,9 +707,6 @@ def prepare_overview():
                 continue
 
         events = load_events(category)
-        if not sorted_events(events):
-            print(f"Überspringe {category['title']}: keine aktiven Events")
-            continue
 
         filename = (
             f"{index:02d}_{category['key']}.png"
