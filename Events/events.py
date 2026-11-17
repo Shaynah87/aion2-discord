@@ -80,7 +80,7 @@ CATEGORIES = (
     },
     {
         "key": "geschenkcodes",
-        "title": "Gutscheincode",
+        "title": "Gutscheincodes",
         "module": "Gutschein/gutscheincodes.py",
         "banner": "Gutschein/gutscheincodes.png",
         "color": 0x9299A3,
@@ -95,7 +95,7 @@ HELPER_CATEGORIES = (
     ("Ingame-Events", "ingame_events", "⚔️"),
     ("Community-Events", "community_events", "🎉"),
     ("Twitch Drops", "twitch_drops", "🎁"),
-    ("Gutscheincode", "geschenkcodes", "🎟️"),
+    ("Gutscheincodes", "geschenkcodes", "🎟️"),
 )
 
 HALLOWEEN_END = "2026-11-04T09:00:00+01:00"
