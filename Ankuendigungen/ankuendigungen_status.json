@@ -114,7 +114,8 @@
     "6acf2168577e8c01355e03a1",
     "6af41b405989e207130e4026",
     "6afc0980add8ebf0b13a725d",
-    "6afd5b00ebccad0e4b5bada9"
+    "6afd5b00ebccad0e4b5bada9",
+    "6afd74bfadd8ebf0b13a732c"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -362,6 +363,12 @@
       "hash": "f2f12e7c15899a784ea9207aad5b2b48bc538a983fe567a877e918055acc35d7",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 18. November"
+    },
+    "6afd74bfadd8ebf0b13a732c": {
+      "discord_message_id": "1572555858137587784",
+      "hash": "53094f8c767946b7e22dd496ce71c37c15c219c50482ee66633a8787dfcfa6b8",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Korea Game Awards – ein kleines Dankeschön"
     }
   }
 }
