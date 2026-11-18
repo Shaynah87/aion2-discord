@@ -1,4 +1,5 @@
 
+
 import hashlib
 import importlib.util
 import io
@@ -560,6 +561,8 @@ def create_category_image(category, events):
 
     header_height = banner_height + 45
     height = header_height + max(1, len(events)) * ROW_HEIGHT
+    if category["key"] == "geschenkcodes":
+        height += 58
 
     image = Image.new(
         "RGB",
@@ -619,6 +622,16 @@ def create_category_image(category, events):
             (WIDTH // 2, header_height + ROW_HEIGHT // 2),
             "– Keine –",
             font=font(30, bold=False),
+            anchor="mm",
+            fill=DATE_COLOR,
+        )
+
+    if category["key"] == "geschenkcodes":
+        draw = ImageDraw.Draw(image)
+        draw.text(
+            (WIDTH // 2, height - 29),
+            "Einstellungen → Sonstiges → Konto → Gutscheincode eingeben",
+            font=font(25, bold=False),
             anchor="mm",
             fill=DATE_COLOR,
         )
