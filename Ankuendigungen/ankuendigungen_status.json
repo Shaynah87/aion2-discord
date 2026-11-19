@@ -116,7 +116,8 @@
     "6afc0980add8ebf0b13a725d",
     "6afd5b00ebccad0e4b5bada9",
     "6afd74bfadd8ebf0b13a732c",
-    "6afe1fe0add8ebf0b13a7342"
+    "6afe1fe0add8ebf0b13a7342",
+    "6afe74408547609bf9a9927f"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -376,6 +377,12 @@
       "hash": "25a10fe8fe0463a611bf251e0d1478f02633599f5996300ea9b94f11c0eb686b",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 18. November (14:00 PST)"
+    },
+    "6afe74408547609bf9a9927f": {
+      "discord_message_id": "1572827732084260985",
+      "hash": "d4f7663b2d113758d3ffd13e43680827e479535e75825a12d91d2db2e5f30ec0",
+      "missing_checks": 0,
+      "title": "[Hinweis] Update für die europäischen Server"
     }
   }
 }
