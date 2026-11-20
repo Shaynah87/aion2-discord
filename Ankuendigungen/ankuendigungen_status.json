@@ -119,7 +119,8 @@
     "6afe1fe0add8ebf0b13a7342",
     "6afe74408547609bf9a9927f",
     "6aff717cdb9fbebcfc25e44e",
-    "6afb60c0cd0c2d6575c8133d"
+    "6afb60c0cd0c2d6575c8133d",
+    "6b00c2f9e09d8579dafb3bff"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -397,6 +398,12 @@
       "hash": "4379d17a68b8fac8a76971b4cf91bf9d48b2b261470c4341540f95ab40739bf7",
       "missing_checks": 0,
       "title": "[Bekanntgabe der Gewinner] Ausgezeichnete Anleitungen"
+    },
+    "6b00c2f9e09d8579dafb3bff": {
+      "discord_message_id": "1573458140710707341",
+      "hash": "4d2019e5e2429c0bb7361466c599f7dfde2dd6c53f8c56c2117e9c475c3ee660",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 20. November"
     }
   }
 }
