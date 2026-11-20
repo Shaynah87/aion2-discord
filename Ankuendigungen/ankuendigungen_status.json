@@ -118,7 +118,8 @@
     "6afd74bfadd8ebf0b13a732c",
     "6afe1fe0add8ebf0b13a7342",
     "6afe74408547609bf9a9927f",
-    "6aff717cdb9fbebcfc25e44e"
+    "6aff717cdb9fbebcfc25e44e",
+    "6afb60c0cd0c2d6575c8133d"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -390,6 +391,12 @@
       "hash": "6896d3fd2140f944e692153c1345cd8305c97ca9c293f7b8cd1c7dda79923ed0",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 19. November (14:00 PST)"
+    },
+    "6afb60c0cd0c2d6575c8133d": {
+      "discord_message_id": "1573427929768140924",
+      "hash": "4379d17a68b8fac8a76971b4cf91bf9d48b2b261470c4341540f95ab40739bf7",
+      "missing_checks": 0,
+      "title": "[Bekanntgabe der Gewinner] Ausgezeichnete Anleitungen"
     }
   }
 }
