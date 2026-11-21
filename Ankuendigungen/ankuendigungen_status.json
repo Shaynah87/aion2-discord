@@ -120,7 +120,8 @@
     "6afe74408547609bf9a9927f",
     "6aff717cdb9fbebcfc25e44e",
     "6afb60c0cd0c2d6575c8133d",
-    "6b00c2f9e09d8579dafb3bff"
+    "6b00c2f9e09d8579dafb3bff",
+    "6b014170d65afc4bb5d63c50"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -404,6 +405,12 @@
       "hash": "4d2019e5e2429c0bb7361466c599f7dfde2dd6c53f8c56c2117e9c475c3ee660",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 20. November"
+    },
+    "6b014170d65afc4bb5d63c50": {
+      "discord_message_id": "1573594035845861428",
+      "hash": "5e471438f2f4d298ff7d3d74aa1bf03728226c2641a51b67b3bf2a7cf94e9222",
+      "missing_checks": 0,
+      "title": "[Notice] Upcoming World Market and World Exchange (November 25)"
     }
   }
 }
