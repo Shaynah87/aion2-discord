@@ -122,7 +122,8 @@
     "6afb60c0cd0c2d6575c8133d",
     "6b00c2f9e09d8579dafb3bff",
     "6b014170d65afc4bb5d63c50",
-    "6b021496b495f0a6e798b42f"
+    "6b021496b495f0a6e798b42f",
+    "6b0365f91404425c7803d73f"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -418,6 +419,12 @@
       "hash": "c2075e32c64d91ef7b92a27a13587ee0a77122d1188260e29baf0c8c2b799476",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 21. November"
+    },
+    "6b0365f91404425c7803d73f": {
+      "discord_message_id": "1574182985618432172",
+      "hash": "379a28cb92cff2f6beabc70cc4d8d4aaf9729555f3904489c0102bee073cc5b6",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 22. November"
     }
   }
 }
