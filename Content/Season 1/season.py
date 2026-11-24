@@ -17,9 +17,10 @@ def background(folder, filename, size):
 
 def season_banner(folder, data, now):
     from datetime import datetime
+    from PIL import ImageFilter
     path = folder / 'season_header.png'
     with Image.open(folder.parent / 'season_banner.png') as source:
-        im = ImageOps.fit(source.convert('RGB'), (1200, 220), Image.Resampling.LANCZOS)
+        im = ImageOps.fit(source.convert('RGB'), (1200, 220), Image.Resampling.LANCZOS).convert('RGBA')
     d = ImageDraw.Draw(im)
     title = data['title'].upper()
     period = data['period']
@@ -29,25 +30,44 @@ def season_banner(folder, data, now):
     elif now.date() >= end:
         status, color = 'BEENDET', '#a0a0a0'
     else:
-        status, color = 'GESTARTET', '#75c987'
+        status, color = 'LAUFEND', '#75c987'
     tf, sf = font(49, True), font(31, True)
-    spacing, gap = 5, 18
+    spacing, gap = 2, 18
     tb = d.textbbox((0, 0), title, font=tf)
-    subtitle = period + ' · ' + status
+    prefix = period + ' · '
+    subtitle = prefix + status
     sb = d.textbbox((0, 0), subtitle, font=sf)
     th, sh = tb[3]-tb[1], sb[3]-sb[1]
-    top = (220-th-gap-sh)/2
+    top = round((220-th-gap-sh)/2)
     width = sum(d.textlength(c, font=tf) for c in title) + spacing*(len(title)-1)
     x = (1200-width)/2
+    mask = Image.new('L', im.size)
+    md = ImageDraw.Draw(mask)
     for c in title:
-        d.text((x, top-tb[1]), c, font=tf, fill='#f2f3f5')
+        md.text((x, top-tb[1]), c, font=tf, fill=255)
         x += d.textlength(c, font=tf)+spacing
-    prefix = period + ' · '
     x = (1200-d.textlength(subtitle, font=sf))/2
     y = top+th+gap-sb[1]
-    d.text((x,y), prefix, font=sf, fill='#f2f3f5')
-    d.text((x+d.textlength(prefix,font=sf),y), status, font=sf, fill=color)
-    im.save(path)
+    shadow = Image.new('RGBA', im.size)
+    sd = ImageDraw.Draw(shadow)
+    sd.text((x+1,y+2), subtitle, font=sf, fill=(0,0,0,210), stroke_width=2)
+    title_shadow = Image.new('RGBA', im.size)
+    title_shadow.paste((0,0,0,210), (2,3,1202,223), mask)
+    im = Image.alpha_composite(im, title_shadow.filter(ImageFilter.GaussianBlur(2.5)))
+    im = Image.alpha_composite(im, shadow.filter(ImageFilter.GaussianBlur(2)))
+    outline = mask.filter(ImageFilter.MaxFilter(3))
+    im.paste((18,22,29,255), (0,0), outline)
+    gradient = Image.new('RGBA', im.size)
+    gd = ImageDraw.Draw(gradient)
+    for yy in range(top, top+th+1):
+        t = (yy-top)/max(1,th)
+        rgb = tuple(round(a+(b-a)*t) for a,b in zip((249,249,246),(167,172,179)))
+        gd.line((0,yy,1200,yy), fill=rgb+(255,))
+    im.paste(gradient, (0,0), mask)
+    d = ImageDraw.Draw(im)
+    d.text((x,y), prefix, font=sf, fill='#d9d9d5', stroke_width=1, stroke_fill='#171c23')
+    d.text((x+d.textlength(prefix,font=sf),y), status, font=sf, fill=color, stroke_width=1, stroke_fill='#171c23')
+    im.convert('RGB').save(path)
     return path
 
 
