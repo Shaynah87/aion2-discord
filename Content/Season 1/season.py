@@ -52,7 +52,7 @@ def format_line(line, now):
         if target.tzinfo is None:
             target = target.replace(tzinfo=now.tzinfo)
         released = released or now >= target
-    return result if released else result + ' 🟠 **Kommend**'
+    return result if released else result + ' — **Kommend**'
 
 
 def render(folder, now):
@@ -69,15 +69,27 @@ def render(folder, now):
             nonlocal part
             if blocks:
                 part += 1
-                body = '\n\n'.join(blocks)
+                body = '\n'.join(blocks)
                 blocks.clear()
                 return (f'{prefix}_part_{part:02}', {'content': body}, [])
         for name, lines in sections:
-            heading = '**Schwer**' if name == 'Expedition – Schwer' and i == 1 else f'## {name}'
-            block = heading + '\n' + '\n'.join(format_line(line, now) for line in lines)
+            is_subsection = name == 'Expedition – Schwer' and i == 1
+            quoted = []
+            for line in lines:
+                text = format_line(line, now)
+                # Untertitel, Hinweise und Sternstufen nicht doppelt markieren.
+                if text.startswith(('**', '*Wöchentlicher', '★')) or name == 'Albtraum':
+                    quoted.append('> ' + text)
+                else:
+                    quoted.append('> • ' + text)
+            if is_subsection and blocks:
+                blocks[-1] += '\n> \n> **Schwer**\n' + '\n'.join(quoted)
+                continue
+            heading = f'## {name}'
+            block = heading + '\n' + '\n'.join(quoted)
             if len(block) > 1900:
                 raise ValueError(f'Abschnitt zu lang: {name}')
-            if len('\n\n'.join(blocks + [block])) > 1900:
+            if len('\n'.join(blocks + [block])) > 1900:
                 yield flush()
             blocks.append(block)
             if name == 'Albtraum':
