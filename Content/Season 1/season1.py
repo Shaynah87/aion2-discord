@@ -41,17 +41,3 @@ def render(folder):
             path=folder/f'roadmap_{mi+1:02}_{pi+1:02}.png'; im.save(path); yield path
 
 
-# Veröffentlichung über die bestehende Content-Verwaltung.
-def main():
-    import sys
-    sys.path.insert(0, str(BASE.parent))
-    from content import (load_message_state, save_message_state,
-                         update_or_create_discord_image)
-    state = load_message_state()
-    for path in render(BASE):
-        key = 'season_1_png_test_' + path.stem + '_message_id'
-        if update_or_create_discord_image(state, key, path, path.name, path.stem):
-            save_message_state(state)
-
-if __name__ == '__main__':
-    main()
