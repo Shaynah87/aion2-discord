@@ -125,7 +125,8 @@
     "6b021496b495f0a6e798b42f",
     "6b0365f91404425c7803d73f",
     "6b04eeefefef5ef42e93e823",
-    "6b05665e79c30a0b5cadd509"
+    "6b05665e79c30a0b5cadd509",
+    "6b056e308a3bbc3e012690b3"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -439,6 +440,12 @@
       "hash": "e2d7d48918abcf87200893325d30586a84d9ca6cb33838a09c4dc8b0f7442de2",
       "missing_checks": 0,
       "title": "[Notice] AION2 Operations Policy Changes"
+    },
+    "6b056e308a3bbc3e012690b3": {
+      "discord_message_id": "1574771800137801769",
+      "hash": "48adcc103962c94a7be47a445f7e98085560e08745843fb76866e5eb2c522f69",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Wartungsarbeiten | 24. November (PDT) / 25. November (CET)"
     }
   }
 }
