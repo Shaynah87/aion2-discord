@@ -17,7 +17,7 @@
         [
           "Expedition",
           [
-            "Erkundung & Eroberung",
+            "**Erkundung & Eroberung**",
             "★ Kraohöhle · Uruguguschlucht",
             "★★ Feuertempel · Draupnir",
             "★★★ Vakrons Luftinsel · Grimmhornhöhle"
@@ -26,8 +26,9 @@
         [
           "Expedition – Schwer",
           [
-            "21.10.2026 · Kraohöhle und Draupnir",
-            "28.10.2026 · Uruguguschlucht und Vakrons Luftinsel"
+            "Kraohöhle · Draupnir *(21.10.2026)*",
+            "Uruguguschlucht · Vakrons Luftinsel *(28.10.2026)*",
+            "Feuertempel · Grimmhornhöhle *(11.11.2026)*"
           ]
         ],
         [
@@ -46,16 +47,17 @@
         [
           "Aszensusritus",
           [
-            "Altar der Albträume · Sanktuarium des Hasses",
-            "Wöchentlicher Wechsel",
-            "Einfach · Mittel · Schwer · Extrem"
+            "Altar der Albträume",
+            "Sanktuarium des Hasses",
+            "**Schwierigkeit:** Einfach · Mittel · Schwer · Extrem",
+            "*Wöchentlicher Wechsel*"
           ]
         ],
         [
           "Täglicher Dungeon",
           [
             "Daeva Bioforschungsbasis",
-            "Odiumspeicher · 28.10.2026"
+            "Odiumspeicher *(28.10.2026)*"
           ]
         ],
         [
@@ -74,7 +76,8 @@
         [
           "Abyss",
           [
-            "Chaotische Untere Ebene von Reshanta"
+            "Chaotische Untere Ebene von Reshanta",
+            "Chaotisches Äußeres Reshanta *(04.11.2026)*"
           ]
         ]
       ]
@@ -86,41 +89,24 @@
         [
           "Weihestätte",
           [
-            "Abgrundsveredelung: Ludra",
-            "04.11.2026 · Normal und Schwer",
-            "18.11.2026 · Einfach"
-          ]
-        ],
-        [
-          "Abyss",
-          [
-            "Chaotisches Äußeres Reshanta · 04.11.2026"
-          ]
-        ],
-        [
-          "Expedition – Schwer",
-          [
-            "Feuertempel · 11.11.2026",
-            "Grimmhornhöhle · 11.11.2026"
+            "**Abgrundsveredelung: Ludra**",
+            "Normal · Schwer *(04.11.2026)*",
+            "Einfach *(18.11.2026)*"
           ]
         ],
         [
           "Handel",
           [
-            "Weltmarkt · 25.11.2026 (angekündigt)",
-            "Weltbörse · 25.11.2026 (angekündigt)"
-          ]
-        ]
-      ]
-    },
-    {
-      "title": "DEZEMBER 2026",
-      "color": "#332b43",
-      "sections": [
-        [
-          "Weitere Inhalte",
-          [
-            "Noch nicht angekündigt"
+            {
+              "text": "Weltmarkt",
+              "date": "2026-11-25",
+              "released": false
+            },
+            {
+              "text": "Weltbörse",
+              "date": "2026-11-25",
+              "released": false
+            }
           ]
         ]
       ]
