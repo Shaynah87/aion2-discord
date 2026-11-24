@@ -1,5 +1,68 @@
 {
   "title": "SEASON 2",
   "period": "16.12.2026 – 10.03.2027",
-  "months": []
+  "months": [
+    {
+      "title": "DEZEMBER 2026",
+      "sections": [
+        [
+          "Charakterentwicklung",
+          [
+            "**Klassen**",
+            "Brawler (Faustkämpfer)"
+          ]
+        ],
+        [
+          "Expedition",
+          [
+            "Dying Dramata’s Nest · Normal · Schwer",
+            "Cradle of Nihility"
+          ]
+        ],
+        [
+          "Transzendenz",
+          [
+            "Submerged Life Temple · Stufen 1–4"
+          ]
+        ],
+        [
+          "Abyss",
+          [
+            "Mittlere Ebene von Reshanta",
+            "Outland"
+          ]
+        ]
+      ]
+    },
+    {
+      "title": "JANUAR 2027",
+      "sections": [
+        [
+          "Expedition",
+          [
+            "Hall of Illusion · Normal · Schwer",
+            "Azure Breath Island"
+          ]
+        ],
+        [
+          "Transzendenz",
+          [
+            "Mirror of Scarlet Desire"
+          ]
+        ],
+        [
+          "Weihestätte",
+          [
+            "Chalice of Muspel"
+          ]
+        ],
+        [
+          "Housing",
+          [
+            "Einführung des Housing-Systems"
+          ]
+        ]
+      ]
+    }
+  ]
 }
