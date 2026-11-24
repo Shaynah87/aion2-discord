@@ -16,5 +16,13 @@
       "background": "global_launch.png"
     }
   ],
-  "content_phases": []
+  "content_phases": [
+    {
+      "key": "season_1",
+      "title": "SEASON 1",
+      "folder": "Season 1",
+      "start": "2026-09-30",
+      "end": "2026-12-16"
+    }
+  ]
 }
