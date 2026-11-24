@@ -23,6 +23,13 @@
       "folder": "Season 1",
       "start": "2026-09-30",
       "end": "2026-12-16"
+    },
+    {
+      "key": "season_2",
+      "title": "SEASON 2",
+      "folder": "Season 2",
+      "start": "2026-12-16",
+      "end": "2027-03-10"
     }
   ]
 }
