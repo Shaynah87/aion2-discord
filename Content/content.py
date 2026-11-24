@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import requests
+import time
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FILE = BASE_DIR / 'content_data.json'
@@ -110,14 +111,27 @@ def update_active_season(data, now, state):
     module = load_module(folder / 'season.py', phase['key'])
     current_keys = set()
     for month_key, payload, files in module.render(folder):
-        key = f"{phase['key']}_text_{month_key}_message_id"
+        key = f"{phase['key']}_markdown_{month_key}_message_id"
         current_keys.add(key)
         message_id = state.get(key)
         payload['attachments'] = [{'id': i, 'filename': path.name} for i, path in enumerate(files)]
+        payload['allowed_mentions'] = {'parse': []}
         def send(method, url):
-            with ExitStack() as stack:
-                uploads = {f'files[{i}]': (path.name, stack.enter_context(path.open('rb')), 'image/png') for i, path in enumerate(files)}
-                return requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
+            for attempt in range(3):
+                with ExitStack() as stack:
+                    uploads = {f'files[{i}]': (path.name, stack.enter_context(path.open('rb')), 'image/png') for i, path in enumerate(files)}
+                    if uploads:
+                        response = requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
+                    else:
+                        response = requests.request(method, url, json=payload, timeout=30)
+                # POST bei 5xx nicht blind wiederholen: Nachricht könnte bereits existieren.
+                if response.status_code == 429 and attempt < 2:
+                    time.sleep(float(response.json().get('retry_after', 2)))
+                    continue
+                if method == 'PATCH' and response.status_code >= 500 and attempt < 2:
+                    time.sleep(2 ** attempt)
+                    continue
+                return response
         response = send('PATCH', discord_message_url(message_id)) if message_id else None
         if response is None or response.status_code == 404:
             response = send('POST', webhook_wait_url())
@@ -129,7 +143,7 @@ def update_active_season(data, now, state):
     # Erst nach erfolgreicher Veröffentlichung alle PNG-Testnachrichten dieser Season entfernen.
     protected = {str(state.get('early_access_message_id')), str(state.get('global_launch_message_id'))}
     for key in list(state):
-        if not key.endswith('_message_id') or not (key.startswith(f"{phase['key']}_png_test_") or (key.startswith(f"{phase['key']}_text_month_") and key not in current_keys)):
+        if not key.endswith('_message_id') or not (key.startswith(f"{phase['key']}_png_test_") or key.startswith(f"{phase['key']}_text_month_") or (key.startswith(f"{phase['key']}_markdown_") and key not in current_keys)):
             continue
         if str(state[key]) in protected:
             raise RuntimeError('Launch-Nachricht darf nicht gelöscht werden.')
