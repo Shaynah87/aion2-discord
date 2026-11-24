@@ -1,43 +1,62 @@
+"""Season-Roadmap: native Discord-Texte, Monatsbanner und Albtraum-Diagramm."""
 import json
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
-BASE = Path(__file__).resolve().parent
 
 def font(size, bold=False):
-    return ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans'+('-Bold' if bold else '')+'.ttf', size)
+    name = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
+    return ImageFont.truetype(name, size)
+
+
+def banner(folder, title, index):
+    path = folder / f'month_{index:02}_banner.png'
+    im = Image.new('RGB', (1200, 110), '#292b30')
+    d = ImageDraw.Draw(im)
+    d.text((600, 55), title, font=font(46, True), fill='#f2f3f5', anchor='mm')
+    im.save(path)
+    return path
+
+
+def nightmare(folder):
+    path = folder / 'albtraum.png'
+    im = Image.new('RGBA', (1200, 380), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for x, y, end in [(360, 48, 94), (360, 140, 94), (360, 240, 286), (360, 332, 286)]:
+        d.line([(x,y),(400,y),(400,end),(440,end)], fill='#92959d', width=3)
+    for y in (94,286):
+        d.line([(760,y),(800,y),(800,190),(840,190)], fill='#92959d', width=3)
+    def node(x,y,w,label,bg,fg):
+        d.rounded_rectangle((x,y-34,x+w,y+34), radius=9, fill=bg)
+        d.text((x+w/2,y),label,font=font(27,True),fill=fg,anchor='mm')
+    for y,label in zip((48,140,240,332),('Torwächter Pinopi','Rasender Feruk','Fafnirs Giftblut','Geist Giselle')):
+        node(10,y,350,label,'#33353c','#eeeeee')
+    node(440,94,320,'Festenhüter Notun','#24382d','#75c987')
+    node(440,286,320,'Mutierter Gerod','#24382d','#75c987')
+    node(840,190,350,'Zikels Schemen','#23394e','#78b5ed')
+    im.save(path)
+    return path
+
+
+def media(path):
+    return {'type':12,'items':[{'media':{'url':f'attachment://{path.name}'}}]}
+
 
 def render(folder):
-    data=json.loads((folder/'season_data.json').read_text(encoding='utf-8'))
-    for mi, month in enumerate(data['months']):
-        # Separate consecutive panels keep the inline Discord preview readable.
-        chunks=[]; current=[]; height=100
-        for name, lines in month['sections']:
-            h=85+len(lines)*48+(340 if name=='Albtraum' else 0)
-            if current and height+h>850:
-                chunks.append(current); current=[]; height=100
-            current.append((name,lines,h)); height+=h
-        if current: chunks.append(current)
-        for pi, sections in enumerate(chunks):
-            im=Image.new('RGB',(1200,110+sum(s[2] for s in sections)),month['color']); d=ImageDraw.Draw(im)
-            d.text((600,46),month['title']+(f' · {pi+1}/{len(chunks)}' if len(chunks)>1 else ''),font=font(40,True),anchor='mm',fill='#ffffff')
-            y=100
-            for name,lines,h in sections:
-                d.rounded_rectangle((24,y,1176,y+h-12),radius=12,fill='#171e29')
-                d.text((48,y+15),name,font=font(35,True),fill='#ffffff')
-                for j,line in enumerate(lines):
-                    d.text((48,y+64+j*48),line,font=font(29),fill='#e2e7ef')
-                if name=='Albtraum':
-                    top=y+115
-                    left=['Torwächter Pinopi','Rasender Feruk','Fafnirs Giftblut','Geist Giselle']
-                    for i,t in enumerate(left):
-                        yy=top+i*65; d.rounded_rectangle((45,yy,405,yy+48),8,fill='#303945'); d.text((225,yy+24),t,font=font(25),anchor='mm',fill='white')
-                        mid=top+32+(i//2)*130+24
-                        d.line([(405,yy+24),(430,yy+24),(430,mid),(455,mid)],fill='#9aa8ba',width=3)
-                    for i,t in enumerate(['Festenhüter Notun','Mutierter Gerod']):
-                        yy=top+32+i*130; d.rounded_rectangle((455,yy,805,yy+48),8,fill='#203b2b'); d.text((630,yy+24),t,font=font(25),anchor='mm',fill='#77df89'); d.line([(805,yy+24),(830,yy+24),(830,top+121),(855,top+121)],fill='#9aa8ba',width=3)
-                    d.rounded_rectangle((855,top+97,1155,top+145),8,fill='#183551'); d.text((1005,top+121),'Zikels Schemen',font=font(25,True),anchor='mm',fill='#70baff')
-                y+=h
-            path=folder/f'roadmap_{mi+1:02}_{pi+1:02}.png'; im.save(path); yield path
-
-
+    data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
+    for i, month in enumerate(data['months'], 1):
+        sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
+        if not sections:
+            continue
+        files = [banner(folder, month['title'], i)]
+        components = [media(files[0])]
+        for name, lines in sections:
+            if name != 'Expedition – Schwer':
+                components.append({'type':14,'divider':True,'spacing':1})
+            heading = '**Schwer**' if name == 'Expedition – Schwer' and month['title'].startswith('OKTOBER') else f'### {name}'
+            body = '\n'.join(lines)
+            components.append({'type':10,'content':f'{heading}\n{body}'})
+            if name == 'Albtraum':
+                files.append(nightmare(folder))
+                components.append(media(files[-1]))
+        yield f'month_{i:02}', {'flags':32768,'allowed_mentions':{'parse':[]},'components':[{'type':17,'components':components}]}, files
