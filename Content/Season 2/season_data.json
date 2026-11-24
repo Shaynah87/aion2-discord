@@ -6,16 +6,17 @@
       "title": "DEZEMBER 2026",
       "sections": [
         [
-          "Charakterentwicklung",
+          "Maximalstufe & Klassen",
           [
-            "**Klassen**",
-            "Brawler (Faustkämpfer)"
+            "**Neue Klasse**",
+            "Faustkämpfer"
           ]
         ],
         [
           "Expedition",
           [
-            "Dying Dramata’s Nest · Normal · Schwer",
+            "**Normal · Schwer**",
+            "Dying Dramata’s Nest",
             "Cradle of Nihility"
           ]
         ],
@@ -28,7 +29,7 @@
         [
           "Abyss",
           [
-            "Mittlere Ebene von Reshanta",
+            "Middle Layer",
             "Outland"
           ]
         ]
@@ -38,16 +39,19 @@
       "title": "JANUAR 2027",
       "sections": [
         [
-          "Expedition",
+          "Behausungen",
           [
-            "Hall of Illusion · Normal · Schwer",
-            "Azure Breath Island"
+            "Einführung des Behausungssystems",
+            "Eigene private Insel",
+            "Individuelle Einrichtung und Dekoration"
           ]
         ],
         [
-          "Transzendenz",
+          "Expedition",
           [
-            "Mirror of Scarlet Desire"
+            "**Normal · Schwer**",
+            "Hall of Illusion",
+            "Azure Breath Island"
           ]
         ],
         [
@@ -57,12 +61,14 @@
           ]
         ],
         [
-          "Housing",
+          "Transzendenz",
           [
-            "Einführung des Housing-Systems"
+            "Mirror of Scarlet Desire"
           ]
         ]
       ]
     }
-  ]
+  ],
+  "translation_note": "Hinweis: Die offiziellen deutschen Bezeichnungen einiger Spielinhalte stehen noch aus und werden nach Veröffentlichung ergänzt.",
+  "release_note": "Änderungen an Inhalten und Veröffentlichungsterminen vorbehalten."
 }
