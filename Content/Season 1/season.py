@@ -1,7 +1,7 @@
 """Season-Roadmap: native Discord-Texte, Monatsbanner und Albtraum-Diagramm."""
 import json
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
 def font(size, bold=False):
@@ -15,19 +15,45 @@ def background(folder, filename, size):
         return source.convert('RGB').resize(size, Image.Resampling.LANCZOS)
 
 
-def season_banner(folder, data):
+def season_banner(folder, data, now):
+    from datetime import datetime
     path = folder / 'season_header.png'
-    im = background(folder, 'season_banner.png', (1200, 220))
+    with Image.open(folder.parent / 'season_banner.png') as source:
+        im = ImageOps.fit(source.convert('RGB'), (1200, 220), Image.Resampling.LANCZOS)
     d = ImageDraw.Draw(im)
-    d.text((600, 82), data['title'], font=font(64, True), fill='#f2f3f5', anchor='mm')
-    d.text((600, 155), data['period'], font=font(32), fill='#d0d2d5', anchor='mm')
+    title = data['title'].upper()
+    period = data['period']
+    start, end = (datetime.strptime(x.strip(), '%d.%m.%Y').date() for x in period.split('–'))
+    if now.date() < start:
+        status, color = 'KOMMEND', '#e9a34b'
+    elif now.date() >= end:
+        status, color = 'BEENDET', '#a0a0a0'
+    else:
+        status, color = 'GESTARTET', '#75c987'
+    tf, sf = font(49, True), font(31, True)
+    spacing, gap = 5, 18
+    tb = d.textbbox((0, 0), title, font=tf)
+    subtitle = period + ' · ' + status
+    sb = d.textbbox((0, 0), subtitle, font=sf)
+    th, sh = tb[3]-tb[1], sb[3]-sb[1]
+    top = (220-th-gap-sh)/2
+    width = sum(d.textlength(c, font=tf) for c in title) + spacing*(len(title)-1)
+    x = (1200-width)/2
+    for c in title:
+        d.text((x, top-tb[1]), c, font=tf, fill='#f2f3f5')
+        x += d.textlength(c, font=tf)+spacing
+    prefix = period + ' · '
+    x = (1200-d.textlength(subtitle, font=sf))/2
+    y = top+th+gap-sb[1]
+    d.text((x,y), prefix, font=sf, fill='#f2f3f5')
+    d.text((x+d.textlength(prefix,font=sf),y), status, font=sf, fill=color)
     im.save(path)
     return path
 
 
 def banner(folder, title, index):
     path = folder / f'month_{index:02}_banner.png'
-    im = background(folder, 'banner.png', (1200, 110))
+    im = Image.new('RGB', (1200, 110), '#292b2f')
     d = ImageDraw.Draw(im)
     d.text((600, 55), title, font=font(42, True), fill='#f2f3f5', anchor='mm')
     im.save(path)
@@ -73,7 +99,7 @@ def format_line(line, now):
 
 def render(folder, now):
     data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
-    yield 'season_header', {'content': ''}, [season_banner(folder, data)]
+    yield 'season_header', {'content': ''}, [season_banner(folder, data, now)]
     for i, month in enumerate(data['months'], 1):
         sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
         if not sections:
