@@ -135,68 +135,80 @@ def phase_time(value, tz):
 
 
 def update_active_season(data, now, state):
-    active = [p for p in data.get('content_phases', [])
-              if phase_time(p['start'], now.tzinfo) <= now
-              and (not p.get('end') or now < phase_time(p['end'], now.tzinfo))]
-    if len(active) > 1:
-        raise RuntimeError('Mehrere aktive Seasons konfiguriert.')
-    if not active:
-        print('Keine aktive Season konfiguriert.')
-        return
-    phase = active[0]
+    phases = sorted(data.get('content_phases', []), key=lambda p: phase_time(p['start'], now.tzinfo))
+    print('Konfigurierte Seasons: ' + ', '.join(p['key'] for p in phases))
+    if not phases:
+        raise RuntimeError('Keine Seasons konfiguriert.')
+    for phase in phases:
+        active = phase_time(phase['start'], now.tzinfo) <= now < phase_time(phase['end'], now.tzinfo)
+        print(f"{phase['key']}: {'vollständige Roadmap' if active else 'nur Banner'}")
+        update_season(phase, now, state, header_only=not active)
+
+
+def update_season(phase, now, state, header_only=False):
     folder = BASE_DIR / phase['folder']
     module = load_module(folder / 'season.py', phase['key'])
-    current_keys = set()
-    for month_key, payload, files in module.render(folder, now):
-        key = f"{phase['key']}_markdown_{month_key}_message_id"
-        current_keys.add(key)
-        message_id = state.get(key)
-        if message_id and unchanged(message_id, payload.get('content', ''), files):
-            print(f'{month_key} unverändert – kein PATCH.')
-            continue
-        payload['attachments'] = [{'id': i, 'filename': path.name} for i, path in enumerate(files)]
-        payload['allowed_mentions'] = {'parse': []}
-        def send(method, url):
-            for attempt in range(3):
-                with ExitStack() as stack:
-                    uploads = {f'files[{i}]': (path.name, stack.enter_context(path.open('rb')), 'image/png') for i, path in enumerate(files)}
-                    if uploads:
-                        response = requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
-                    else:
-                        response = requests.request(method, url, json=payload, timeout=30)
-                # POST bei 5xx nicht blind wiederholen: Nachricht könnte bereits existieren.
-                if response.status_code == 429 and attempt < 2:
-                    time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
-                    continue
-                if method == 'PATCH' and response.status_code >= 500 and attempt < 2:
-                    time.sleep(2 ** attempt)
-                    continue
-                return response
-        response = send('PATCH', discord_message_url(message_id)) if message_id else None
-        if response is None or response.status_code == 404:
-            response = send('POST', webhook_wait_url())
-        if response.status_code not in (200, 201):
-            raise RuntimeError(f'{month_key}: HTTP {response.status_code}: {response.text}')
-        state[key] = str(response.json()['id'])
-        save_message_state(state)
-        print(f'{month_key} aktualisiert: {state[key]}')
-    # Erst nach erfolgreicher Veröffentlichung alle PNG-Testnachrichten dieser Season entfernen.
-    protected = {str(state.get('early_access_message_id')), str(state.get('global_launch_message_id'))}
-    for key in list(state):
-        if not key.endswith('_message_id') or not (key.startswith(f"{phase['key']}_png_test_") or key.startswith(f"{phase['key']}_text_month_") or (key.startswith(f"{phase['key']}_markdown_") and key not in current_keys)):
-            continue
-        if str(state[key]) in protected:
-            raise RuntimeError('Launch-Nachricht darf nicht gelöscht werden.')
+    components, files = [], []
+    for part, payload, paths in module.render(folder, now):
+        if header_only and part != 'season_header':
+            break
+        if payload.get('content'):
+            components.append({'type': 10, 'content': payload['content']})
+        for path in paths:
+            path = Path(path)
+            name = f'{len(files)}_{path.name}'
+            files.append((name, path))
+            components.append({'type': 12, 'items': [{'media': {'url': 'attachment://' + name}}]})
+    if not components:
+        raise RuntimeError(f"{phase['key']}: keine Inhalte erzeugt")
+    if len(files) > 10 or len(components) > 40:
+        raise RuntimeError('Discord-Komponentenlimit überschritten.')
+    payload = {'flags': 32768, 'components': components, 'allowed_mentions': {'parse': []},
+               'attachments': [{'id': i, 'filename': name} for i, (name, _) in enumerate(files)]}
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode())
+    for _, path in files:
+        digest.update(path.read_bytes())
+    fingerprint = digest.hexdigest()
+    key = phase['key'] + '_combined_message_id'
+    hashkey = phase['key'] + '_combined_hash'
+    mid = state.get(key)
+    if mid:
+        check = request_retry('GET', discord_message_url(mid))
+        if check.status_code == 404:
+            mid = None
+        elif check.status_code != 200:
+            raise RuntimeError(f'Nachrichtenprüfung: {check.status_code} {check.text}')
+    if not mid or state.get(hashkey) != fingerprint:
+        method = 'PATCH' if mid else 'POST'
+        url = discord_message_url(mid) if mid else webhook_wait_url()
         for attempt in range(8):
-            response = requests.delete(discord_message_url(state[key]), timeout=30)
+            with ExitStack() as stack:
+                uploads = {f'files[{i}]': (name, stack.enter_context(path.open('rb')), 'image/png') for i, (name, path) in enumerate(files)}
+                response = requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
             if response.status_code != 429:
                 break
-            time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
-        if response.status_code not in (204, 404):
-            raise RuntimeError(f'PNG-Bereinigung: HTTP {response.status_code}: {response.text}')
-        del state[key]
+            time.sleep(float(response.json().get('retry_after', 2)) + .25)
+        if response.status_code not in (200, 201):
+            raise RuntimeError(f"{phase['key']}: HTTP {response.status_code}: {response.text}")
+        state[key] = str(response.json()['id'])
+        state[hashkey] = fingerprint
         save_message_state(state)
-        print(f'{key} entfernt.')
+        print(f"{phase['key']}: {method} erfolgreich – {state[key]}")
+    else:
+        print(f"{phase['key']}: unverändert – kein PATCH")
+    # Nur bekannte alte Season-Nachrichten entfernen, nachdem Ersatz existiert.
+    protected = {str(v) for k,v in state.items() if k in ('early_access_message_id','global_launch_message_id') or k.endswith('_combined_message_id')}
+    for old in list(state):
+        if not old.endswith('_message_id') or not old.startswith(tuple(phase['key'] + x for x in ('_markdown_', '_png_test_', '_text_month_'))):
+            continue
+        if str(state[old]) in protected:
+            raise RuntimeError('Geschützte Nachricht darf nicht gelöscht werden.')
+        response = request_retry('DELETE', discord_message_url(state[old]))
+        if response.status_code not in (204,404):
+            raise RuntimeError(f'Bereinigung: {response.status_code} {response.text}')
+        del state[old]
+        save_message_state(state)
+        print(f'{old} entfernt.')
 
 
 def main():
