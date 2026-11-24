@@ -73,9 +73,9 @@ def season_banner(folder, data, now):
 
 def banner(folder, title, index):
     path = folder / f'month_{index:02}_banner.png'
-    im = Image.new('RGB', (1200, 110), '#292b2f')
+    im = Image.new('RGB', (1200, 100), '#292b2f')
     d = ImageDraw.Draw(im)
-    d.text((600, 55), title, font=font(42, True), fill='#f2f3f5', anchor='mm')
+    d.text((600, 50), title, font=font(39, True), fill='#f2f3f5', anchor='mm')
     im.save(path)
     return path
 
@@ -120,6 +120,8 @@ def format_line(line, now):
 def render(folder, now):
     data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
     yield 'season_header', {'content': ''}, [season_banner(folder, data, now)]
+    if data.get('translation_note'):
+        yield 'translation_note', {'content': '*' + data['translation_note'] + '*'}, []
     for i, month in enumerate(data['months'], 1):
         sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
         if not sections:
@@ -160,3 +162,6 @@ def render(folder, now):
                 yield prefix + '_albtraum', {'content': ''}, [nightmare(folder)]
         if blocks:
             yield flush()
+
+    if data.get('release_note'):
+        yield 'release_note', {'content': '*' + data['release_note'] + '*'}, []
