@@ -52,7 +52,7 @@ def format_line(line, now):
         if target.tzinfo is None:
             target = target.replace(tzinfo=now.tzinfo)
         released = released or now >= target
-    return result if released else result + ' — **Kommend**'
+    return result if released else result + ' 🔸 **Kommend**'
 
 
 def render(folder, now):
