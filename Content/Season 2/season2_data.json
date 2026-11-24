@@ -1,35 +1,5 @@
 {
-  "timezone": "Europe/Berlin",
-  "milestones": [
-    {
-      "key": "early_access",
-      "title": "EARLY ACCESS",
-      "date": "2026-09-30",
-      "date_display": "30. September 2026",
-      "background": "early_access.png"
-    },
-    {
-      "key": "global_launch",
-      "title": "GLOBAL LAUNCH",
-      "date": "2026-10-05",
-      "date_display": "5. Oktober 2026",
-      "background": "global_launch.png"
-    }
-  ],
-  "content_phases": [
-    {
-      "key": "season_1",
-      "title": "SEASON 1",
-      "folder": "Season 1",
-      "start": "2026-09-30",
-      "end": "2026-12-16"
-    },
-    {
-      "key": "season_2",
-      "title": "SEASON 2",
-      "folder": "Season 2",
-      "start": "2026-12-16",
-      "end": "2027-03-10"
-    }
-  ]
+  "title": "SEASON 2",
+  "period": "16.12.2026 – 10.03.2027",
+  "months": []
 }
