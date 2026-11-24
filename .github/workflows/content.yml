@@ -1,6 +1,8 @@
 name: Content
 
 on:
+  schedule:
+    - cron: "7 * * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -42,7 +44,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet Content/content_message.json; then
+          git add Content/content_message.json
+          if git diff --cached --quiet -- Content/content_message.json; then
             echo "Keine Änderung an Content/content_message.json."
           else
             git add Content/content_message.json
