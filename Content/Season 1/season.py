@@ -26,11 +26,11 @@ def season_banner(folder, data, now):
     period = data['period']
     start, end = (datetime.strptime(x.strip(), '%d.%m.%Y').date() for x in period.split('–'))
     if now.date() < start:
-        status, color = 'KOMMEND', '#e9a34b'
+        status, color = 'KOMMEND', '#E9A34B'
     elif now.date() >= end:
-        status, color = 'BEENDET', '#a0a0a0'
+        status, color = 'BEENDET', '#A0A0A0'
     else:
-        status, color = 'LAUFEND', '#75c987'
+        status, color = 'LAUFEND', '#75C987'
     tf, sf = font(49, True), font(31, True)
     spacing, gap = 2, 18
     tb = d.textbbox((0, 0), title, font=tf)
@@ -93,8 +93,8 @@ def nightmare(folder):
         d.text((x+w/2,y),label,font=font(27,True),fill=fg,anchor='mm')
     for y,label in zip((48,140,240,332),('Torwächter Pinopi','Rasender Feruk','Fafnirs Giftblut','Geist Giselle')):
         node(10,y,350,label,'#33353c','#eeeeee')
-    node(440,94,320,'Festenhüter Notun','#24382d','#75c987')
-    node(440,286,320,'Mutierter Gerod','#24382d','#75c987')
+    node(440,94,320,'Festenhüter Notun','#24382d','#75C987')
+    node(440,286,320,'Mutierter Gerod','#24382d','#75C987')
     node(840,190,350,'Zikels Schemen','#23394e','#78b5ed')
     im.save(path)
     return path
