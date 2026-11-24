@@ -1,5 +1,6 @@
 """AION 2 Content: zentrale Verwaltung von Launch und aktiver Season."""
 import json
+import hashlib
 from contextlib import ExitStack
 import os
 import importlib.util
@@ -54,6 +55,39 @@ def discord_message_url(message_id):
     return f'{WEBHOOK_URL.split("?", 1)[0]}/messages/{message_id}'
 
 
+def request_retry(method, url, **kwargs):
+    for attempt in range(8):
+        response = requests.request(method, url, timeout=30, **kwargs)
+        if response.status_code != 429:
+            return response
+        time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
+    return response
+
+
+def unchanged(message_id, content, files):
+    response = request_retry('GET', discord_message_url(message_id))
+    if response.status_code == 404:
+        return False
+    if response.status_code != 200:
+        raise RuntimeError(f'Nachrichtenprüfung: HTTP {response.status_code}')
+    message = response.json()
+    if message.get('content', '') != content:
+        return False
+    attachments = message.get('attachments', [])
+    if len(attachments) != len(files):
+        return False
+    for attachment, path in zip(attachments, files):
+        if attachment.get('size') != Path(path).stat().st_size:
+            return False
+        # CDN-Datei vergleichen, ohne Webhook-Token weiterzugeben.
+        remote = request_retry('GET', attachment['url'])
+        if remote.status_code != 200:
+            raise RuntimeError(f'Anhangprüfung: HTTP {remote.status_code}')
+        if hashlib.sha256(remote.content).digest() != hashlib.sha256(Path(path).read_bytes()).digest():
+            return False
+    return True
+
+
 def send_image(method, url, image_file, discord_filename):
     payload = {'content': '', 'allowed_mentions': {'parse': []},
                'attachments': [{'id': 0, 'filename': discord_filename}]}
@@ -64,6 +98,9 @@ def send_image(method, url, image_file, discord_filename):
 
 def update_or_create_discord_image(state, state_key, image_file, discord_filename, label):
     message_id = state.get(state_key)
+    if message_id and unchanged(message_id, '', [image_file]):
+        print(f'{label} unverändert.')
+        return False
     if message_id:
         response = send_image('PATCH', discord_message_url(message_id), image_file, discord_filename)
         if response.status_code in (200, 204):
@@ -109,24 +146,14 @@ def update_active_season(data, now, state):
     phase = active[0]
     folder = BASE_DIR / phase['folder']
     module = load_module(folder / 'season.py', phase['key'])
-    # Wiederherstellung der IDs aus dem erfolgreichen Discord-Lauf vom 24.11.
-    if phase['key'] == 'season_1':
-        recovered = {
-            'month_01_banner': '1574729138382831686',
-            'month_01_part_01': '1574729140425465907',
-            'month_01_albtraum': '1574729141310464151',
-            'month_01_part_02': '1574729142224691271',
-            'month_02_banner': '1574729143377989735',
-            'month_02_part_01': '1574729144359456829',
-        }
-        for suffix, message_id in recovered.items():
-            state.setdefault(f'season_1_markdown_{suffix}_message_id', message_id)
-        save_message_state(state)
     current_keys = set()
     for month_key, payload, files in module.render(folder, now):
         key = f"{phase['key']}_markdown_{month_key}_message_id"
         current_keys.add(key)
         message_id = state.get(key)
+        if message_id and unchanged(message_id, payload.get('content', ''), files):
+            print(f'{month_key} unverändert – kein PATCH.')
+            continue
         payload['attachments'] = [{'id': i, 'filename': path.name} for i, path in enumerate(files)]
         payload['allowed_mentions'] = {'parse': []}
         def send(method, url):
