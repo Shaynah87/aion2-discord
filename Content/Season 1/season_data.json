@@ -1,0 +1,129 @@
+{
+  "title": "SEASON 1",
+  "period": "30.09.2026 – 16.12.2026",
+  "months": [
+    {
+      "title": "OKTOBER 2026",
+      "color": "#23374b",
+      "sections": [
+        [
+          "Level Cap & Klassen",
+          [
+            "Level Cap: 45 · 8 Klassen",
+            "Gladiator · Templer · Assassine · Waldläufer",
+            "Magier · Beschwörer · Kleriker · Kantor"
+          ]
+        ],
+        [
+          "Expedition",
+          [
+            "Erkundung & Eroberung",
+            "★ Kraohöhle · Uruguguschlucht",
+            "★★ Feuertempel · Draupnir",
+            "★★★ Vakrons Luftinsel · Grimmhornhöhle"
+          ]
+        ],
+        [
+          "Expedition – Schwer",
+          [
+            "21.10.2026 · Kraohöhle und Draupnir",
+            "28.10.2026 · Uruguguschlucht und Vakrons Luftinsel"
+          ]
+        ],
+        [
+          "Transzendenz",
+          [
+            "Zersplitterter Arkanis · Stufen 1–4",
+            "Forschungsbasis Deus · Stufen 1–4"
+          ]
+        ],
+        [
+          "Albtraum",
+          [
+            "Traumebene I"
+          ]
+        ],
+        [
+          "Aszensusritus",
+          [
+            "Altar der Albträume · Sanktuarium des Hasses",
+            "Wöchentlicher Wechsel",
+            "Einfach · Mittel · Schwer · Extrem"
+          ]
+        ],
+        [
+          "Täglicher Dungeon",
+          [
+            "Daeva Bioforschungsbasis",
+            "Odiumspeicher · 28.10.2026"
+          ]
+        ],
+        [
+          "Arena",
+          [
+            "Arena der Stille · 1 gegen 1",
+            "Arena der Kooperation · 5 gegen 5"
+          ]
+        ],
+        [
+          "Schlachtfeld",
+          [
+            "Arena der Strategie"
+          ]
+        ],
+        [
+          "Abyss",
+          [
+            "Chaotische Untere Ebene von Reshanta"
+          ]
+        ]
+      ]
+    },
+    {
+      "title": "NOVEMBER 2026",
+      "color": "#3c3028",
+      "sections": [
+        [
+          "Weihestätte",
+          [
+            "Abgrundsveredelung: Ludra",
+            "04.11.2026 · Normal und Schwer",
+            "18.11.2026 · Einfach"
+          ]
+        ],
+        [
+          "Abyss",
+          [
+            "Chaotisches Äußeres Reshanta · 04.11.2026"
+          ]
+        ],
+        [
+          "Expedition – Schwer",
+          [
+            "Feuertempel · 11.11.2026",
+            "Grimmhornhöhle · 11.11.2026"
+          ]
+        ],
+        [
+          "Handel",
+          [
+            "Weltmarkt · 25.11.2026 (angekündigt)",
+            "Weltbörse · 25.11.2026 (angekündigt)"
+          ]
+        ]
+      ]
+    },
+    {
+      "title": "DEZEMBER 2026",
+      "color": "#332b43",
+      "sections": [
+        [
+          "Weitere Inhalte",
+          [
+            "Noch nicht angekündigt"
+          ]
+        ]
+      ]
+    }
+  ]
+}
