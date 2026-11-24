@@ -9,11 +9,27 @@ def font(size, bold=False):
     return ImageFont.truetype(name, size)
 
 
+def background(folder, filename, size):
+    # Die gesamte Vorlage erhalten, einschließlich Rahmen und Ornamenten.
+    with Image.open(folder.parent / filename) as source:
+        return source.convert('RGB').resize(size, Image.Resampling.LANCZOS)
+
+
+def season_banner(folder, data):
+    path = folder / 'season_header.png'
+    im = background(folder, 'season_banner.png', (1200, 220))
+    d = ImageDraw.Draw(im)
+    d.text((600, 82), data['title'], font=font(64, True), fill='#f2f3f5', anchor='mm')
+    d.text((600, 155), data['period'], font=font(32), fill='#d0d2d5', anchor='mm')
+    im.save(path)
+    return path
+
+
 def banner(folder, title, index):
     path = folder / f'month_{index:02}_banner.png'
-    im = Image.new('RGB', (1200, 110), '#292b30')
+    im = background(folder, 'banner.png', (1200, 110))
     d = ImageDraw.Draw(im)
-    d.text((600, 55), title, font=font(46, True), fill='#f2f3f5', anchor='mm')
+    d.text((600, 55), title, font=font(42, True), fill='#f2f3f5', anchor='mm')
     im.save(path)
     return path
 
@@ -57,6 +73,7 @@ def format_line(line, now):
 
 def render(folder, now):
     data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
+    yield 'season_header', {'content': ''}, [season_banner(folder, data)]
     for i, month in enumerate(data['months'], 1):
         sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
         if not sections:
