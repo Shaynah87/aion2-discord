@@ -139,10 +139,17 @@ def update_active_season(data, now, state):
     print('Konfigurierte Seasons: ' + ', '.join(p['key'] for p in phases))
     if not phases:
         raise RuntimeError('Keine Seasons konfiguriert.')
+    errors = []
     for phase in phases:
         active = phase_time(phase['start'], now.tzinfo) <= now < phase_time(phase['end'], now.tzinfo)
         print(f"{phase['key']}: {'vollständige Roadmap' if active else 'nur Banner'}")
-        update_season(phase, now, state, header_only=not active)
+        try:
+            update_season(phase, now, state, header_only=not active)
+        except Exception as exc:
+            errors.append(f"{phase['key']}: {exc}")
+            print(f"{phase['key']}: FEHLER – {exc}", flush=True)
+    if errors:
+        raise RuntimeError(' | '.join(errors))
 
 
 def update_season(phase, now, state, header_only=False):
@@ -181,13 +188,19 @@ def update_season(phase, now, state, header_only=False):
     if not mid or state.get(hashkey) != fingerprint:
         method = 'PATCH' if mid else 'POST'
         url = discord_message_url(mid) if mid else webhook_wait_url()
+        url += ('&' if '?' in url else '?') + 'with_components=true'
+        print(f"{phase['key']}: {method}, {len(components)} Komponenten, {len(files)} Anhänge", flush=True)
         for attempt in range(8):
             with ExitStack() as stack:
                 uploads = {f'files[{i}]': (name, stack.enter_context(path.open('rb')), 'image/png') for i, (name, path) in enumerate(files)}
                 response = requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
-            if response.status_code != 429:
-                break
-            time.sleep(float(response.json().get('retry_after', 2)) + .25)
+            if response.status_code == 429:
+                time.sleep(float(response.json().get('retry_after', 2)) + .25)
+                continue
+            if method == 'PATCH' and response.status_code in (500, 502, 503, 504) and attempt < 7:
+                time.sleep(min(2 ** attempt, 15))
+                continue
+            break
         if response.status_code not in (200, 201):
             raise RuntimeError(f"{phase['key']}: HTTP {response.status_code}: {response.text}")
         state[key] = str(response.json()['id'])
