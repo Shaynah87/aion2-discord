@@ -1,234 +1,162 @@
-"""AION 2 Content: zentrale Verwaltung von Launch und aktiver Season."""
+"""Season-Roadmap: native Discord-Texte, Monatsbanner und Albtraum-Diagramm."""
 import json
-import hashlib
-from contextlib import ExitStack
-import os
-import importlib.util
-from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
-import requests
-import time
-
-BASE_DIR = Path(__file__).resolve().parent
-DATA_FILE = BASE_DIR / 'content_data.json'
-MESSAGE_STATE_FILE = BASE_DIR / 'content_message.json'
-WEBHOOK_URL = os.environ.get('CONTENT_WEBHOOK')
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
-def load_json(filename, default=None):
-    try:
-        return json.loads(filename.read_text(encoding='utf-8'))
-    except FileNotFoundError:
-        return {} if default is None else default
+def font(size, bold=False):
+    name = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
+    return ImageFont.truetype(name, size)
 
 
-def load_module(path, name):
-    spec = importlib.util.spec_from_file_location(name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f'Modul fehlt: {path}')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def background(folder, filename, size):
+    # Die gesamte Vorlage erhalten, einschließlich Rahmen und Ornamenten.
+    with Image.open(folder.parent / filename) as source:
+        return source.convert('RGB').resize(size, Image.Resampling.LANCZOS)
 
 
-def load_message_state():
-    state = load_json(MESSAGE_STATE_FILE)
-    if not isinstance(state, dict):
-        raise ValueError('Ungültiger Nachrichtenstatus')
-    return state
+def season_banner(folder, data, now):
+    from datetime import datetime
+    from PIL import ImageFilter
+    path = folder / 'season_header.png'
+    with Image.open(folder.parent / 'season_banner.png') as source:
+        im = ImageOps.fit(source.convert('RGB'), (1200, 220), Image.Resampling.LANCZOS).convert('RGBA')
+    d = ImageDraw.Draw(im)
+    title = data['title'].upper()
+    period = data['period']
+    start, end = (datetime.strptime(x.strip(), '%d.%m.%Y').date() for x in period.split('–'))
+    if now.date() < start:
+        status, color = 'KOMMEND', '#E9A34B'
+    elif now.date() >= end:
+        status, color = 'BEENDET', '#A0A0A0'
+    else:
+        status, color = 'LAUFEND', '#75C987'
+    tf, sf = font(49, True), font(31, True)
+    spacing, gap = 2, 18
+    tb = d.textbbox((0, 0), title, font=tf)
+    prefix = period + ' · '
+    subtitle = prefix + status
+    sb = d.textbbox((0, 0), subtitle, font=sf)
+    th, sh = tb[3]-tb[1], sb[3]-sb[1]
+    top = round((220-th-gap-sh)/2)
+    width = sum(d.textlength(c, font=tf) for c in title) + spacing*(len(title)-1)
+    x = (1200-width)/2
+    mask = Image.new('L', im.size)
+    md = ImageDraw.Draw(mask)
+    for c in title:
+        md.text((x, top-tb[1]), c, font=tf, fill=255)
+        x += d.textlength(c, font=tf)+spacing
+    x = (1200-d.textlength(subtitle, font=sf))/2
+    y = top+th+gap-sb[1]
+    shadow = Image.new('RGBA', im.size)
+    sd = ImageDraw.Draw(shadow)
+    sd.text((x+1,y+2), subtitle, font=sf, fill=(0,0,0,210), stroke_width=2)
+    title_shadow = Image.new('RGBA', im.size)
+    title_shadow.paste((0,0,0,210), (2,3,1202,223), mask)
+    im = Image.alpha_composite(im, title_shadow.filter(ImageFilter.GaussianBlur(2.5)))
+    im = Image.alpha_composite(im, shadow.filter(ImageFilter.GaussianBlur(2)))
+    outline = mask.filter(ImageFilter.MaxFilter(3))
+    im.paste((18,22,29,255), (0,0), outline)
+    gradient = Image.new('RGBA', im.size)
+    gd = ImageDraw.Draw(gradient)
+    for yy in range(top, top+th+1):
+        t = (yy-top)/max(1,th)
+        rgb = tuple(round(a+(b-a)*t) for a,b in zip((249,249,246),(167,172,179)))
+        gd.line((0,yy,1200,yy), fill=rgb+(255,))
+    im.paste(gradient, (0,0), mask)
+    d = ImageDraw.Draw(im)
+    d.text((x,y), prefix, font=sf, fill='#d9d9d5', stroke_width=1, stroke_fill='#171c23')
+    d.text((x+d.textlength(prefix,font=sf),y), status, font=sf, fill=color, stroke_width=1, stroke_fill='#171c23')
+    im.convert('RGB').save(path)
+    return path
 
 
-def save_message_state(state):
-    MESSAGE_STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+def banner(folder, title, index):
+    path = folder / f'month_{index:02}_banner.png'
+    im = Image.new('RGB', (1200, 110), '#292b2f')
+    d = ImageDraw.Draw(im)
+    d.text((600, 55), title, font=font(42, True), fill='#f2f3f5', anchor='mm')
+    im.save(path)
+    return path
 
 
-def webhook_wait_url():
-    if not WEBHOOK_URL:
-        raise RuntimeError('GitHub Secret CONTENT_WEBHOOK fehlt.')
-    return WEBHOOK_URL + ('&' if '?' in WEBHOOK_URL else '?') + 'wait=true'
+def nightmare(folder):
+    path = folder / 'albtraum.png'
+    im = Image.new('RGBA', (1200, 380), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for x, y, end in [(360, 48, 94), (360, 140, 94), (360, 240, 286), (360, 332, 286)]:
+        d.line([(x,y),(400,y),(400,end),(440,end)], fill='#92959d', width=3)
+    for y in (94,286):
+        d.line([(760,y),(800,y),(800,190),(840,190)], fill='#92959d', width=3)
+    def node(x,y,w,label,bg,fg):
+        d.rounded_rectangle((x,y-34,x+w,y+34), radius=9, fill=bg)
+        d.text((x+w/2,y),label,font=font(27,True),fill=fg,anchor='mm')
+    for y,label in zip((48,140,240,332),('Torwächter Pinopi','Rasender Feruk','Fafnirs Giftblut','Geist Giselle')):
+        node(10,y,350,label,'#33353c','#eeeeee')
+    node(440,94,320,'Festenhüter Notun','#24382d','#75C987')
+    node(440,286,320,'Mutierter Gerod','#24382d','#75C987')
+    node(840,190,350,'Zikels Schemen','#23394e','#78b5ed')
+    im.save(path)
+    return path
 
 
-def discord_message_url(message_id):
-    if not WEBHOOK_URL:
-        raise RuntimeError('GitHub Secret CONTENT_WEBHOOK fehlt.')
-    return f'{WEBHOOK_URL.split("?", 1)[0]}/messages/{message_id}'
+def format_line(line, now):
+    if isinstance(line, str):
+        return line
+    from datetime import datetime
+    date = datetime.fromisoformat(line['date'])
+    result = f"{line['text']} *({date:%d.%m.%Y})*"
+    # Bei unbekannter Wartungsendzeit erst nach bestätigtem Release umstellen.
+    release_at = line.get('release_at')
+    released = line.get('released', False)
+    if release_at:
+        target = datetime.fromisoformat(release_at)
+        if target.tzinfo is None:
+            target = target.replace(tzinfo=now.tzinfo)
+        released = released or now >= target
+    return result if released else result + ' 🔸 **Kommend**'
 
 
-def request_retry(method, url, **kwargs):
-    for attempt in range(8):
-        response = requests.request(method, url, timeout=30, **kwargs)
-        if response.status_code != 429:
-            return response
-        time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
-    return response
-
-
-def unchanged(message_id, content, files):
-    response = request_retry('GET', discord_message_url(message_id))
-    if response.status_code == 404:
-        return False
-    if response.status_code != 200:
-        raise RuntimeError(f'Nachrichtenprüfung: HTTP {response.status_code}')
-    message = response.json()
-    if message.get('content', '') != content:
-        return False
-    attachments = message.get('attachments', [])
-    if len(attachments) != len(files):
-        return False
-    for attachment, path in zip(attachments, files):
-        if attachment.get('size') != Path(path).stat().st_size:
-            return False
-        # CDN-Datei vergleichen, ohne Webhook-Token weiterzugeben.
-        remote = request_retry('GET', attachment['url'])
-        if remote.status_code != 200:
-            raise RuntimeError(f'Anhangprüfung: HTTP {remote.status_code}')
-        if hashlib.sha256(remote.content).digest() != hashlib.sha256(Path(path).read_bytes()).digest():
-            return False
-    return True
-
-
-def send_image(method, url, image_file, discord_filename):
-    payload = {'content': '', 'allowed_mentions': {'parse': []},
-               'attachments': [{'id': 0, 'filename': discord_filename}]}
-    with open(image_file, 'rb') as handle:
-        return requests.request(method, url, data={'payload_json': json.dumps(payload)},
-                                files={'files[0]': (discord_filename, handle, 'image/png')}, timeout=30)
-
-
-def update_or_create_discord_image(state, state_key, image_file, discord_filename, label):
-    message_id = state.get(state_key)
-    if message_id and unchanged(message_id, '', [image_file]):
-        print(f'{label} unverändert.')
-        return False
-    if message_id:
-        response = send_image('PATCH', discord_message_url(message_id), image_file, discord_filename)
-        if response.status_code in (200, 204):
-            print(f'{label} aktualisiert: {message_id}')
-            return False
-        if response.status_code != 404:
-            raise RuntimeError(f'{label}: HTTP {response.status_code}: {response.text}')
-    response = send_image('POST', webhook_wait_url(), image_file, discord_filename)
-    if response.status_code not in (200, 201):
-        raise RuntimeError(f'{label}: HTTP {response.status_code}: {response.text}')
-    state[state_key] = str(response.json()['id'])
-    save_message_state(state)
-    print(f'{label} erstellt: {state[state_key]}')
-    return True
-
-
-def should_update(launch, milestone, mode, now, timezone_name):
-    target = launch.parse_launch_datetime(milestone['date'], timezone_name)
-    remaining = (target - now).total_seconds()
-    if mode == 'daily':
-        return True
-    if remaining <= 0:
-        return mode == 'minute' and remaining > -3600
-    if mode == 'quarter':
-        return 3600 < remaining <= 86400
-    return remaining <= 3600
-
-
-def phase_time(value, tz):
-    result = datetime.fromisoformat(value)
-    return result.replace(tzinfo=tz) if result.tzinfo is None else result.astimezone(tz)
-
-
-def update_active_season(data, now, state):
-    active = [p for p in data.get('content_phases', [])
-              if phase_time(p['start'], now.tzinfo) <= now
-              and (not p.get('end') or now < phase_time(p['end'], now.tzinfo))]
-    if len(active) > 1:
-        raise RuntimeError('Mehrere aktive Seasons konfiguriert.')
-    if not active:
-        print('Keine aktive Season konfiguriert.')
-    for phase in active:
-        update_season(phase, now, state, header_only=False)
-    upcoming = sorted((p for p in data.get('content_phases', []) if phase_time(p['start'], now.tzinfo) > now), key=lambda p: phase_time(p['start'], now.tzinfo))
-    for phase in upcoming:
-        update_season(phase, now, state, header_only=True)
-
-
-def update_season(phase, now, state, header_only=False):
-    folder = BASE_DIR / phase['folder']
-    module = load_module(folder / 'season.py', phase['key'])
-    current_keys = set()
-    for month_key, payload, files in module.render(folder, now):
-        if header_only and month_key != 'season_header':
-            break
-        key = f"{phase['key']}_markdown_{month_key}_message_id"
-        current_keys.add(key)
-        message_id = state.get(key)
-        if message_id and unchanged(message_id, payload.get('content', ''), files):
-            print(f'{month_key} unverändert – kein PATCH.')
+def render(folder, now):
+    data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
+    yield 'season_header', {'content': ''}, [season_banner(folder, data, now)]
+    for i, month in enumerate(data['months'], 1):
+        sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
+        if not sections:
             continue
-        payload['attachments'] = [{'id': i, 'filename': path.name} for i, path in enumerate(files)]
-        payload['allowed_mentions'] = {'parse': []}
-        def send(method, url):
-            for attempt in range(3):
-                with ExitStack() as stack:
-                    uploads = {f'files[{i}]': (path.name, stack.enter_context(path.open('rb')), 'image/png') for i, path in enumerate(files)}
-                    if uploads:
-                        response = requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
-                    else:
-                        response = requests.request(method, url, json=payload, timeout=30)
-                # POST bei 5xx nicht blind wiederholen: Nachricht könnte bereits existieren.
-                if response.status_code == 429 and attempt < 2:
-                    time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
-                    continue
-                if method == 'PATCH' and response.status_code >= 500 and attempt < 2:
-                    time.sleep(2 ** attempt)
-                    continue
-                return response
-        response = send('PATCH', discord_message_url(message_id)) if message_id else None
-        if response is None or response.status_code == 404:
-            response = send('POST', webhook_wait_url())
-        if response.status_code not in (200, 201):
-            raise RuntimeError(f'{month_key}: HTTP {response.status_code}: {response.text}')
-        state[key] = str(response.json()['id'])
-        save_message_state(state)
-        print(f'{month_key} aktualisiert: {state[key]}')
-    if header_only:
-        return
-    # Erst nach erfolgreicher Veröffentlichung alle PNG-Testnachrichten dieser Season entfernen.
-    protected = {str(state.get('early_access_message_id')), str(state.get('global_launch_message_id'))}
-    for key in list(state):
-        if not key.endswith('_message_id') or not (key.startswith(f"{phase['key']}_png_test_") or key.startswith(f"{phase['key']}_text_month_") or (key.startswith(f"{phase['key']}_markdown_") and key not in current_keys)):
-            continue
-        if str(state[key]) in protected:
-            raise RuntimeError('Launch-Nachricht darf nicht gelöscht werden.')
-        for attempt in range(8):
-            response = requests.delete(discord_message_url(state[key]), timeout=30)
-            if response.status_code != 429:
-                break
-            time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
-        if response.status_code not in (204, 404):
-            raise RuntimeError(f'PNG-Bereinigung: HTTP {response.status_code}: {response.text}')
-        del state[key]
-        save_message_state(state)
-        print(f'{key} entfernt.')
-
-
-def main():
-    data = load_json(DATA_FILE)
-    if not data:
-        raise RuntimeError('content_data.json fehlt oder ist leer.')
-    mode = os.environ.get('CONTENT_MODE', 'daily').strip().lower()
-    if mode not in ('daily', 'quarter', 'minute'):
-        raise ValueError(f'Ungültiger CONTENT_MODE: {mode}')
-    timezone_name = data.get('timezone', 'Europe/Berlin')
-    now = datetime.now(ZoneInfo(timezone_name))
-    launch = load_module(BASE_DIR / 'Launch' / 'launch.py', 'nyerk24_launch')
-    state = load_message_state()
-    milestones = {m['key']: m for m in launch.build_content_state(data)['milestones']}
-    for key in ('early_access', 'global_launch'):
-        milestone = milestones[key]
-        if should_update(launch, milestone, mode, now, timezone_name):
-            path = launch.save_milestone_card(milestone)
-            update_or_create_discord_image(state, f'{key}_message_id', path, f'{key}.png', milestone['title'])
-    if mode == 'daily':
-        update_active_season(data, now, state)
-
-
-if __name__ == '__main__':
-    main()
+        prefix = f'month_{i:02}'
+        yield prefix + '_banner', {'content': ''}, [banner(folder, month['title'], i)]
+        blocks = []
+        part = 0
+        def flush():
+            nonlocal part
+            if blocks:
+                part += 1
+                body = '\n'.join(blocks)
+                blocks.clear()
+                return (f'{prefix}_part_{part:02}', {'content': body}, [])
+        for name, lines in sections:
+            is_subsection = name == 'Expedition – Schwer' and i == 1
+            quoted = []
+            for line in lines:
+                text = format_line(line, now)
+                # Untertitel, Hinweise und Sternstufen nicht doppelt markieren.
+                if text.startswith(('**', '*Wöchentlicher', '★')) or name == 'Albtraum':
+                    quoted.append('> ' + text)
+                else:
+                    quoted.append('> • ' + text)
+            if is_subsection and blocks:
+                blocks[-1] += '\n> \n> **Schwer**\n' + '\n'.join(quoted)
+                continue
+            heading = f'## {name}'
+            block = heading + '\n' + '\n'.join(quoted)
+            if len(block) > 1900:
+                raise ValueError(f'Abschnitt zu lang: {name}')
+            if len('\n'.join(blocks + [block])) > 1900:
+                yield flush()
+            blocks.append(block)
+            if name == 'Albtraum':
+                yield flush()
+                yield prefix + '_albtraum', {'content': ''}, [nightmare(folder)]
+        if blocks:
+            yield flush()
