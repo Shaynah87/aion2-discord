@@ -1,4 +1,11 @@
 {
   "early_access_message_id": "1548217600872292424",
-  "global_launch_message_id": "1548217603279945798"
+  "global_launch_message_id": "1548217603279945798",
+  "season_1_markdown_season_header_message_id": "1574745113874399312",
+  "season_1_markdown_month_01_banner_message_id": "1574745116533334068",
+  "season_1_markdown_month_01_part_01_message_id": "1574745118030823455",
+  "season_1_markdown_month_01_albtraum_message_id": "1574745119238914049",
+  "season_1_markdown_month_01_part_02_message_id": "1574745120316723365",
+  "season_1_markdown_month_02_banner_message_id": "1574745123747659877",
+  "season_1_markdown_month_02_part_01_message_id": "1574745125580439623"
 }
