@@ -1,5 +1,6 @@
 """AION 2 Content: zentrale Verwaltung von Launch und aktiver Season."""
 import json
+from contextlib import ExitStack
 import os
 import importlib.util
 from datetime import datetime
@@ -107,10 +108,37 @@ def update_active_season(data, now, state):
     phase = active[0]
     folder = BASE_DIR / phase['folder']
     module = load_module(folder / 'season.py', phase['key'])
-    for path in module.render(folder):
-        key = f"{phase['key']}_png_test_{path.stem}_message_id"
-        update_or_create_discord_image(state, key, path, path.name, path.stem)
-    # Testphase: keine alten Nachrichten automatisch löschen.
+    current_keys = set()
+    for month_key, payload, files in module.render(folder):
+        key = f"{phase['key']}_text_{month_key}_message_id"
+        current_keys.add(key)
+        message_id = state.get(key)
+        payload['attachments'] = [{'id': i, 'filename': path.name} for i, path in enumerate(files)]
+        def send(method, url):
+            with ExitStack() as stack:
+                uploads = {f'files[{i}]': (path.name, stack.enter_context(path.open('rb')), 'image/png') for i, path in enumerate(files)}
+                return requests.request(method, url, data={'payload_json': json.dumps(payload)}, files=uploads, timeout=30)
+        response = send('PATCH', discord_message_url(message_id)) if message_id else None
+        if response is None or response.status_code == 404:
+            response = send('POST', webhook_wait_url())
+        if response.status_code not in (200, 201):
+            raise RuntimeError(f'{month_key}: HTTP {response.status_code}: {response.text}')
+        state[key] = str(response.json()['id'])
+        save_message_state(state)
+        print(f'{month_key} aktualisiert: {state[key]}')
+    # Erst nach erfolgreicher Veröffentlichung alle PNG-Testnachrichten dieser Season entfernen.
+    protected = {str(state.get('early_access_message_id')), str(state.get('global_launch_message_id'))}
+    for key in list(state):
+        if not key.endswith('_message_id') or not (key.startswith(f"{phase['key']}_png_test_") or (key.startswith(f"{phase['key']}_text_month_") and key not in current_keys)):
+            continue
+        if str(state[key]) in protected:
+            raise RuntimeError('Launch-Nachricht darf nicht gelöscht werden.')
+        response = requests.delete(discord_message_url(state[key]), timeout=30)
+        if response.status_code not in (204, 404):
+            raise RuntimeError(f'PNG-Bereinigung: HTTP {response.status_code}: {response.text}')
+        del state[key]
+        save_message_state(state)
+        print(f'{key} entfernt.')
 
 
 def main():
