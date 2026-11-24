@@ -47,5 +47,6 @@ jobs:
           else
             git add Content/content_message.json
             git commit -m "Update content message state"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
