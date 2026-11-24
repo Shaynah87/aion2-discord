@@ -141,7 +141,7 @@ def update_active_season(data, now, state):
         raise RuntimeError('Keine Seasons konfiguriert.')
     errors = []
     for phase in phases:
-        active = phase_time(phase['start'], now.tzinfo) <= now < phase_time(phase['end'], now.tzinfo)
+        active = phase_time(phase['start'], now.tzinfo) <= now
         print(f"{phase['key']}: {'vollständige Roadmap' if active else 'nur Banner'}")
         try:
             update_season(phase, now, state, header_only=not active)
