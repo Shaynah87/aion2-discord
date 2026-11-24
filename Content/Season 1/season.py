@@ -38,7 +38,24 @@ def nightmare(folder):
     return path
 
 
-def render(folder):
+def format_line(line, now):
+    if isinstance(line, str):
+        return line
+    from datetime import datetime
+    date = datetime.fromisoformat(line['date'])
+    result = f"{line['text']} *({date:%d.%m.%Y})*"
+    # Bei unbekannter Wartungsendzeit erst nach bestätigtem Release umstellen.
+    release_at = line.get('release_at')
+    released = line.get('released', False)
+    if release_at:
+        target = datetime.fromisoformat(release_at)
+        if target.tzinfo is None:
+            target = target.replace(tzinfo=now.tzinfo)
+        released = released or now >= target
+    return result if released else result + ' 🟠 **Kommend**'
+
+
+def render(folder, now):
     data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
     for i, month in enumerate(data['months'], 1):
         sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
@@ -57,7 +74,7 @@ def render(folder):
                 return (f'{prefix}_part_{part:02}', {'content': body}, [])
         for name, lines in sections:
             heading = '**Schwer**' if name == 'Expedition – Schwer' and i == 1 else f'## {name}'
-            block = heading + '\n' + '\n'.join(lines)
+            block = heading + '\n' + '\n'.join(format_line(line, now) for line in lines)
             if len(block) > 1900:
                 raise ValueError(f'Abschnitt zu lang: {name}')
             if len('\n\n'.join(blocks + [block])) > 1900:
