@@ -75,7 +75,7 @@ def banner(folder, title, index):
     path = folder / f'month_{index:02}_banner.png'
     im = Image.new('RGB', (1200, 100), '#292b2f')
     d = ImageDraw.Draw(im)
-    d.text((600, 50), title, font=font(36, True), fill='#f2f3f5', anchor='mm')
+    d.text((600, 50), title, font=font(39, True), fill='#f2f3f5', anchor='mm')
     im.save(path)
     return path
 
