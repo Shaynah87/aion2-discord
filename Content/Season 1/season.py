@@ -38,25 +38,33 @@ def nightmare(folder):
     return path
 
 
-def media(path):
-    return {'type':12,'items':[{'media':{'url':f'attachment://{path.name}'}}]}
-
-
 def render(folder):
     data = json.loads((folder / 'season_data.json').read_text(encoding='utf-8'))
     for i, month in enumerate(data['months'], 1):
         sections = [(name, lines) for name, lines in month['sections'] if name != 'Weitere Inhalte' and lines]
         if not sections:
             continue
-        files = [banner(folder, month['title'], i)]
-        components = [media(files[0])]
+        prefix = f'month_{i:02}'
+        yield prefix + '_banner', {'content': ''}, [banner(folder, month['title'], i)]
+        blocks = []
+        part = 0
+        def flush():
+            nonlocal part
+            if blocks:
+                part += 1
+                body = '\n\n'.join(blocks)
+                blocks.clear()
+                return (f'{prefix}_part_{part:02}', {'content': body}, [])
         for name, lines in sections:
-            if name != 'Expedition – Schwer':
-                components.append({'type':14,'divider':True,'spacing':1})
-            heading = '**Schwer**' if name == 'Expedition – Schwer' and month['title'].startswith('OKTOBER') else f'### {name}'
-            body = '\n'.join(lines)
-            components.append({'type':10,'content':f'{heading}\n{body}'})
+            heading = '**Schwer**' if name == 'Expedition – Schwer' and i == 1 else f'## {name}'
+            block = heading + '\n' + '\n'.join(lines)
+            if len(block) > 1900:
+                raise ValueError(f'Abschnitt zu lang: {name}')
+            if len('\n\n'.join(blocks + [block])) > 1900:
+                yield flush()
+            blocks.append(block)
             if name == 'Albtraum':
-                files.append(nightmare(folder))
-                components.append(media(files[-1]))
-        yield f'month_{i:02}', {'flags':32768,'allowed_mentions':{'parse':[]},'components':[{'type':17,'components':components}]}, files
+                yield flush()
+                yield prefix + '_albtraum', {'content': ''}, [nightmare(folder)]
+        if blocks:
+            yield flush()
