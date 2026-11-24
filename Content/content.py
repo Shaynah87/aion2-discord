@@ -109,8 +109,21 @@ def update_active_season(data, now, state):
     phase = active[0]
     folder = BASE_DIR / phase['folder']
     module = load_module(folder / 'season.py', phase['key'])
+    # Wiederherstellung der IDs aus dem erfolgreichen Discord-Lauf vom 24.11.
+    if phase['key'] == 'season_1':
+        recovered = {
+            'month_01_banner': '1574729138382831686',
+            'month_01_part_01': '1574729140425465907',
+            'month_01_albtraum': '1574729141310464151',
+            'month_01_part_02': '1574729142224691271',
+            'month_02_banner': '1574729143377989735',
+            'month_02_part_01': '1574729144359456829',
+        }
+        for suffix, message_id in recovered.items():
+            state.setdefault(f'season_1_markdown_{suffix}_message_id', message_id)
+        save_message_state(state)
     current_keys = set()
-    for month_key, payload, files in module.render(folder):
+    for month_key, payload, files in module.render(folder, now):
         key = f"{phase['key']}_markdown_{month_key}_message_id"
         current_keys.add(key)
         message_id = state.get(key)
@@ -126,7 +139,7 @@ def update_active_season(data, now, state):
                         response = requests.request(method, url, json=payload, timeout=30)
                 # POST bei 5xx nicht blind wiederholen: Nachricht könnte bereits existieren.
                 if response.status_code == 429 and attempt < 2:
-                    time.sleep(float(response.json().get('retry_after', 2)))
+                    time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
                     continue
                 if method == 'PATCH' and response.status_code >= 500 and attempt < 2:
                     time.sleep(2 ** attempt)
@@ -147,7 +160,11 @@ def update_active_season(data, now, state):
             continue
         if str(state[key]) in protected:
             raise RuntimeError('Launch-Nachricht darf nicht gelöscht werden.')
-        response = requests.delete(discord_message_url(state[key]), timeout=30)
+        for attempt in range(8):
+            response = requests.delete(discord_message_url(state[key]), timeout=30)
+            if response.status_code != 429:
+                break
+            time.sleep(float(response.json().get('retry_after', 2)) + 0.25)
         if response.status_code not in (204, 404):
             raise RuntimeError(f'PNG-Bereinigung: HTTP {response.status_code}: {response.text}')
         del state[key]
