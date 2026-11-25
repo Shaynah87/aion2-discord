@@ -126,7 +126,8 @@
     "6b0365f91404425c7803d73f",
     "6b04eeefefef5ef42e93e823",
     "6b05665e79c30a0b5cadd509",
-    "6b056e308a3bbc3e012690b3"
+    "6b056e308a3bbc3e012690b3",
+    "6b064120ebccad0e4b5badb8"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -446,6 +447,12 @@
       "hash": "294419c37c2680347eee1c671b9486920df661472a9b0983770d6b3870b61ade",
       "missing_checks": 0,
       "title": "[Mitteilung] Wartungsarbeiten | 24. November (PDT) / 25. November (CET)"
+    },
+    "6b064120ebccad0e4b5badb8": {
+      "discord_message_id": "1575058673334755472",
+      "hash": "160f9b7e153a95ffc860896fdbc9e11730dc3ef67d94e92902713c9f72b915d8",
+      "missing_checks": 0,
+      "title": "[Benachrichtigung] 25.11. (Mi.) Info zu neuen Skin-Gegenständen zum Black Friday"
     }
   }
 }
