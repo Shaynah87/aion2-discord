@@ -131,7 +131,8 @@
     "6b05440088ab93f0bc95e239",
     "6b059de85208c2f8494eb1d9",
     "6b06b583f395818916b923e8",
-    "6b06bda981f18d8a2ae7ce56"
+    "6b06bda981f18d8a2ae7ce56",
+    "6b06c11fef1f67b8e47700ac"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -481,6 +482,12 @@
       "hash": "199adf863d4893fadbb3bf7a592a6333e7d3499abc6b48208096924aac9ade5d",
       "missing_checks": 0,
       "title": "Kontosanktionen (25. November)"
+    },
+    "6b06c11fef1f67b8e47700ac": {
+      "discord_message_id": "1575107682229289162",
+      "hash": "af655c6694c1808ffed72c695123f6c926faa2d09596d65dbf347d1dfcc5d7d5",
+      "missing_checks": 0,
+      "title": "Konto-Einschränkungen | 25. November"
     }
   }
 }
