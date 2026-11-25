@@ -132,7 +132,8 @@
     "6b059de85208c2f8494eb1d9",
     "6b06b583f395818916b923e8",
     "6b06bda981f18d8a2ae7ce56",
-    "6b06c11fef1f67b8e47700ac"
+    "6b06c11fef1f67b8e47700ac",
+    "6b072230086d6eb2b34873a0"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -488,6 +489,12 @@
       "hash": "af655c6694c1808ffed72c695123f6c926faa2d09596d65dbf347d1dfcc5d7d5",
       "missing_checks": 0,
       "title": "Konto-Einschränkungen | 25. November"
+    },
+    "6b072230086d6eb2b34873a0": {
+      "discord_message_id": "1575209670040100906",
+      "hash": "16c009dd1d63cfdaf29cf279b08a23fe03616b6fb293c561c26a273ef977e245",
+      "missing_checks": 0,
+      "title": "Gleam-Verlosung – AION2Official x iBUYPOWER (nur an bestimmten Standorten)"
     }
   }
 }
