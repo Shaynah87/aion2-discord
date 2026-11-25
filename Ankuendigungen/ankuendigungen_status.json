@@ -127,7 +127,9 @@
     "6b04eeefefef5ef42e93e823",
     "6b05665e79c30a0b5cadd509",
     "6b056e308a3bbc3e012690b3",
-    "6b064120ebccad0e4b5badb8"
+    "6b064120ebccad0e4b5badb8",
+    "6b05440088ab93f0bc95e239",
+    "6b059de85208c2f8494eb1d9"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -453,6 +455,18 @@
       "hash": "160f9b7e153a95ffc860896fdbc9e11730dc3ef67d94e92902713c9f72b915d8",
       "missing_checks": 0,
       "title": "[Benachrichtigung] 25.11. (Mi.) Info zu neuen Skin-Gegenständen zum Black Friday"
+    },
+    "6b05440088ab93f0bc95e239": {
+      "discord_message_id": "1575062384605667451",
+      "hash": "9cea9b0cd72a0034cdc50d7d43c4df503860b9cc72420cea838ede2ee4d6d40f",
+      "missing_checks": 0,
+      "title": "Daevasgiving Twitch-Drops: 25. November – 9. Dezember (PST)"
+    },
+    "6b059de85208c2f8494eb1d9": {
+      "discord_message_id": "1575062392054747209",
+      "hash": "a2cf14fc02196ee1150fb8471515c2f33caa6c0fc75cb0fcbd8f77031028573b",
+      "missing_checks": 0,
+      "title": "[Hinweis] Server-Matchmaking | 25.11. (Mi.) "
     }
   }
 }
