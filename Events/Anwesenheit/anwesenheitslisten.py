@@ -1,4 +1,3 @@
-
 # Events/Anwesenheit/anwesenheitslisten.py
 
 CATEGORY_ID = "anwesenheitslisten"
@@ -6,9 +5,10 @@ CATEGORY_TITLE = "Anwesenheitslisten"
 BANNER = "Anwesenheit/anwesenheitslisten.png"
 
 EVENTS = (
-    {"id": "atreias_ruf", "name": "Atreias Ruf", "start": "2026-10-28", "end": "2026-12-02", "date_label": "28.10.–02.12.26", "custom_id": "event:details:atreias_ruf"},
-    {"id": "taegliche_anwesenheit", "name": "Tägliche Anwesenheitsliste", "start": "2026-09-30", "end": "2026-12-16", "date_label": "30.09.–16.12.26", "custom_id": "event:details:taegliche_anwesenheit"},
-    {"id": "shugo_anwesenheit", "name": "Shugo-Anwesenheitsliste", "start": "2026-09-30", "end": "2026-12-16", "date_label": "30.09.–16.12.26", "custom_id": "event:details:shugo_anwesenheit"},
+    {'id': 'atreias_ruf', 'name': 'Atreias Ruf', 'start': '2026-10-28', 'end': '2026-12-02', 'date_label': '28.10.–02.12.26', 'custom_id': 'event:details:atreias_ruf'},
+    {'id': 'taegliche_anwesenheit', 'name': 'Tägliche Anwesenheitsliste', 'start': '2026-09-30', 'end': '2026-12-16', 'date_label': '30.09.–16.12.26', 'custom_id': 'event:details:taegliche_anwesenheit'},
+    {'id': 'shugo_anwesenheit', 'name': 'Shugo-Anwesenheitsliste', 'start': '2026-09-30', 'end': '2026-12-16', 'date_label': '30.09.–16.12.26', 'custom_id': 'event:details:shugo_anwesenheit'},
+    {'id': 'reichhaltige_morgendaemmerung', 'name': 'Reichhaltige Morgendämmerung', 'start': '2026-11-25', 'end': '2026-12-16', 'date_label': '25.11.–16.12.26', 'custom_id': 'event:details:reichhaltige_morgendaemmerung', 'maintenance': True},
 )
 
 
