@@ -6,7 +6,8 @@
     "6ae197f6e6bf57144768abda",
     "6acf216828c7452635072da0",
     "6af42cb75963676eaed77aba",
-    "6afd5b003561665cf3cbc554"
+    "6afd5b003561665cf3cbc554",
+    "6b069580e01c11ad96d8286f"
   ],
   "managed": {
     "6ac5e6e8fa34c1011d627b37": {
@@ -50,6 +51,12 @@
       "hash": "257470819f8ef53333ef6e428de931fb190d1689148b3facd50c158a39f46415",
       "missing_checks": 0,
       "title": "[Mitteilung] Patch Notizen | 18. Nov"
+    },
+    "6b069580e01c11ad96d8286f": {
+      "discord_message_id": "1575062380382003222",
+      "hash": "1b163575c1a4ee7be1863a16a52a97a419f0a1c03767ef2922c2bcf192bd168f",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Patch Notizen | 25. Nov"
     }
   }
 }
