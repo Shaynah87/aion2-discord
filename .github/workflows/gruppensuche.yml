@@ -1,0 +1,22 @@
+name: Artefakt-Eroberung
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: artefakt-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gruppensuche aktualisieren
+        env:
+          KALENDER_API_KEY: ${{ secrets.KALENDER_API_KEY }}
+        run: |
+          set -eu
+          test -n "$KALENDER_API_KEY"
+          KEY=$(printf '%s' "$KALENDER_API_KEY" | sha256sum | cut -d ' ' -f 1)
+          echo "::add-mask::$KEY"
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            -X POST -H "X-Kalender-Key: $KEY" \
+            https://nyerk24-service.laura-stephan.workers.dev/artefakt-refresh
