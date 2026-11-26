@@ -134,7 +134,8 @@
     "6b06bda981f18d8a2ae7ce56",
     "6b06c11fef1f67b8e47700ac",
     "6b072230086d6eb2b34873a0",
-    "6b07aec09b036f1605abc9ad"
+    "6b07aec09b036f1605abc9ad",
+    "6b079e3763dd78f52230e0ff"
   ],
   "managed": {
     "6ac932a8eea53f5d6dbcfbc3": {
@@ -502,6 +503,12 @@
       "hash": "175d658856365976ce30e1b1b75b56d98390c9f8a1717bdb3505c25489eeaa81",
       "missing_checks": 0,
       "title": "[Mitteilung] Entschädigung für Europa"
+    },
+    "6b079e3763dd78f52230e0ff": {
+      "discord_message_id": "1575345574050267240",
+      "hash": "37a0ebc3e32aef5510f7d5c0a68c527e826079201de13e34c94d942815f9437d",
+      "missing_checks": 0,
+      "title": "[Mitteilung] Updates zur Ruhmeshalle und zu „Jagd auf Ludra“"
     }
   }
 }
